@@ -176,6 +176,15 @@ Internal implementation history and capture fixtures remain local. Attribution a
 are in **THIRD-PARTY.md**. Local captures may contain connection addresses or game
 identifiers; these development artifacts are not required to run the overlay.
 
+## Support the project ☕
+
+Enjoying Aion 2 Helper? Donations are welcome — coffee is our favorite buff! ☕
+
+Support is completely optional. The app is free to use, and feedback, bug reports,
+or a friendly thank-you are always appreciated too.
+
+Donation details will be added here once the Nexus page is ready.
+
 ## License status
 
 No open-source license has been selected for this project's code. Its publication
