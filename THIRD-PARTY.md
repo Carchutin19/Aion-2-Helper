@@ -1,5 +1,13 @@
 # References and attribution
 
+The FPS module uses Intel's unmodified PresentMon 2.6.0 x64 console:
+
+- https://github.com/GameTechDev/PresentMon/releases/tag/v2.6.0
+- MIT license, Intel Corporation.
+- Original notices in `tools/presentmon/LICENSE.txt` and
+  `tools/presentmon/THIRD_PARTY.txt`, included with packaged binaries.
+- Download and verification instructions in `tools/presentmon/README.md`.
+
 `protocol/sync-opcodes.json` comes from:
 
 - https://github.com/SkeeveAN/Aion-DPS-Meter

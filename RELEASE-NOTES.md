@@ -1,3 +1,52 @@
+﻿# Aion 2 Helper v1.2.0 — FPS Counter
+
+This public preview adds an independent FPS widget alongside Energy Bar.
+
+## What's new
+
+- Enable or disable **FPS Counter** independently in Settings.
+- Sharp, lightweight text with a configurable color (green by default).
+- Optional soft black background with adjustable opacity and edge softness.
+- Adjust position, width, height and scale in Settings, or move/resize the
+  widget directly after unlocking it from the tray menu.
+- Choose a refresh interval from **100 to 2000 ms**. The default remains
+  **250 ms** (four display updates per second).
+- Automatic saving, shared widget lock, undo/redo and English/Spanish support.
+- Native Windows DXGI presentation reader, with Intel PresentMon as a fallback.
+- Measurement can begin before the game starts and continue across restarts.
+- Permission button elevates the measurement worker only when needed.
+
+FPS Counter starts disabled for new installations and existing preferences
+without an FPS section. Open **Settings → FPS Counter → Enable FPS counter**
+to turn it on. Existing Energy Bar appearance, glow, animations, geometry,
+calibration and language preferences are preserved.
+
+## Updating
+
+Close Aion 2 Helper, extract **Aion-2-Helper-v1.2.0-windows-x64.zip** into your
+existing folder and replace the program files. Extract all files together,
+including the **tools/presentmon** folder. Keep **overlay-settings.json** to
+retain your preferences; personal settings are not included in the ZIP.
+
+Npcap remains a separate requirement for Energy Bar. FPS uses Windows events.
+The counter measures successful game presentations over the previous second;
+Windows may deliver new samples about once per second even when a shorter
+display interval is selected. Driver-generated frames are not added. A dash
+means no current reading is available.
+
+## Validation
+
+- Real Aion 2 readings and in-game widget visibility confirmed on the development PC.
+- Refresh changed from 2000 to 100 ms without restarting the measurement worker.
+- Packaged-app checks cover FPS parsing, native event pairing/exclusions,
+  preferences, migration, resizing, disabled controls, undo/redo and EN/ES.
+- Existing settings and Energy Bar rendering/resource checks remain passing.
+
+This is a public preview tested on the development PC. FPS event availability and
+fullscreen overlay visibility can vary by system.
+
+---
+
 # Aion 2 Helper v1.1.0 — English & Spanish
 
 This public preview adds language selection and a dedicated General settings page.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -241,6 +241,11 @@ internal static class Entry {
     [STAThread] static int Main(string[] args) {
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
+        if(args.Length>0&&args[0]=="--fps-refresh-test")return FpsVerification.VerifyRefresh(root);
+        if(args.Length>0&&args[0]=="--fps-live-test")return FpsVerification.Live(root);
+        if(args.Length>0&&args[0]=="--fps-native-test")return FpsEtw.Live(root);
+        if(args.Length>0&&args[0]=="--fps-worker")return FpsWorker.Run(root,args);
+        if(args.Length>0&&args[0]=="--fps-test"){try{FpsSamples.Verify();FpsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"fps-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--settings-test") {try{SettingsVisual.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"settings-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ui-test") {try{BarDesign.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ui-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>1&&args[0]=="--replay-test") {try{DashSignal.ReplayTest(root,args[1]);return 0;}catch(Exception ex){File.AppendAllText(Path.Combine(root,"replay-test.txt"),"\r\nFAIL: "+ex);return 1;}}
@@ -250,6 +255,7 @@ internal static class Entry {
         }
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
         if(args.Length>0&&args[0]=="--ui-preview"){Application.Run(new EnergyOverlay(root,true));return 0;}
+        if(args.Length>0&&args[0]=="--fps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenFpsSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenSettings));};Application.Run(overlay);return 0;}
         string appName=Path.GetFileNameWithoutExtension(Application.ExecutablePath);
         if((args.Length>0&&args[0]=="--overlay")||appName.Equals("AionDash",StringComparison.OrdinalIgnoreCase)||appName.Equals("Aion2Helper",StringComparison.OrdinalIgnoreCase))Application.Run(new EnergyOverlay(root));else Application.Run(new ProbeWindow(root));return 0;

@@ -1,12 +1,12 @@
-# Aion 2 Helper
+﻿# Aion 2 Helper
 
 **Customizable utility overlays for Aion 2.**
 
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.1.0 public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.1.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.1.0/Aion-2-Helper-v1.1.0-windows-x64.zip).
+The [v1.2.0 public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.2.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.2.0/Aion-2-Helper-v1.2.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately;
 the game must be running with your character in the world to receive energy updates.
@@ -37,6 +37,32 @@ Energy readings, hidden-nameplate operation, and visibility with Aion's Fullscre
 setting were verified on the development PC. Overlay visibility on other systems
 may vary with the game's presentation mode.
 
+## Available now: FPS Counter
+
+Enable the FPS widget in **Settings → FPS Counter**. It is off by default on
+new installations and updates, so you can choose whether to use it.
+
+- A simple number in green by default, with an integrated text color picker.
+- Optional soft black background with adjustable opacity and feathering.
+- Position, width, height and scale in Settings, or direct drag/resize when unlocked.
+- Independent enable/disable switch; disabling it stops measurement and hides it.
+- Shared widget lock, undo/redo, automatic saving, English and Spanish.
+- Adjustable refresh interval from 100 to 2000 ms; the default stays at 250 ms.
+
+The FPS reader listens to Windows DXGI presentation events and counts successful
+Aion 2 presentations over the previous second. Intel PresentMon is bundled as a
+fallback for systems where that channel is unavailable. The display refreshes
+at the chosen interval (250 ms by default); Windows may deliver event batches
+about once per second.
+The reader can be activated before starting the game. It does not add
+driver-generated frames. If Windows does not provide readings,
+**FPS Counter → Start measurement as administrator** requests permission for the
+measurement worker only. An em dash means no current reading; it is never
+replaced with an invented FPS value.
+
+The black background has soft transparent edges; it does not capture or blur
+pixels from the game. The Energy Bar's glow and animations remain independent.
+
 ## Planned features
 
 These are development goals, **not features included in the current version**:
@@ -44,26 +70,27 @@ These are development goals, **not features included in the current version**:
 - **DPS meter:** combat damage tracking and a configurable on-screen display.
 - **Useful notifications:** on-screen reminders, including alerts five minutes
   before supported game events start.
-- **FPS display:** a small performance widget.
 - **Custom status bars:** player health and mana, and target/enemy bars where
   the required data is available.
 - **More languages:** further translations beyond English and Spanish.
 
 The availability and scope of future modules depend on what can be reliably read
-or measured. They are not activated by any setting in the current build.
+or measured. They are not included in the current build.
 
 ## Getting started
 
-This is a Windows desktop application. The current reader requires **Npcap** and
-was developed and tested against Aion 2 Global game traffic.
+This is a Windows desktop application. **Npcap** is required for Energy Bar
+readings; FPS measurement uses Windows presentation events. The application was
+developed and tested with Aion 2 Global.
 
 1. Run **Aion2Helper.exe** or **Aion-2-Helper.cmd**.
 2. Enter the game with your character and dash once to receive an energy update.
 3. Right-click the icon next to the clock and choose **Settings**. Double-clicking
    the icon also opens Settings.
-4. Choose **Unlock**, then drag the widget's center to move it. Drag an edge or
+4. Open **Settings → FPS Counter** and enable it if you want an FPS widget.
+5. Choose **Unlock**, then drag the widget's center to move it. Drag an edge or
    corner to resize it. Exact dimensions can also be entered in Settings.
-5. Choose **Lock** when finished. Locked widgets let clicks pass through to the game.
+6. Choose **Lock** when finished. Locked widgets let clicks pass through to the game.
 
 The tray menu contains **Settings**, **Lock / Unlock**, and **Quit Aion 2 Helper**.
 The lock is shared across widgets; there is no F10 shortcut.
@@ -148,7 +175,9 @@ Aion 2 Helper is an independent community project and is not affiliated with NCS
 
 ## Development
 
-Source files are in **src/**. **Build.ps1** uses the installed Windows .NET Framework
+Source files are in **src/**. **Download-Dependencies.ps1** downloads the pinned
+PresentMon console into the project and checks its SHA-256 and Intel signature.
+**Build.ps1** runs that check automatically. **Build.ps1** uses the installed Windows .NET Framework
 compiler and runtime libraries: WinForms for the native overlay, WPF for Settings,
 and an embedded XAML theme. No additional SDK or NuGet package was needed on the
 development PC.
@@ -168,6 +197,7 @@ are never included in the package.
 Existing checks:
 
 ~~~powershell
+.\DashProbe.exe --fps-test
 .\DashProbe.exe --settings-test
 .\DashProbe.exe --ui-test
 .\DashProbe.exe --selftest

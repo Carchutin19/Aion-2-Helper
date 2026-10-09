@@ -1,4 +1,4 @@
-param([string]$Version = '1.1.0', [switch]$SkipBuild)
+﻿param([string]$Version = '1.2.0', [switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release version.' }
 $projectRoot = $PSScriptRoot
@@ -20,6 +20,12 @@ foreach ($name in @('aion-2-helper.png','aion-2-helper.ico')) {
 }
 foreach ($name in @('sync-opcodes.json','LICENSE-MIT.txt')) {
     Copy-Item -LiteralPath (Join-Path $projectRoot ('protocol\' + $name)) -Destination (Join-Path $packageRoot ('protocol\' + $name))
+}
+& (Join-Path $projectRoot 'Download-Dependencies.ps1')
+$fpsDependencyRoot = Join-Path $packageRoot 'tools\presentmon'
+New-Item -ItemType Directory -Path $fpsDependencyRoot -Force | Out-Null
+foreach ($name in @('PresentMon.exe','LICENSE.txt','THIRD_PARTY.txt','README.md')) {
+    Copy-Item -LiteralPath (Join-Path $projectRoot ('tools\presentmon\' + $name)) -Destination (Join-Path $fpsDependencyRoot $name)
 }
 $archivePath = Join-Path $distRoot ($packageName + '.zip')
 Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $archivePath -CompressionLevel Optimal

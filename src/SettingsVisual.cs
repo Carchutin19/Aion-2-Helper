@@ -114,7 +114,7 @@ internal sealed class HelperSettings : Window {
     readonly TextBlock widgetStatus=SettingsVisual.Text("",11);
     readonly DispatcherTimer refresh=new DispatcherTimer();readonly BarDesign.GlowWorkspace previewGlow=new BarDesign.GlowWorkspace();readonly TextBlock activation=SettingsVisual.Text("Enabled",12,"#A7ADBA");
     readonly Button undo,redo;
-    readonly Button[] sections=new Button[2];readonly ComboBox languagePicker=new ComboBox{Width=190,Height=38};
+    readonly Button[] sections=new Button[3];readonly FpsSettingsPane fpsPage;readonly ComboBox languagePicker=new ComboBox{Width=190,Height=38};
     readonly TextBlock sectionTitle=SettingsVisual.Text("Energy Bar",27),sectionSubtitle=SettingsVisual.Text("Energy bar for dash and sprint",13,"#929AA8");
     readonly Grid activationRow=new Grid{Margin=new Thickness(0,18,0,0)};readonly StackPanel generalPage=new StackPanel();bool generalSelected;
     bool loading;DateTime noticeUntil;internal bool IsDisposed {get;private set;}
@@ -141,6 +141,7 @@ internal sealed class HelperSettings : Window {
         scroller.Content=pageHost;scroller.SetResourceReference(FrameworkElement.StyleProperty,"SlimScroll");Grid.SetRow(scroller,3);body.Children.Add(scroller);foreach(var page in pages)pageHost.Children.Add(page);
         BuildBehavior();BuildAppearance();BuildPosition();
         BuildGeneral(body);
+        fpsPage=new FpsSettingsPane(overlay,this);Grid.SetRow(fpsPage,1);Grid.SetRowSpan(fpsPage,3);body.Children.Add(fpsPage);
         var footer=new Grid{Margin=new Thickness(0,14,0,0)};Grid.SetRow(footer,4);footer.ColumnDefinitions.Add(new ColumnDefinition());footer.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});body.Children.Add(footer);
         var historyActions=new StackPanel{Orientation=Orientation.Horizontal};footer.Children.Add(historyActions);
         undo=SettingsVisual.Button("↶  Undo",overlay.UndoConfiguration);undo.ToolTip="Undo the last change · Ctrl+Z";undo.Margin=new Thickness(0,0,8,0);historyActions.Children.Add(undo);
@@ -160,7 +161,7 @@ internal sealed class HelperSettings : Window {
         string path=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"assets","aion-2-helper.png");if(File.Exists(path)){var bitmap=new BitmapImage();bitmap.BeginInit();bitmap.UriSource=new Uri(path);bitmap.CacheOption=BitmapCacheOption.OnLoad;bitmap.DecodePixelWidth=96;bitmap.EndInit();bitmap.Freeze();image.Source=bitmap;}brand.Children.Add(image);
         brand.Children.Add(SettingsVisual.Text("Aion 2 Helper",19));brand.Children.Add(new TextBlock{Text="SETTINGS",FontSize=10,Foreground=SettingsVisual.Brush("#818A9B"),Margin=new Thickness(0,8,0,0)});nav.Children.Add(brand);
         var section=new StackPanel{Margin=new Thickness(12,12,12,0)};Grid.SetRow(section,1);nav.Children.Add(section);
-        for(int n=0;n<2;n++){bool isGeneral=n==0;var button=SettingsVisual.Button(isGeneral?"◉   General":"◉   Energy Bar",delegate{SelectSection(isGeneral);});button.HorizontalContentAlignment=HorizontalAlignment.Left;button.Padding=new Thickness(12,11,12,11);button.Margin=new Thickness(0,0,0,7);sections[n]=button;section.Children.Add(button);}
+        for(int n=0;n<3;n++){int module=n;var button=SettingsVisual.Button(n==0?"◉   General":n==1?"◉   Energy Bar":"◉   FPS Counter",delegate{SelectModule(module);});button.HorizontalContentAlignment=HorizontalAlignment.Left;button.Padding=new Thickness(12,11,12,11);button.Margin=new Thickness(0,0,0,7);sections[n]=button;section.Children.Add(button);}
         var general=new StackPanel{Margin=new Thickness(22,20,18,25)};Grid.SetRow(general,2);nav.Children.Add(general);
         general.Children.Add(new Border{Height=1,Background=SettingsVisual.Brush("#16FFFFFF"),Margin=new Thickness(0,0,0,15)});
         general.Children.Add(SettingsVisual.Text("GENERAL STATUS",10,"#818A9B"));
@@ -177,10 +178,11 @@ internal sealed class HelperSettings : Window {
         languagePicker.SelectionChanged+=delegate{if(loading||IsDisposed)return;var item=languagePicker.SelectedItem as ComboBoxItem;if(item==null)return;var cfg=overlay.Configuration;cfg.Language=(string)item.Tag;overlay.ApplyConfiguration(cfg);};
         var note=SettingsVisual.Text("Changes apply immediately and are saved automatically.",11,"#8994A6");note.Margin=new Thickness(2,0,0,0);generalPage.Children.Add(note);
     }
-    void SelectSection(bool general){
-        generalSelected=general;sectionTitle.Text=general?"General":"Energy Bar";sectionSubtitle.Text=general?"App preferences":"Energy bar for dash and sprint";
-        generalPage.Visibility=general?Visibility.Visible:Visibility.Collapsed;activationRow.Visibility=previewCard.Visibility=segmented.Visibility=scroller.Visibility=general?Visibility.Collapsed:Visibility.Visible;
-        for(int n=0;n<2;n++){bool selected=(n==0)==general;sections[n].Background=SettingsVisual.Brush(selected?"#235DC7B0":"#0CFFFFFF");sections[n].Foreground=SettingsVisual.Brush(selected?"#A7E5D5":"#929CAD");sections[n].BorderBrush=SettingsVisual.Brush(selected?"#3067C7B0":"#10FFFFFF");}
+    void SelectSection(bool general){SelectModule(general?0:1);}
+    void SelectModule(int module){
+        generalSelected=module==0;sectionTitle.Text=module==0?"General":module==1?"Energy Bar":"FPS Counter";sectionSubtitle.Text=module==0?"App preferences":module==1?"Energy bar for dash and sprint":"Your game frame rate, at a glance";
+        generalPage.Visibility=module==0?Visibility.Visible:Visibility.Collapsed;fpsPage.Visibility=module==2?Visibility.Visible:Visibility.Collapsed;activationRow.Visibility=previewCard.Visibility=segmented.Visibility=scroller.Visibility=module==1?Visibility.Visible:Visibility.Collapsed;
+        for(int n=0;n<3;n++){bool selected=n==module;sections[n].Background=SettingsVisual.Brush(selected?"#235DC7B0":"#0CFFFFFF");sections[n].Foreground=SettingsVisual.Brush(selected?"#A7E5D5":"#929CAD");sections[n].BorderBrush=SettingsVisual.Brush(selected?"#3067C7B0":"#10FFFFFF");}
         UiLanguage.Apply(this,overlay.Language);
     }
     void BuildPreview(Grid body){
@@ -221,13 +223,13 @@ internal sealed class HelperSettings : Window {
     bool Flag(string key){return switches[key].IsChecked==true;}decimal Num(string key){return numbers[key].Value;}
     internal EnergyConfiguration ReadConfiguration(){
         var options=new EnergyBarOptions{Enabled=Flag("Enabled"),AutoHide=Flag("AutoHide"),Fade=Flag("Fade"),Smooth=Flag("Smooth"),Emissive=Flag("Emissive"),DynamicColors=Flag("DynamicColors"),HoldSeconds=(double)Num("HoldSeconds"),FadeSeconds=(double)Num("FadeMs")/1000,SmoothingSeconds=(double)Num("SmoothMs")/1000,GlowPercent=(int)Num("GlowPercent"),TrackOpacity=(int)Math.Round((double)Num("TrackPercent")*255/100),LowColor=colorValues["LowColor"],MediumColor=colorValues["MediumColor"],HighColor=colorValues["HighColor"]};options.Normalize();
-        return new EnergyConfiguration{Options=options,Bounds=new Drawing.Rectangle((int)Num("X"),(int)Num("Y"),(int)Num("Width"),(int)Num("Height")),Locked=overlay.InteractionLock.Locked,Maximum=(uint)Num("Maximum"),Language=overlay.Language};
+        return new EnergyConfiguration{Options=options,Bounds=new Drawing.Rectangle((int)Num("X"),(int)Num("Y"),(int)Num("Width"),(int)Num("Height")),Locked=overlay.InteractionLock.Locked,Maximum=(uint)Num("Maximum"),Language=overlay.Language,Fps=overlay.Configuration.Fps};
     }
     void Changed(){if(loading||IsDisposed)return;overlay.ApplyConfiguration(ReadConfiguration());}
     void UpdateWidgetStatus(){string text=UiLanguage.Text(overlay.InteractionLock.Locked?"Widgets locked":"Widgets unlocked",overlay.Language);if(widgetStatus.Text==text)return;widgetStatus.Text=text;widgetStatus.Foreground=SettingsVisual.Brush(overlay.InteractionLock.Locked?"#EB9A91":"#84B8AB");}
-    void RefreshStatus(object sender,EventArgs e){if(DateTime.UtcNow>=noticeUntil&&status.Text!=overlay.ReadingStatus)status.Text=overlay.ReadingStatus;UpdateWidgetStatus();}
+    void RefreshStatus(object sender,EventArgs e){fpsPage.UpdateStatus();if(DateTime.UtcNow>=noticeUntil&&status.Text!=overlay.ReadingStatus)status.Text=overlay.ReadingStatus;UpdateWidgetStatus();}
     void Reload(){if(IsDisposed)return;loading=true;try{
-        var cfg=overlay.Configuration;languagePicker.SelectedIndex=cfg.Language=="es"?1:0;var o=cfg.Options;switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
+        var cfg=overlay.Configuration;if(fpsPage!=null)fpsPage.Reload();languagePicker.SelectedIndex=cfg.Language=="es"?1:0;var o=cfg.Options;switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
         numbers["Width"].Value=cfg.Bounds.Width;numbers["Height"].Value=cfg.Bounds.Height;numbers["X"].Value=cfg.Bounds.X;numbers["Y"].Value=cfg.Bounds.Y;numbers["Maximum"].Value=cfg.Maximum;numbers["HoldSeconds"].Value=(decimal)o.HoldSeconds;numbers["FadeMs"].Value=(decimal)(o.FadeSeconds*1000);numbers["SmoothMs"].Value=(decimal)(o.SmoothingSeconds*1000);numbers["GlowPercent"].Value=o.GlowPercent;numbers["TrackPercent"].Value=(decimal)(o.TrackOpacity*100.0/255);
         SetColor("LowColor",o.LowColor);SetColor("MediumColor",o.MediumColor);SetColor("HighColor",o.HighColor);
         foreach(var input in numbers.Values)input.IsEnabled=o.Enabled;foreach(var input in colors.Values)input.IsEnabled=o.Enabled;foreach(var input in switches)if(input.Key!="Enabled")input.Value.IsEnabled=o.Enabled;foreach(var tab in tabs)tab.IsEnabled=o.Enabled;
@@ -240,6 +242,8 @@ internal sealed class HelperSettings : Window {
     }
     void PickColor(string key,string label){var picker=new HelperColorPicker(colorValues[key],label,overlay.Language){Owner=this};if(picker.ShowDialog()==true){SetColor(key,picker.SelectedHex);Changed();}}
     void UpdatePreview(){if(colorValues.Count!=3||IsDisposed)return;int width=(int)Math.Max(200,Math.Min(640,ActualWidth>0?ActualWidth-325:550));var o=ReadConfiguration().Options;if(!o.Enabled){o.DynamicColors=false;o.MediumColor="#555B65";}using(var image=BarDesign.RenderEmissive(width,4,previewSlider.Value/100,false,true,1,o,previewGlow))previewImage.Source=SettingsVisual.Bitmap(image);previewValue.Text=Math.Round(previewSlider.Value)+" %";}
+    internal void ShowFps(){SelectModule(2);}
+    internal void VerifyFps(string root){SelectModule(2);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-fps-en.png"));var cfg=overlay.Configuration;cfg.Language="es";overlay.ApplyConfiguration(cfg);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-fps-es.png"));if(sectionTitle.Text!="Contador de FPS")throw new Exception("FPS section localization");}
     internal void VerifyLayout(){SelectSection(false);if(switches.Count!=6||numbers.Count!=10||colors.Count!=3)throw new Exception("Missing settings control");for(int n=0;n<3;n++){SelectTab(n);if(pages[n].Children.Count==0||pages[n].Visibility!=Visibility.Visible)throw new Exception("Empty settings tab");}VerifyModuleState(overlay.Configuration.Options.Enabled);}
     void VerifyModuleState(bool enabled){if(!switches["Enabled"].IsEnabled||previewCard.IsEnabled!=enabled||segmented.IsEnabled!=enabled||scroller.IsEnabled!=enabled||previewSlider.IsEnabled!=enabled)throw new Exception("Module switch must stay enabled while all energy controls/preview are disabled");if(!enabled)foreach(var control in numbers.Values)if(control.IsEnabled)throw new Exception("Disabled energy inputs must reject editing");}
     internal void VerifyHistory(string root){

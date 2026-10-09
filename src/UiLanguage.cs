@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Automation;
@@ -9,6 +9,34 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
+        {"◉   FPS Counter","◉   Contador de FPS"},
+        {"FPS Counter","Contador de FPS"},
+        {"Your game frame rate, at a glance","Los fotogramas del juego, de un vistazo"},
+        {"Enable FPS counter","Activar contador de FPS"},
+        {"Sample value · not a game reading","Valor de ejemplo · no es una lectura del juego"},
+        {"APPEARANCE","APARIENCIA"},
+        {"Text color","Color del texto"},
+        {"FPS text","Texto de FPS"},
+        {"Dark background","Fondo oscuro"},
+        {"A soft black background with transparent edges.","Fondo negro difuminado con bordes transparentes."},
+        {"Background opacity","Opacidad del fondo"},
+        {"Background softness","Difuminado del fondo"},
+        {"Scale","Escala"},
+        {"Height","Altura"},
+        {"Reset FPS appearance","Restablecer aspecto de FPS"},
+        {"MEASUREMENT","MEDICIÓN"},
+        {"Refresh interval","Intervalo de actualización"},
+        {"Start measurement as administrator","Iniciar medición como administrador"},
+        {"FPS disabled","FPS desactivados"},
+        {"Waiting for Aion 2","Esperando a Aion 2"},
+        {"PresentMon is missing","Falta PresentMon"},
+        {"Starting FPS measurement","Iniciando medición de FPS"},
+        {"Measuring game FPS","Midiendo los FPS del juego"},
+        {"Waiting for game frames","Esperando fotogramas del juego"},
+        {"FPS measurement needs permission","La medición de FPS necesita permisos"},
+        {"FPS measurement unavailable","Medición de FPS no disponible"},
+        {"FPS permission request cancelled","Solicitud de permisos de FPS cancelada"},
+        {"Default: 250 ms. Lower intervals update the number more often.\nWindows may deliver new readings about once per second.","Predeterminado: 250 ms. Un intervalo menor actualiza el número más a menudo.\nWindows puede entregar nuevas lecturas aproximadamente una vez por segundo."},
         {"General","General"},{"APPLICATION","APLICACIÓN"},{"◉   General","◉   General"},{"◉   Energy Bar","◉   Barra de energía"},
         {"Energy Bar","Barra de energía"},{"App preferences","Preferencias de la aplicación"},{"Language","Idioma"},
         {"Choose the language used by Aion 2 Helper.","Elige el idioma de Aion 2 Helper."},
@@ -55,7 +83,7 @@ internal static class UiLanguage {
         Label label;if(!labels.TryGetValue(property,out label)){label=new Label{Original=Text(current,"en")};labels[property]=label;}else if(current!=label.Rendered)label.Original=Text(current,"en");
         label.Rendered=Text(label.Original,language);if(current!=label.Rendered)element.SetValue(property,label.Rendered);
     }
-    internal static void Apply(Window window,string language){Walk(window,language,new HashSet<DependencyObject>());}
+    internal static void Apply(DependencyObject window,string language){Walk(window,language,new HashSet<DependencyObject>());}
     static void Walk(DependencyObject element,string language,HashSet<DependencyObject> seen){
         if(!seen.Add(element))return;
         if(element is TextBlock)Translate(element,TextBlock.TextProperty,language);
