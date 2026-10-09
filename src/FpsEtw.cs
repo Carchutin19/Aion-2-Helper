@@ -18,7 +18,7 @@ internal sealed class FpsEtw : IDisposable {
     IntPtr properties;
     ulong controller, consumer = ulong.MaxValue;
     bool closed;
-    long lastScan;
+    readonly FpsGameDiscovery discovery=new FpsGameDiscovery();
     internal uint Error;
     struct Pending { internal int Pid; internal ulong Chain; internal long Time; }
 
@@ -51,7 +51,7 @@ internal sealed class FpsEtw : IDisposable {
     [DllImport("advapi32.dll")] static extern uint ProcessTrace(ulong[] handles,uint count,IntPtr start,IntPtr end);
     [DllImport("advapi32.dll")] static extern uint CloseTrace(ulong handle);
 
-    internal FpsEtw(string name) {
+    internal FpsEtw(string name,HashSet<int> processes=null) {
         if(IntPtr.Size!=8||!name.StartsWith("Aion2Helper-FPS-",StringComparison.Ordinal))throw new ArgumentException("Invalid FPS trace session");
         session=name;callback=Receive;
         byte[] label=System.Text.Encoding.Unicode.GetBytes(name+"\0");
@@ -65,20 +65,16 @@ internal sealed class FpsEtw : IDisposable {
         Marshal.WriteInt32(properties,64,0x100); // REAL_TIME only, no file
         Marshal.WriteInt32(properties,68,1); // bounded one-second delivery
         Marshal.WriteInt32(properties,116,120);Marshal.Copy(label,0,IntPtr.Add(properties,120),label.Length);
-        IntPtr ids=IntPtr.Zero,descriptor=IntPtr.Zero,logger=IntPtr.Zero;
+        IntPtr logger=IntPtr.Zero;
         try {
             Check(StartTraceW(out controller,session,properties));
-            // Kernel-side event-ID filtering avoids collecting the many DXGI
-            // GetDesc/GetFullscreenState calls or other applications' metadata.
-            ids=Marshal.AllocHGlobal(8);Marshal.Copy(new byte[]{1,0,2,0,178,0,179,0},0,ids,8);
-            descriptor=Marshal.AllocHGlobal(16);Marshal.WriteInt64(descriptor,0,ids.ToInt64());Marshal.WriteInt32(descriptor,8,8);Marshal.WriteInt32(descriptor,12,unchecked((int)0x80000200));
-            var parameters=new EnableParameters{Version=2,Filters=descriptor,Count=1};Guid provider=Provider;
-            Check(EnableTraceEx2(controller,ref provider,1,5,0x4000000000000000,0,0,ref parameters));
+            if(processes==null){discovery.Update();processes=discovery.Ids;}
+            SetProcesses(processes);
             logger=Marshal.StringToHGlobalUni(session);
             var logfile=new Logfile{LoggerName=logger,Mode=0x10001100,Callback=Marshal.GetFunctionPointerForDelegate(callback)}; // RECORD | REAL_TIME | RAW_TIMESTAMP
             consumer=OpenTraceW(ref logfile);if(consumer==ulong.MaxValue)Check((uint)Marshal.GetLastWin32Error());
-            UpdateProcesses();reader=new Thread(delegate(){uint result=ProcessTrace(new[]{consumer},1,IntPtr.Zero,IntPtr.Zero);if(result!=0&&result!=1223)Error=result;});reader.IsBackground=true;reader.Start();
-        }catch{Dispose();throw;}finally{if(ids!=IntPtr.Zero)Marshal.FreeHGlobal(ids);if(descriptor!=IntPtr.Zero)Marshal.FreeHGlobal(descriptor);if(logger!=IntPtr.Zero)Marshal.FreeHGlobal(logger);}
+            ulong traceHandle=consumer;reader=new Thread(delegate(){uint result=ProcessTrace(new[]{traceHandle},1,IntPtr.Zero,IntPtr.Zero);if(result!=0&&result!=1223)Error=result;});reader.IsBackground=true;reader.Start();
+        }catch{Dispose();throw;}finally{if(logger!=IntPtr.Zero)Marshal.FreeHGlobal(logger);}
     }
     FpsEtw(){session="";callback=Receive;}
     internal static void Verify(){
@@ -106,8 +102,23 @@ internal sealed class FpsEtw : IDisposable {
         }}finally{Marshal.FreeHGlobal(data);}
     }
     static void Check(uint code){if(code!=0)throw new System.ComponentModel.Win32Exception((int)code);}
-    internal void UpdateProcesses(){long now=Stopwatch.GetTimestamp();if(lastScan!=0&&(now-lastScan)/(double)Stopwatch.Frequency<2)return;lastScan=now;
-        var ids=new HashSet<int>();foreach(var p in Process.GetProcessesByName("AION2"))try{ids.Add(p.Id);}finally{p.Dispose();}gameProcesses=ids;
+    internal void UpdateProcesses(){discovery.Update();SetProcesses(discovery.Ids);}
+    internal void SetProcesses(HashSet<int> processes){
+        if(gameProcesses.SetEquals(processes))return;
+        // HashSets are published as immutable snapshots to the ETW callback.
+        gameProcesses=processes;if(controller==0)return;
+        IntPtr ids=IntPtr.Zero,pids=IntPtr.Zero,descriptors=IntPtr.Zero;
+        try{
+            ids=Marshal.AllocHGlobal(8);Marshal.Copy(new byte[]{1,0,2,0,178,0,179,0},0,ids,8);
+            pids=Marshal.AllocHGlobal(Math.Max(1,processes.Count)*4);int at=0;
+            foreach(int pid in processes){if(at==8)break;Marshal.WriteInt32(pids,at++*4,pid);}
+            if(at==0){Marshal.WriteInt32(pids,0,0);at=1;}
+            descriptors=Marshal.AllocHGlobal(32);
+            Marshal.WriteInt64(descriptors,0,ids.ToInt64());Marshal.WriteInt32(descriptors,8,8);Marshal.WriteInt32(descriptors,12,unchecked((int)0x80000200));
+            Marshal.WriteInt64(descriptors,16,pids.ToInt64());Marshal.WriteInt32(descriptors,24,at*4);Marshal.WriteInt32(descriptors,28,unchecked((int)0x80000004));
+            var parameters=new EnableParameters{Version=2,Filters=descriptors,Count=2};Guid provider=Provider;
+            Check(EnableTraceEx2(controller,ref provider,1,5,0x4000000000000000,0,0,ref parameters));
+        }finally{if(ids!=IntPtr.Zero)Marshal.FreeHGlobal(ids);if(pids!=IntPtr.Zero)Marshal.FreeHGlobal(pids);if(descriptors!=IntPtr.Zero)Marshal.FreeHGlobal(descriptors);}
     }
     internal int? Value {get{return Error==0?samples.Read():null;}}
     internal static int Live(string root){var result=new System.Text.StringBuilder();int count=0;
@@ -128,7 +139,7 @@ internal sealed class FpsEtw : IDisposable {
         }else if(r.Id==179){Pending call;if(!pending.TryGetValue(key,out call))return;pending.Remove(key);
             // Count only successful real presentations; failed/occluded calls
             // and missing Start/Stop pairs must not inflate the result.
-            if(r.Length>=4&&Marshal.ReadInt32(r.Data)==0&&r.Time>=call.Time)samples.Add(call.Pid,call.Chain.ToString("X"),(double)call.Time/Stopwatch.Frequency);
+            if(r.Length>=4&&Marshal.ReadInt32(r.Data)==0&&r.Time>=call.Time)samples.Add(call.Pid,call.Chain,(double)call.Time/Stopwatch.Frequency);
         }
     }
     public void Dispose(){if(closed)return;closed=true;
@@ -136,5 +147,15 @@ internal sealed class FpsEtw : IDisposable {
         if(consumer!=ulong.MaxValue){CloseTrace(consumer);consumer=ulong.MaxValue;}
         if(reader!=null)reader.Join(2000);
         if(properties!=IntPtr.Zero){Marshal.FreeHGlobal(properties);properties=IntPtr.Zero;}GC.KeepAlive(callback);
+    }
+}
+
+// Discovery runs on the measurement worker, never the overlay's UI thread.
+internal sealed class FpsGameDiscovery {
+    internal HashSet<int> Ids=new HashSet<int>();internal bool HasWindow;long lastScan;
+    internal void Update(){long now=Stopwatch.GetTimestamp();if(lastScan!=0&&(now-lastScan)/(double)Stopwatch.Frequency<2)return;lastScan=now;
+        var ids=new HashSet<int>();bool window=false;
+        foreach(var p in Process.GetProcessesByName("AION2"))try{if(ids.Count<8)ids.Add(p.Id);if(p.MainWindowHandle!=IntPtr.Zero)window=true;}catch(InvalidOperationException){}catch(System.ComponentModel.Win32Exception){}finally{p.Dispose();}
+        HasWindow=window;if(!Ids.SetEquals(ids))Ids=ids;
     }
 }

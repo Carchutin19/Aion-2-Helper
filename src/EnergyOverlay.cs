@@ -315,7 +315,7 @@ internal sealed class EnergyOverlay:Form {
         // minimum. Apply the requested dimensions once native handlers are active.
         Shown+=delegate{CoreSize=initialSize;ready=true;ApplyLock();fpsWidget.Configure(fpsOptions,locked,preview);if(!preview)recorder.MaintainAsync(options.Enabled);UpdateBar();SaveSettings();};
         Resize+=delegate{if(ready)RenderNow();};Move+=delegate{if(ready&&Visible&&!rendering)RenderNow();};
-        timer.Interval=250;timer.Tick+=delegate{try{double now=animationClock.Elapsed.TotalSeconds;if(!preview&&now-lastPoll>=2){lastPoll=now;recorder.MaintainAsync(options.Enabled);}startError=recorder.LastStartError;UpdateBar();if(Visible&&now-lastRaise>=1){lastRaise=now;OverlayNative.RaiseWithoutFocus(Handle);}}catch(Exception ex){status="Error: "+ex.Message;stateItem.Text=status;}};timer.Start();
+        timer.Interval=250;timer.Tick+=delegate{try{double now=animationClock.Elapsed.TotalSeconds;if(!preview&&options.Enabled&&now-lastPoll>=2){lastPoll=now;recorder.MaintainAsync(true);}startError=recorder.LastStartError;UpdateBar();if(Visible&&now-lastRaise>=1){lastRaise=now;OverlayNative.RaiseWithoutFocus(Handle);}}catch(Exception ex){status="Error: "+ex.Message;stateItem.Text=status;}};timer.Start();
         FormClosing+=delegate{closing=true;fpsWidget.Close();if(trayMenu!=null&&!trayMenu.IsDisposed)trayMenu.Close();if(settingsWindow!=null&&!settingsWindow.IsDisposed)settingsWindow.Close();timer.Stop();recorder.Dispose();timer.Dispose();SaveSettings();statusWriter.Dispose();image.Dispose();tray.Visible=false;tray.Dispose();helperIcon.Dispose();};
     }
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80)&~0x40000;cp.Style&=~0x40000;return cp;}}

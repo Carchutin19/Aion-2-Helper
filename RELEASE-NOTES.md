@@ -1,4 +1,51 @@
-﻿# Aion 2 Helper v1.2.0 — FPS Counter
+﻿# Aion 2 Helper v1.2.1 — Performance improvements
+
+This public preview reduces recurring work in FPS measurement, rendering and
+energy decoding while preserving the widgets' appearance and settings.
+
+## What's improved
+
+- Native FPS events are filtered to Aion's process IDs before delivery.
+- Game discovery runs on the measurement worker instead of the overlay UI.
+- No FPS trace or PresentMon process runs while the game is closed.
+- PresentMon fallback trials stop after 15 seconds without readings and retry
+  with increasing delays, rather than running indefinitely.
+- Reuse FPS glyph masks, fonts and pixel buffers. Unchanged readings and moves
+  reuse the existing native image.
+- Avoid rebuilding FPS Settings controls and previews for unchanged values.
+- Reuse bounded energy decompression buffers, including nested containers.
+- Avoid scheduling capture maintenance while Energy Bar is disabled.
+- Release the FPS pipe and process resources after unexpected worker exits.
+
+The sharp regular-weight FPS text, Energy Bar glow, smoothing, fades, colors,
+geometry, language, calibration and default 250 ms FPS interval are preserved.
+
+## Validation
+
+- FPS rendering allocated 82% less temporary managed memory for a small widget
+  and 99% less for a large widget in the development benchmark.
+- Energy decoding allocated 88% less temporary managed memory in 30 fixture
+  replays; all 79 readings per replay passed with zero errors.
+- All 48 FPS and 30 Energy Bar comparison images matched pixel for pixel.
+- Real game FPS and live interval changes passed with the process-filtered reader.
+- Packaged FPS, Settings, Energy Bar and protocol checks pass, including bounded
+  graphics resources, nested/reused decompression, and worker shutdown.
+- Two enable/disable cycles with no game passed without creating an FPS trace.
+
+These are development measurements of temporary allocations, not equivalent
+reductions in total RAM or a guarantee of higher game FPS. Details and a
+standalone FPS benchmark are in **performance/README.md**.
+
+## Updating
+
+Close Aion 2 Helper and extract all contents of
+**Aion-2-Helper-v1.2.1-windows-x64.zip** into your existing folder, replacing
+program files. Keep **overlay-settings.json** to retain your preferences.
+Npcap remains a separate requirement for Energy Bar.
+
+---
+
+# Aion 2 Helper v1.2.0 — FPS Counter
 
 This public preview adds an independent FPS widget alongside Energy Bar.
 

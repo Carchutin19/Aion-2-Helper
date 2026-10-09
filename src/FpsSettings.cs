@@ -10,7 +10,7 @@ internal sealed class FpsSettingsPane:Grid {
     readonly EnergyOverlay owner;readonly Window window;readonly CheckBox enabled=new CheckBox(),background=new CheckBox();
     readonly TextBlock activation=SettingsVisual.Text("Disabled",12,"#A7ADBA"),reading=SettingsVisual.Text("",11,"#8994A6");
     readonly Image preview=new Image{Height=60,Stretch=System.Windows.Media.Stretch.None};readonly StackPanel controls=new StackPanel();readonly Border previewCard;readonly ScrollViewer scroller;readonly Button color,permission;
-    readonly Dictionary<string,SettingsNumber> numbers=new Dictionary<string,SettingsNumber>();string colorHex="#00FF63";bool loading;
+    readonly Dictionary<string,SettingsNumber> numbers=new Dictionary<string,SettingsNumber>();string colorHex="#00FF63",loadedLanguage;FpsOptions loadedOptions,previewOptions;bool loading;
     internal FpsSettingsPane(EnergyOverlay helper,Window settings){owner=helper;window=settings;
         RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});RowDefinitions.Add(new RowDefinition{Height=new GridLength(1,GridUnitType.Star)});
         var activationRow=Row("Enable FPS counter");Children.Add(activationRow);var switches=new StackPanel{Orientation=Orientation.Horizontal};activation.Margin=new Thickness(0,0,10,0);switches.Children.Add(activation);switches.Children.Add(enabled);Grid.SetColumn(switches,1);activationRow.Children.Add(switches);AutomationProperties.SetName(enabled,"Enable FPS counter");enabled.Click+=delegate{if(loading)return;var cfg=owner.Configuration;cfg.Fps.Enabled=enabled.IsChecked==true;owner.ApplyConfiguration(cfg);};
@@ -32,18 +32,41 @@ internal sealed class FpsSettingsPane:Grid {
     void Number(StackPanel group,string key,string label,string unit,decimal minimum,decimal maximum,decimal step){var row=Row(label);group.Children.Add(row);var side=new StackPanel{Orientation=Orientation.Horizontal};Grid.SetColumn(side,1);row.Children.Add(side);var field=new SettingsNumber(label,minimum,maximum,0,step);side.Children.Add(field);var units=SettingsVisual.Text(unit,11,"#8994A6");units.Width=28;units.Margin=new Thickness(7,0,0,0);side.Children.Add(units);numbers[key]=field;}
     void Changed(){if(loading)return;var cfg=owner.Configuration;cfg.Fps.Background=background.IsChecked==true;cfg.Fps.Color=colorHex;cfg.Fps.BackgroundOpacity=(int)Math.Round((double)numbers["Opacity"].Value*255/100);cfg.Fps.Softness=(int)numbers["Softness"].Value;cfg.Fps.RefreshIntervalMs=(int)numbers["RefreshInterval"].Value;cfg.Fps.Bounds=new Drawing.Rectangle((int)numbers["X"].Value,(int)numbers["Y"].Value,(int)numbers["Width"].Value,(int)numbers["Height"].Value);owner.ApplyConfiguration(cfg);}
     void PickColor(){var picker=new HelperColorPicker(colorHex,"FPS text",owner.Language){Owner=window};if(picker.ShowDialog()==true){colorHex=picker.SelectedHex;Changed();}}
-    internal void Reload(){loading=true;try{var o=owner.Configuration.Fps;enabled.IsChecked=o.Enabled;background.IsChecked=o.Background;activation.Text=o.Enabled?"Enabled":"Disabled";colorHex=o.Color;
+    internal void Reload(){var o=owner.Configuration.Fps;if(loadedOptions!=null&&FpsOptions.Same(o,loadedOptions)&&loadedLanguage==owner.Language){UpdateStatus();return;}loading=true;try{loadedOptions=o.Copy();loadedLanguage=owner.Language;enabled.IsChecked=o.Enabled;background.IsChecked=o.Background;activation.Text=o.Enabled?"Enabled":"Disabled";colorHex=o.Color;
         var swatch=new StackPanel{Orientation=Orientation.Horizontal};swatch.Children.Add(new Border{Width=17,Height=17,CornerRadius=new CornerRadius(5),Background=SettingsVisual.Brush(o.Color),Margin=new Thickness(0,0,9,0)});swatch.Children.Add(SettingsVisual.Text(o.Color.ToUpperInvariant(),12,"#D1D6E0"));color.Content=swatch;
         numbers["Opacity"].Value=(decimal)(o.BackgroundOpacity*100.0/255);numbers["Softness"].Value=o.Softness;numbers["RefreshInterval"].Value=o.RefreshIntervalMs;numbers["Scale"].Value=(decimal)(o.Bounds.Height/44.0*100);numbers["Width"].Value=o.Bounds.Width;numbers["Height"].Value=o.Bounds.Height;numbers["X"].Value=o.Bounds.X;numbers["Y"].Value=o.Bounds.Y;
         previewCard.IsEnabled=scroller.IsEnabled=o.Enabled;previewCard.Opacity=scroller.Opacity=o.Enabled?1:.4;numbers["Opacity"].IsEnabled=numbers["Softness"].IsEnabled=o.Background;UpdateStatus();
-        using(var image=FpsDesign.Render(Math.Min(420,o.Bounds.Width),Math.Min(100,o.Bounds.Height),"144 FPS",o,false))preview.Source=SettingsVisual.Bitmap(image);preview.Height=Math.Min(100,o.Bounds.Height);UiLanguage.Apply(this,owner.Language);
+        if(previewOptions==null||previewOptions.Bounds.Size!=o.Bounds.Size||previewOptions.Background!=o.Background||previewOptions.Color!=o.Color||previewOptions.BackgroundOpacity!=o.BackgroundOpacity||previewOptions.Softness!=o.Softness){using(var image=FpsDesign.Render(Math.Min(420,o.Bounds.Width),Math.Min(100,o.Bounds.Height),"144 FPS",o,false))preview.Source=SettingsVisual.Bitmap(image);preview.Height=Math.Min(100,o.Bounds.Height);previewOptions=o.Copy();}UiLanguage.Apply(this,owner.Language);
     }finally{loading=false;}}
-    internal void UpdateStatus(){reading.Text=owner.FpsStatus;permission.Visibility=owner.FpsNeedsAdministrator?Visibility.Visible:Visibility.Collapsed;UiLanguage.Apply(reading,owner.Language);}
+    internal void UpdateStatus(){string text=owner.FpsStatus;if(reading.Text!=text)reading.Text=text;var visibility=owner.FpsNeedsAdministrator?Visibility.Visible:Visibility.Collapsed;if(permission.Visibility!=visibility)permission.Visibility=visibility;}
     internal void Verify(){var original=owner.Configuration;var cfg=original.Copy();cfg.Fps.Enabled=true;cfg.Fps.Color="#00CC77";cfg.Fps.BackgroundOpacity=93;cfg.Fps.Softness=12;cfg.Fps.RefreshIntervalMs=750;cfg.Fps.Bounds=new Drawing.Rectangle(50,60,168,66);owner.ApplyConfiguration(cfg);Reload();
         if(!previewCard.IsEnabled||!scroller.IsEnabled||numbers["Width"].Value!=168||colorHex!="#00CC77"||numbers["RefreshInterval"].Value!=750)throw new Exception("FPS controls must load actual preferences");owner.UndoConfiguration();if(!ConfigurationHistory.Same(original,owner.Configuration))throw new Exception("FPS undo must preserve energy/language");owner.RedoConfiguration();if(!ConfigurationHistory.Same(cfg,owner.Configuration))throw new Exception("FPS redo must restore its complete module");cfg.Fps.Enabled=false;owner.ApplyConfiguration(cfg);Reload();if(!enabled.IsEnabled||scroller.IsEnabled||previewCard.IsEnabled)throw new Exception("FPS activation stays editable while module controls are disabled");owner.ApplyConfiguration(original);}
 }
 
 internal static class FpsVerification {
+    internal static int VerifyStandby(string root){
+        var games=new FpsGameDiscovery();games.Update();if(games.Ids.Count!=0)return 2;
+        var output=new System.Text.StringBuilder();
+        try{using(var monitor=new FpsMonitor(root))for(int cycle=0;cycle<2;cycle++){
+            monitor.Configure(true);monitor.Tick();var field=typeof(FpsMonitor).GetField("worker",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);var owned=(System.Diagnostics.Process)field.GetValue(monitor);
+            if(owned==null)throw new Exception("Standby worker did not start");
+            using(var worker=System.Diagnostics.Process.GetProcessById(owned.Id)){
+                var wait=System.Diagnostics.Stopwatch.StartNew();while(monitor.Status!="Waiting for Aion 2"&&wait.Elapsed.TotalSeconds<5)System.Threading.Thread.Sleep(100);
+                if(monitor.Status!="Waiting for Aion 2"||monitor.Value.HasValue||monitor.NeedsAdministrator)throw new Exception("No game must wait without FPS or a permission prompt");
+                worker.Refresh();double before=worker.TotalProcessorTime.TotalMilliseconds;System.Threading.Thread.Sleep(4000);worker.Refresh();output.AppendLine("cycle="+cycle+"; standby CPU ms="+(worker.TotalProcessorTime.TotalMilliseconds-before)+"; working set="+worker.WorkingSet64);
+                if(worker.HasExited||monitor.Value.HasValue)throw new Exception("Standby must remain ready without invented FPS");
+                monitor.Configure(false);if(!worker.WaitForExit(6000))throw new Exception("Disabled measurement worker must exit");
+                if(field.GetValue(monitor)!=null)throw new Exception("Disabled measurement must release the process reference");
+            }
+            if(cycle==1){monitor.Configure(true);monitor.Tick();var current=(System.Diagnostics.Process)field.GetValue(monitor);using(var child=System.Diagnostics.Process.GetProcessById(current.Id)){
+                var wait=System.Diagnostics.Stopwatch.StartNew();while(monitor.Status!="Waiting for Aion 2"&&wait.Elapsed.TotalSeconds<5)System.Threading.Thread.Sleep(100);
+                child.Kill();child.WaitForExit();wait.Restart();while((field.GetValue(monitor)!=null||monitor.Status!="FPS measurement unavailable")&&wait.Elapsed.TotalSeconds<5)System.Threading.Thread.Sleep(100);
+                var pipe=typeof(FpsMonitor).GetField("pipe",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
+                if(field.GetValue(monitor)!=null||pipe.GetValue(monitor)!=null||monitor.Status!="FPS measurement unavailable")throw new Exception("Unexpected worker exit must release its pipe and process reference");
+            }}
+        }File.WriteAllText(Path.Combine(root,"fps-standby-test.txt"),"PASS: two enable/disable cycles without a game; no invented FPS or permission prompt; workers exited; unexpected worker exit released its pipe and process reference.\r\n"+output);return 0;
+        }catch(Exception ex){File.WriteAllText(Path.Combine(root,"fps-standby-test.txt"),"FAIL: "+ex+"\r\n"+output);return 1;}
+    }
     internal static int VerifyRefresh(string root){
         var flags=System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;
         var arrival=typeof(FpsMonitor).GetField("lastMessage",flags);var process=typeof(FpsMonitor).GetField("worker",flags);
@@ -67,7 +90,7 @@ internal static class FpsVerification {
         foreach(int height in new[]{20,44,88}){o.Bounds=new Drawing.Rectangle(30,30,(int)(height*112/44.0),height);using(var bitmap=FpsDesign.Render(o.Bounds.Width,height,"144 FPS",o,false))bitmap.Save(Path.Combine(output,"fps-widget-"+height+".png"));}
         o.Background=false;using(var plain=FpsDesign.Render(112,44,"144 FPS",o,false))if(plain.GetPixel(0,0).A!=0||plain.GetPixel(4,4).A!=0)throw new Exception("Background off must stay transparent");
         if(FpsDesign.ResizeBounds(new Drawing.Rectangle(10,20,112,44),new Drawing.Point(1000,1000),13)!=new Drawing.Rectangle(74,44,48,20))throw new Exception("FPS resize must preserve opposite corner and own minimum");
-        using(var owner=new EnergyOverlay(root,true)){var pane=new FpsSettingsPane(owner,new System.Windows.Window());pane.Verify();var cfg=owner.Configuration;cfg.Fps.Enabled=true;owner.ApplyConfiguration(cfg);var settings=new HelperSettings(owner);try{settings.VerifyFps(root);}finally{settings.Close();}}
+        using(var owner=new EnergyOverlay(root,true)){using(var widget=new FpsOverlay(owner,root,true))widget.VerifyCache();var pane=new FpsSettingsPane(owner,new System.Windows.Window());pane.Verify();var cfg=owner.Configuration;cfg.Fps.Enabled=true;owner.ApplyConfiguration(cfg);var settings=new HelperSettings(owner);try{settings.VerifyFps(root);}finally{settings.Close();}}
         File.WriteAllText(Path.Combine(root,"fps-test.txt"),"PASS: bounded real presentation timestamps; CSV quoting; PID/swap-chain isolation; invalid/out-of-order filtering; long-pause reset; no invented FPS; migration/save/load; transparent background off; minimum resizing; full-module undo/redo and disabled UI; localized FPS settings preview.");
     }
 }

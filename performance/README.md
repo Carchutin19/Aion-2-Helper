@@ -1,4 +1,62 @@
-# Optimization verification — 8 October 2026
+# Optimization verification
+
+## v1.2.1 — 9 October 2026
+
+Compared against the public v1.2.0 executable on the same development PC:
+
+| Temporary managed allocations | v1.2.0 | v1.2.1 | Reduction |
+| --- | ---: | ---: | ---: |
+| 100,000 presentation samples | 12,800,728 bytes | 64 bytes | >99.99% |
+| 1,000 FPS images, 76 × 30 | 12,128,728 bytes | 2,152,064 bytes | 82.26% |
+| 200 FPS images, 448 × 176 | 63,699,928 bytes | 449,664 bytes | 99.29% |
+| Energy decoder, 30 replays | 4,810,144 bytes | 596,944 bytes | 87.59% |
+
+The frame-sampling result measures the numeric sample collector after warm-up,
+not the complete ETW worker. Its retained bounded queues are already allocated.
+Drawing still creates an output bitmap when the reading or style changes; mask,
+font and pixel storage is reused. These numbers describe temporary managed
+allocations during work, not total RAM or native graphics memory.
+
+All 48 FPS image hashes matched v1.2.0, covering four sizes, three readings,
+background on/off and editing on/off. All 30 energy image hashes matched, and
+energy render allocations remained 528,064 bytes per 1,000 images. The glow,
+colors, text sharpness and animation behavior are preserved.
+
+The private energy fixture contains 3,763 TCP segments. Each of the 30 replays
+verified 79 readings and zero errors. Additional public self-tests cover stale
+bytes in reused buffers, nested compressed containers, malformed output lengths
+and the nesting limit.
+
+The optimized native FPS reader passed a real-game interval change from 2,000 to
+100 ms without restarting its worker. Two no-game enable/disable cycles each
+used 15.625–46.875 ms of worker CPU over four measured seconds on this PC; workers exited
+when disabled, and no helper FPS trace was active in standby. No quantified game
+FPS improvement is claimed.
+
+Production also filters native events to game process IDs, avoids a second
+process scan on the UI thread, stops traces when the game closes, bounds failed
+PresentMon trials with retry delays, and skips unchanged Settings previews.
+Unchanged FPS readings and move-only updates do not upload another bitmap.
+Graphics resource counts remained bounded after 1,500 changing FPS readings.
+
+### Reproduce the FPS benchmark
+
+Build on Windows, then compile the standalone harness with the installed .NET
+Framework compiler. Supply an executable and an output JSON path:
+
+~~~powershell
+.\Build.ps1
+$compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+& $compiler /nologo /target:exe /platform:x64 /optimize+ /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /out:build-fps-benchmark.exe tools/FpsPerformanceHarness.cs
+.\build-fps-benchmark.exe .\Aion2Helper.exe .\performance\fps-local.json
+~~~
+
+The harness also accepts an extracted v1.2.0 executable for comparison; keep its
+release files together. It requires no game or traffic fixture. It warms each
+case before measuring and hashes rendered pixels. Results depend on hardware,
+font/runtime versions and background activity. The JSON contains no game data.
+
+## Earlier Energy Bar optimization — 8 October 2026
 
 The optimized build preserves the emissive filament, glow, colors, smoothing,
 fades, and 1.5-second full-energy delay. Aion2Helper.exe is the current executable.

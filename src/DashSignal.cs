@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,7 +18,7 @@ internal sealed class DashSignal {
     internal sealed class Reading {internal int Actor;internal uint Value;internal double Timestamp;}
     internal struct Snapshot {internal Reading Reading;internal double LastTraffic;internal int Samples,Errors;}
     static readonly object protocolGate=new object();static readonly Dictionary<string,HashSet<int>> protocols=new Dictionary<string,HashSet<int>>(StringComparer.OrdinalIgnoreCase);
-    readonly Dictionary<string,Flow> streams=new Dictionary<string,Flow>();readonly HashSet<int> known;readonly object gate=new object();
+    readonly Dictionary<string,Flow> streams=new Dictionary<string,Flow>();readonly HashSet<int> known;readonly object gate=new object();readonly byte[][] decompression=new byte[5][];
     Reading reading;double lastTraffic;int samples,errors;
     internal uint Maximum=113900; // Maximum validated against this character's HUD.
     internal Action<Reading> OnReading;
@@ -70,8 +70,8 @@ internal sealed class DashSignal {
     void Decode(byte[] data,int start,int end,double ts,int depth){
         if(depth>4){errors++;return;}if(end-start<2)return;
         if(data[start]==255&&data[start+1]==255){
-            try{if(end-start<7)throw new InvalidDataException();int expected=BitConverter.ToInt32(data,start+2);byte[] raw=Lz4(data,start+6,expected,end);int position=0;
-                while(position<raw.Length){if(raw[position]==0){position++;continue;}int body,frameEnd;if(Frame(raw,position,raw.Length,out body,out frameEnd)!=1)throw new InvalidDataException();Decode(raw,body,frameEnd,ts,depth+1);position=frameEnd;}}
+            try{if(end-start<7)throw new InvalidDataException();int expected=BitConverter.ToInt32(data,start+2);if(expected<=0||expected>1000000)throw new InvalidDataException();byte[] raw=decompression[depth];if(raw==null||raw.Length<expected){raw=new byte[Math.Max(expected,Math.Min(1000000,raw==null?8192:raw.Length*2))];decompression[depth]=raw;}Lz4Into(data,start+6,expected,end,raw);int position=0;
+                while(position<expected){if(raw[position]==0){position++;continue;}int body,frameEnd;if(Frame(raw,position,expected,out body,out frameEnd)!=1)throw new InvalidDataException();Decode(raw,body,frameEnd,ts,depth+1);position=frameEnd;}}
             catch(InvalidDataException){errors++;}return;
         }
         if(data[start]!=0||data[start+1]!=0x8d)return;
@@ -87,19 +87,22 @@ internal sealed class DashSignal {
     }
     internal static byte[] Lz4(byte[] data,int position,int expected,int end=-1){
         if(end<0)end=data.Length;if(expected<=0||expected>1000000||end>data.Length||position<0||position>end)throw new InvalidDataException();
-        var output=new byte[expected];int written=0;
+        var output=new byte[expected];Lz4Into(data,position,expected,end,output);return output;
+    }
+    static void Lz4Into(byte[] data,int position,int expected,int end,byte[] output){int written=0;
         while(position<end){byte token=data[position++];int literal=Extra(data,ref position,token>>4,end);if(position+literal>end||written+literal>expected)throw new InvalidDataException();
             System.Buffer.BlockCopy(data,position,output,written,literal);position+=literal;written+=literal;if(position==end)break;
             if(position+2>end)throw new InvalidDataException();int offset=data[position]|data[position+1]<<8;position+=2;int match=Extra(data,ref position,token&15,end)+4;
             if(offset<=0||offset>written||written+match>expected)throw new InvalidDataException();
             int source=written-offset,available=offset;while(match>0){int count=Math.Min(available,match);System.Buffer.BlockCopy(output,source,output,written,count);written+=count;match-=count;available+=count;}}
-        if(written!=expected)throw new InvalidDataException();return output;
+        if(written!=expected)throw new InvalidDataException();
     }
     internal static void VerifyProtocol(string root){
         byte[] literal=Lz4(new byte[]{0x50,104,101,108,108,111},0,5);if(System.Text.Encoding.ASCII.GetString(literal)!="hello")throw new Exception("LZ4 literals");
         byte[] repeated=Lz4(new byte[]{0x10,97,1,0},0,5);if(System.Text.Encoding.ASCII.GetString(repeated)!="aaaaa")throw new Exception("LZ4 overlapping match");
         bool rejected=false;try{Lz4(new byte[]{0,0,0},0,4);}catch(InvalidDataException){rejected=true;}if(!rejected)throw new Exception("Invalid LZ4 offset");
         rejected=false;try{Lz4(new byte[]{0x50,104,101,108,108,111},0,5,5);}catch(InvalidDataException){rejected=true;}if(!rejected)throw new Exception("LZ4 must not read past its containing frame");
+        VerifyContainers(root);
         byte[] frame=new byte[]{14,0,0x8d,1,1,1,3,100,0,0,0},data=new byte[44];for(int n=0;n<4;n++)System.Buffer.BlockCopy(frame,0,data,n*frame.Length,frame.Length);
         foreach(uint sequence in new uint[]{100,uint.MaxValue-4}){
             var decoder=new DashSignal(root);Func<int,int,Segment> segment=delegate(int offset,int count){var payload=new byte[count];System.Buffer.BlockCopy(data,offset,payload,0,count);return new Segment{Src="test",Dst="self",SrcPort=13328,DstPort=1234,Seq=unchecked(sequence+(uint)offset),Data=payload};};
@@ -109,6 +112,20 @@ internal sealed class DashSignal {
             decoder.Reset();if(decoder.Current!=null)throw new Exception("Restarted capture must discard the old reading");var resumed=segment(0,44);resumed.Seq=unchecked(sequence+1000u);decoder.Consume(resumed,2);
             if(decoder.Samples!=8||decoder.Errors!=0||decoder.Current.Timestamp!=2)throw new Exception("Capture restart must resume at a new TCP sequence without waiting for missing old packets");
         }
+    }
+    static void VerifyContainers(string root){
+        Func<uint,byte[]> frame=delegate(uint value){var bytes=new byte[]{14,0,0x8d,1,1,1,3,0,0,0,0};System.Buffer.BlockCopy(BitConverter.GetBytes(value),0,bytes,7,4);return bytes;};
+        Func<byte[],byte[]> container=delegate(byte[] raw){var bytes=new List<byte>{255,255};bytes.AddRange(BitConverter.GetBytes(raw.Length));bytes.Add((byte)(Math.Min(raw.Length,15)<<4));if(raw.Length>=15){int extra=raw.Length-15;while(extra>=255){bytes.Add(255);extra-=255;}bytes.Add((byte)extra);}bytes.AddRange(raw);return bytes.ToArray();};
+        Func<byte[],byte[]> wrap=delegate(byte[] body){var bytes=new List<byte>();uint length=(uint)body.Length+4;while(length>=128){bytes.Add((byte)((length&127)|128));length>>=7;}bytes.Add((byte)length);bytes.AddRange(body);return bytes.ToArray();};
+        var decoder=new DashSignal(root);var large=new byte[400];var first=frame(100);System.Buffer.BlockCopy(first,0,large,large.Length-first.Length,first.Length);var compressed=container(large);decoder.Decode(compressed,0,compressed.Length,1,0);var buffer=decoder.decompression[0];
+        compressed=container(frame(200));decoder.Decode(compressed,0,compressed.Length,2,0);
+        if(decoder.Samples!=2||decoder.Errors!=0||decoder.Current.Value!=200||decoder.decompression[0]!=buffer)throw new Exception("Reused decompression must ignore old bytes beyond the new output length");
+        var inner=new List<byte>();inner.AddRange(frame(300));inner.AddRange(frame(400));var outer=new List<byte>();outer.AddRange(wrap(container(inner.ToArray())));outer.AddRange(frame(500));compressed=container(outer.ToArray());decoder.Decode(compressed,0,compressed.Length,3,0);
+        if(decoder.Samples!=5||decoder.Errors!=0||decoder.Current.Value!=500||decoder.decompression[0]==decoder.decompression[1])throw new Exception("Nested compressed containers require independent buffers and must preserve trailing sibling frames");
+        var malformed=container(frame(600));System.Buffer.BlockCopy(BitConverter.GetBytes(12),0,malformed,2,4);decoder.Decode(malformed,0,malformed.Length,4,0);
+        if(decoder.Samples!=5||decoder.Errors!=1)throw new Exception("Truncated reused decompression must not produce a reading");
+        compressed=container(frame(700));for(int depth=0;depth<5;depth++)compressed=container(wrap(compressed));decoder.Decode(compressed,0,compressed.Length,5,0);
+        if(decoder.Samples!=5||decoder.Errors!=2)throw new Exception("Compressed nesting remains bounded");
     }
     internal static void ReplayTest(string root,string input) {
         var decoder=new DashSignal(root);var json=new JavaScriptSerializer();var samples=new List<Reading>();decoder.OnReading=delegate(Reading r){samples.Add(r);};

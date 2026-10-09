@@ -242,6 +242,7 @@ internal static class Entry {
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
         if(args.Length>0&&args[0]=="--fps-refresh-test")return FpsVerification.VerifyRefresh(root);
+        if(args.Length>0&&args[0]=="--fps-standby-test")return FpsVerification.VerifyStandby(root);
         if(args.Length>0&&args[0]=="--fps-live-test")return FpsVerification.Live(root);
         if(args.Length>0&&args[0]=="--fps-native-test")return FpsEtw.Live(root);
         if(args.Length>0&&args[0]=="--fps-worker")return FpsWorker.Run(root,args);

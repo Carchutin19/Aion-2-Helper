@@ -5,8 +5,8 @@
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.2.0 public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.2.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.2.0/Aion-2-Helper-v1.2.0-windows-x64.zip).
+The [v1.2.1 public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.2.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.2.1/Aion-2-Helper-v1.2.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately;
 the game must be running with your character in the world to receive energy updates.
@@ -54,6 +54,9 @@ Aion 2 presentations over the previous second. Intel PresentMon is bundled as a
 fallback for systems where that channel is unavailable. The display refreshes
 at the chosen interval (250 ms by default); Windows may deliver event batches
 about once per second.
+The native reader filters events to the game processes. With Aion closed,
+measurement waits without an active FPS trace or PresentMon process. Failed
+fallbacks stop after a bounded trial and retry with a delay.
 The reader can be activated before starting the game. It does not add
 driver-generated frames. If Windows does not provide readings,
 **FPS Counter → Start measurement as administrator** requests permission for the
