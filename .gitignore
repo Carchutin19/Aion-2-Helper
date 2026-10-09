@@ -1,0 +1,46 @@
+# Local packet captures and reference checkouts
+/captures/
+/research/
+
+# Personal configuration, connection state, and development handoff
+/overlay-settings.json
+/live-status.json
+/diagnostic.txt
+/validation.json
+/HANDOFF.md
+/assets/aion-logo-reference.jpg
+/*-test.txt
+/selftest.txt
+
+# Build and release outputs
+*.exe
+*.pdb
+*.dll
+/dist/
+/build/
+/release-staging/
+
+# Local tooling and authentication (never publish)
+/.local-tools/
+/.codex/
+.env
+.env.*
+*.pem
+*.key
+
+# Private performance samples
+/performance/*.json
+
+# Draft publication notes; the public README is maintained separately
+/publication/
+
+# Generated local design references
+/designs/
+
+# Editor and Python artifacts
+.vs/
+.vscode/
+__pycache__/
+*.pyc
+*.user
+*.suo
