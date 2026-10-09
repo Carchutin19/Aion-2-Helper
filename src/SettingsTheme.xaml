@@ -52,6 +52,39 @@
       </ControlTemplate>
     </Setter.Value></Setter>
   </Style>
+  <Style TargetType="ComboBoxItem">
+    <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+    <Setter Property="Padding" Value="12,9"/>
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+      <Border x:Name="Item" CornerRadius="7" Background="Transparent" Padding="{TemplateBinding Padding}" Margin="3,2"><ContentPresenter/></Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Item" Property="Background" Value="#235DC7B0"/><Setter Property="Foreground" Value="#A7E5D5"/></Trigger>
+        <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Item" Property="Background" Value="#303F7369"/></Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="ComboBox">
+    <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+    <Setter Property="Background" Value="#60252A33"/>
+    <Setter Property="BorderBrush" Value="#22FFFFFF"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
+      <Grid>
+        <Border x:Name="Shell" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="9"/>
+        <ToggleButton Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+          <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Grid Background="Transparent"><Path Data="M0,0 L4,4 L8,0" Stroke="#A7ADBA" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0"/></Grid></ControlTemplate></ToggleButton.Template>
+        </ToggleButton>
+        <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" Margin="13,0,35,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+        <Popup x:Name="PART_Popup" Placement="Bottom" PlacementTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+          <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" Background="#FA1D2129" CornerRadius="10" BorderBrush="#32FFFFFF" BorderThickness="1" Padding="3" Margin="0,5,0,0"><ScrollViewer MaxHeight="240" CanContentScroll="True"><ItemsPresenter/></ScrollViewer></Border>
+        </Popup>
+      </Grid>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Shell" Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Shell" Property="BorderBrush" Value="#58FFFFFF"/></Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate></Setter.Value></Setter>
+  </Style>
   <Style TargetType="TextBox">
     <Setter Property="Foreground" Value="{StaticResource Ink}"/>
     <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>

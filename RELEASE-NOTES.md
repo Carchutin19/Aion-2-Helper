@@ -1,37 +1,47 @@
-# Aion 2 Helper v1.0.0 — Initial public preview
+# Aion 2 Helper v1.1.0 — English & Spanish
 
-The first public preview includes **Energy Bar**, an independent dash and sprint
-energy overlay for Aion 2 Global.
+This public preview adds language selection and a dedicated General settings page.
 
-- Move and resize the bar, including its width and thickness.
-- Customize high/medium/low energy colors, glow, opacity, fades, and smoothing.
-- Auto-hide at full energy, or keep the bar visible.
-- Configure it through an English Settings window with preview and color picker.
-- Undo/redo changes through buttons or Ctrl+Z / Ctrl+Y.
-- Lock/unlock widgets from the tray icon; disable Energy Bar without losing settings.
+## What's new
 
-## Installation
+- Added **General** above **Energy Bar** in Settings.
+- Choose **English** or **Español** from the language dropdown.
+- Apply language changes immediately to Settings, the tray menu, the color picker,
+  and normal energy status messages. No restart is required.
+- Save the selected language automatically and restore it on the next launch.
+- Undo and redo language changes using the buttons or **Ctrl+Z / Ctrl+Y**.
+- General settings remain available when Energy Bar is disabled.
 
-1. Download **Aion-2-Helper-v1.0.0-windows-x64.zip** and extract all files together.
-2. Install Npcap separately if it is not already available on your PC.
-3. Run **Aion2Helper.exe**, enter the game, and dash once to start receiving readings.
-4. Right-click the tray icon to open Settings or unlock the widget.
+Existing Energy Bar colors, glow, animations, position, size, calibration, and lock
+preferences are preserved. English is the default for new installations and older
+settings files. Low-level diagnostic tools and native errors remain in English.
 
-If calibration is needed, wait until your in-game energy is completely full, then
-use **Use current reading as maximum**. The button uses the energy at that moment;
-it does not detect the maximum automatically.
+## Updating from v1.0.0
+
+1. Close Aion 2 Helper using its tray menu.
+2. Extract **Aion-2-Helper-v1.1.0-windows-x64.zip** into your existing Helper folder,
+   replacing the program files.
+3. Keep **overlay-settings.json** to retain your preferences. It is not included
+   in the release ZIP.
+4. Run **Aion2Helper.exe** and open **Settings → General → Language**.
+
+For a fresh installation, extract all ZIP contents together. **Npcap must be
+installed separately** to receive game energy readings. Enter the game with your
+character and dash once to start receiving updates.
+
+## Validation
+
+- Packaged-app settings tests: live EN/ES selection, translated controls/tray/picker,
+  language history, persistence after restart, and legacy/invalid language fallback.
+- Overlay tests: emissive rendering, animation, resizing, disabled-state behavior,
+  bitmap reuse, and GDI resource checks.
 
 ## Current scope
 
-This is an early community preview tested on the development PC. Game protocol
-updates or traffic-hiding VPNs can prevent reading. Fullscreen overlay behavior
-can vary by system and presentation mode.
+Energy Bar is the available module. DPS tracking, event notifications, FPS, and
+custom HP/MP bars remain planned features. This preview has been tested on the
+development PC; game protocol and fullscreen presentation can vary by system.
 
-**DPS tracking, event notifications, FPS, custom HP/MP bars, and language selection
-are planned, not included in this release.**
-
-The archive contains no personal settings, packet captures, login credentials,
-or reference repository checkouts. Npcap and the game are not bundled.
-
-No open-source license has been selected for the project code. Attribution and
-the MIT license for the third-party opcode data are included in the download.
+The ZIP excludes personal settings, traffic captures, credentials, and reference
+checkouts. Npcap and the game are not bundled. No open-source license has been
+selected for the project code; the third-party opcode table retains its MIT license.

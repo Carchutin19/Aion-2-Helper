@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -51,7 +51,8 @@ internal sealed class EnergyConfiguration {
     internal Rectangle Bounds;
     internal bool Locked;
     internal uint Maximum;
-    internal EnergyConfiguration Copy(){return new EnergyConfiguration{Options=Options.Copy(),Bounds=Bounds,Locked=Locked,Maximum=Maximum};}
+    internal string Language="en";
+    internal EnergyConfiguration Copy(){return new EnergyConfiguration{Options=Options.Copy(),Bounds=Bounds,Locked=Locked,Maximum=Maximum,Language=Language};}
 }
 
 // Session-only history: 100 undo steps, with independent immutable snapshots.
@@ -64,7 +65,7 @@ internal sealed class ConfigurationHistory {
     internal int UndoCount {get{return Math.Max(0,cursor);}}
     internal static bool Same(EnergyConfiguration a,EnergyConfiguration b){
         var x=a.Options;var y=b.Options;
-        return a.Bounds==b.Bounds&&a.Locked==b.Locked&&a.Maximum==b.Maximum&&x.Enabled==y.Enabled&&x.AutoHide==y.AutoHide&&x.Fade==y.Fade&&x.Smooth==y.Smooth&&x.Emissive==y.Emissive&&x.DynamicColors==y.DynamicColors&&x.HoldSeconds==y.HoldSeconds&&x.FadeSeconds==y.FadeSeconds&&x.SmoothingSeconds==y.SmoothingSeconds&&x.GlowPercent==y.GlowPercent&&x.TrackOpacity==y.TrackOpacity&&string.Equals(x.LowColor,y.LowColor,StringComparison.OrdinalIgnoreCase)&&string.Equals(x.MediumColor,y.MediumColor,StringComparison.OrdinalIgnoreCase)&&string.Equals(x.HighColor,y.HighColor,StringComparison.OrdinalIgnoreCase);
+        return UiLanguage.Normalize(a.Language)==UiLanguage.Normalize(b.Language)&&a.Bounds==b.Bounds&&a.Locked==b.Locked&&a.Maximum==b.Maximum&&x.Enabled==y.Enabled&&x.AutoHide==y.AutoHide&&x.Fade==y.Fade&&x.Smooth==y.Smooth&&x.Emissive==y.Emissive&&x.DynamicColors==y.DynamicColors&&x.HoldSeconds==y.HoldSeconds&&x.FadeSeconds==y.FadeSeconds&&x.SmoothingSeconds==y.SmoothingSeconds&&x.GlowPercent==y.GlowPercent&&x.TrackOpacity==y.TrackOpacity&&string.Equals(x.LowColor,y.LowColor,StringComparison.OrdinalIgnoreCase)&&string.Equals(x.MediumColor,y.MediumColor,StringComparison.OrdinalIgnoreCase)&&string.Equals(x.HighColor,y.HighColor,StringComparison.OrdinalIgnoreCase);
     }
     internal void Observe(EnergyConfiguration current){
         if(cursor>=0&&Same(states[cursor],current))return;

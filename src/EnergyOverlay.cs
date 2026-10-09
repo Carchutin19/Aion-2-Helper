@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -280,6 +280,8 @@ internal sealed class EnergyOverlay:Form {
     internal readonly WidgetLock InteractionLock=new WidgetLock();
     readonly ConfigurationHistory configurationHistory=new ConfigurationHistory();bool restoringConfiguration;
     bool locked {get{return InteractionLock.Locked;}set{InteractionLock.Locked=value;}}
+    string language="en";
+    internal string Language {get{return language;}}
     EnergyBarOptions options=new EnergyBarOptions();HelperSettings settingsWindow;HelperTrayMenu trayMenu;
     internal event Action SettingsChanged;
     bool closing,ready,rendering;double lastSaved;string status="No data · dash once to start";string startError="";
@@ -320,14 +322,14 @@ internal sealed class EnergyOverlay:Form {
         bool migrate=!cfg.ContainsKey("design")||Convert.ToString(cfg["design"])!="slim-v2";int previousHeight=cfg.ContainsKey("height")?Convert.ToInt32(cfg["height"]):BarDesign.DefaultHeight;
         if(cfg.ContainsKey("width"))initialSize=new System.Drawing.Size(Math.Max(BarDesign.MinimumWidth,Math.Min(BarDesign.MaximumWidth,Convert.ToInt32(cfg["width"]))),migrate?BarDesign.DefaultHeight:Math.Max(BarDesign.MinimumHeight,Math.Min(BarDesign.MaximumHeight,previousHeight)));CoreSize=initialSize;
         var position=new System.Drawing.Point(Convert.ToInt32(cfg["x"]),Convert.ToInt32(cfg["y"])+(migrate?(previousHeight-initialSize.Height)/2:0));if(Screen.AllScreens.Any(s=>s.WorkingArea.IntersectsWith(new Rectangle(position,initialSize))))CoreBounds=new Rectangle(position,initialSize);
-        if(cfg.ContainsKey("locked"))locked=Convert.ToBoolean(cfg["locked"]);options=EnergyBarOptions.Read(cfg);
+        if(cfg.ContainsKey("locked"))locked=Convert.ToBoolean(cfg["locked"]);options=EnergyBarOptions.Read(cfg);language=UiLanguage.Read(cfg);
     }catch{}}
-    void SaveSettings(){if(!restoringConfiguration)configurationHistory.Observe(Configuration);if(!preview){var core=CoreBounds;File.WriteAllText(Path.Combine(root,"overlay-settings.json"),new JavaScriptSerializer().Serialize(new {maximum=signal.Maximum,x=core.X,y=core.Y,width=core.Width,height=core.Height,locked=locked,field="008D/u32/kind3",validated=true,design="slim-v2",palette="dark-energy-v1",emissive=options.Emissive,energyBar=options}));}if(SettingsChanged!=null)SettingsChanged();}
-    void ApplyLock(){int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,locked?style|0x20:style&~0x20);editItem.Text=locked?"Unlock":"Lock";renderKey="";}
+    void SaveSettings(){if(!restoringConfiguration)configurationHistory.Observe(Configuration);if(!preview){var core=CoreBounds;File.WriteAllText(Path.Combine(root,"overlay-settings.json"),new JavaScriptSerializer().Serialize(new {maximum=signal.Maximum,x=core.X,y=core.Y,width=core.Width,height=core.Height,locked=locked,field="008D/u32/kind3",validated=true,design="slim-v2",palette="dark-energy-v1",emissive=options.Emissive,language=language,energyBar=options}));}if(SettingsChanged!=null)SettingsChanged();}
+    void ApplyLock(){int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,locked?style|0x20:style&~0x20);editItem.Text=UiLanguage.Text(locked?"Unlock":"Lock",language);renderKey="";}
     void ToggleLock(){EndResize();locked=!locked;}
     internal void ToggleWidgetsLock(){ToggleLock();}
-    internal string ReadingStatus {get{return options.Enabled?status:"Energy Bar disabled";}}
-    internal EnergyConfiguration Configuration {get{return new EnergyConfiguration{Options=options.Copy(),Bounds=CoreBounds,Locked=locked,Maximum=signal.Maximum};}}
+    internal string ReadingStatus {get{return UiLanguage.Text(options.Enabled?status:"Energy Bar disabled",language);}}
+    internal EnergyConfiguration Configuration {get{return new EnergyConfiguration{Options=options.Copy(),Bounds=CoreBounds,Locked=locked,Maximum=signal.Maximum,Language=language};}}
     internal bool CanUndoConfiguration {get{return configurationHistory.CanUndo;}}
     internal bool CanRedoConfiguration {get{return configurationHistory.CanRedo;}}
     internal void UndoConfiguration(){RestoreConfiguration(false);}
@@ -337,7 +339,7 @@ internal sealed class EnergyOverlay:Form {
         restoringConfiguration=true;try{ApplyConfiguration(cfg);}finally{restoringConfiguration=false;}
     }
     internal void ApplyConfiguration(EnergyConfiguration cfg){
-        bool wasEnabled=options.Enabled;EndResize();options=cfg.Options.Copy();options.Normalize();signal.Maximum=Math.Max(1u,cfg.Maximum);CoreBounds=cfg.Bounds;locked=cfg.Locked;
+        bool wasEnabled=options.Enabled;EndResize();language=UiLanguage.Normalize(cfg.Language);options=cfg.Options.Copy();options.Normalize();signal.Maximum=Math.Max(1u,cfg.Maximum);CoreBounds=cfg.Bounds;locked=cfg.Locked;
         if(!preview&&wasEnabled!=options.Enabled){recorder.MaintainAsync(options.Enabled);lastPoll=animationClock.Elapsed.TotalSeconds;}
         ApplyLock();renderKey="";statusKey="";UpdateBar();SaveSettings();
     }
@@ -363,7 +365,8 @@ internal sealed class EnergyOverlay:Form {
     void UpdateBar(){
         if(closing)return;var snapshot=signal.ReadSnapshot();var r=snapshot.Reading;double utcNow=(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds,now=animationClock.Elapsed.TotalSeconds;bool fresh=Fresh(snapshot,utcNow);double ratio=preview?previewRatio:r==null?0:(double)r.Value/signal.Maximum;
         string nextStatus=!options.Enabled?"Energy Bar disabled":fresh?ratio.ToString("P0")+(ratio>1?" · recalibrate the maximum":""):(startError.Length>0?startError:"No data · dash once to start");
-        if(nextStatus!=status){status=nextStatus;stateItem.Text=status;string tooltip="Aion 2 Helper · "+status;tray.Text=tooltip.Substring(0,Math.Min(63,tooltip.Length));}
+        if(nextStatus!=status)status=nextStatus;string localized=ReadingStatus;
+        if(stateItem.Text!=localized){stateItem.Text=localized;string tooltip="Aion 2 Helper · "+localized;tray.Text=tooltip.Substring(0,Math.Min(63,tooltip.Length));}
         motion.Step(now,!locked,fresh,ratio,preview?(uint)(previewRatio*100):r==null?0:r.Value,preview?100:signal.Maximum,options,preview?-1:fresh&&r!=null?Math.Max(0,utcNow-r.Timestamp):0);
         bool show=options.Enabled&&motion.Opacity>0;
         if(show&&!Visible){RenderNow(true);Show();OverlayNative.RaiseWithoutFocus(Handle);}else if(!show&&Visible)Hide();

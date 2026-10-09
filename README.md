@@ -5,8 +5,8 @@
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [initial public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.0.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.0.0/Aion-2-Helper-v1.0.0-windows-x64.zip).
+The [v1.1.0 public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.1.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.1.0/Aion-2-Helper-v1.1.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately;
 the game must be running with your character in the world to receive energy updates.
@@ -29,6 +29,7 @@ estimating energy by counting key presses.
 - Hide it automatically when full, with a configurable delay, or keep it visible.
 - Enable or disable the module while retaining all settings.
 - Settings with a live preview, integrated color picker, and automatic saving.
+- English and Spanish, selectable in **General → Language** without restarting.
 - Undo/redo through buttons or **Ctrl+Z / Ctrl+Y**.
 - A persistent tray icon and a shared lock for current and future widgets.
 
@@ -46,8 +47,7 @@ These are development goals, **not features included in the current version**:
 - **FPS display:** a small performance widget.
 - **Custom status bars:** player health and mana, and target/enemy bars where
   the required data is available.
-- **Language selection:** English is the current application language;
-  additional languages are planned.
+- **More languages:** further translations beyond English and Spanish.
 
 The availability and scope of future modules depend on what can be reliably read
 or measured. They are not activated by any setting in the current build.
@@ -72,6 +72,12 @@ hidden-icons menu.
 
 ### Settings
 
+**General**, above Energy Bar, includes an **English /
+Español** language selector. Changes apply immediately to Settings, the tray menu,
+the color picker, and normal energy status messages, and persist across restarts.
+English is the default for new installations and preferences from earlier versions.
+Low-level diagnostic tools and native error messages remain in English.
+
 Energy Bar has **Behavior**, **Appearance**, and **Position & calibration** tabs,
 with a persistent preview above them.
 
@@ -88,10 +94,16 @@ Colors and glow are fully adjustable. The default core size is 320 × 4 pixels;
 thickness can be reduced to 3 pixels. Glow margins are separate from core size.
 
 Preferences save automatically to **overlay-settings.json**. Undo/redo keeps up to
-100 changes, including colors, effects, position, size, calibration, and lock state.
+100 changes, including colors, effects, position, size, calibration, lock state,
+and language.
 History survives reopening Settings within the same application session and resets
 when the app exits. A new edit after undo replaces the pending redo branch.
 Text fields retain their local undo while editing.
+
+To update from v1.0.0, close Aion 2 Helper and extract the new ZIP into the same
+folder, replacing the program files. Keep **overlay-settings.json** to preserve
+your colors, effects, geometry, calibration, and lock state. The release ZIP does
+not contain or replace this file.
 
 **General status** separates the connection/reading message from the widget lock:
 green when unlocked and red when locked.
@@ -183,7 +195,8 @@ Enjoying Aion 2 Helper? Donations are welcome — coffee is our favorite buff! �
 Support is completely optional. The app is free to use, and feedback, bug reports,
 or a friendly thank-you are always appreciated too.
 
-Donation details will be added here once the Nexus page is ready.
+You can support the project through **Donations** on the
+[Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
 
 ## License status
 

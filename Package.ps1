@@ -1,4 +1,4 @@
-param([string]$Version = '1.0.0', [switch]$SkipBuild)
+param([string]$Version = '1.1.0', [switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release version.' }
 $projectRoot = $PSScriptRoot

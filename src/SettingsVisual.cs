@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -67,7 +67,19 @@ internal static class SettingsVisual {
             var reopened=new HelperSettings(owner);try{reopened.VerifyReopenedHistory(before);}finally{reopened.Close();}
             var commandMenu=new HelperTrayMenu(owner);try{commandMenu.VerifyLockCommand(owner);}finally{if(!commandMenu.IsDisposed)commandMenu.Close();}
         }
-        File.WriteAllText(Path.Combine(root,"settings-test.txt"),"PASS: HSV/HEX round-trip, decimal input without rounding unedited fields, settings preserve all options/geometry/maximum, every tab has controls, picker HEX/RGB validation; disabled module blocks controls/preview but retains its activation switch; bounded undo/redo, immutable snapshots, branch replacement, no-op saves preserve redo; overlay restoration, buttons and history across Settings reopening; tray menu screen bounds and shared lock command.");
+        using(var owner=new EnergyOverlay(root,true)){var settings=new HelperSettings(owner);try{settings.VerifyLanguages(root);}finally{settings.Close();}}
+        VerifyLanguagePersistence(root);
+        File.WriteAllText(Path.Combine(root,"settings-test.txt"),"PASS: HSV/HEX round-trip, decimal input without rounding unedited fields, settings preserve all options/geometry/maximum, every tab has controls, picker HEX/RGB validation; disabled module blocks controls/preview but retains its activation switch; bounded undo/redo, immutable snapshots, branch replacement, no-op saves preserve redo; overlay restoration, buttons and history across Settings reopening; tray menu screen bounds and shared lock command; live EN/ES selection, localized energy settings/tray/color picker, language undo/redo, independent general settings, persistence/restart and legacy/invalid language fallback.");
+    }
+    static void VerifyLanguagePersistence(string root){
+        if(UiLanguage.Read(new Dictionary<string,object>())!="en"||UiLanguage.Read(new Dictionary<string,object>{{"language","invalid"}})!="en")throw new Exception("Language migration/fallback");
+        // A disabled, isolated instance exercises the real save/load path without capture.
+        string folder=Path.Combine(root,".local-tools","language-settings-test");Directory.CreateDirectory(Path.Combine(folder,"protocol"));File.Copy(Path.Combine(root,"protocol","sync-opcodes.json"),Path.Combine(folder,"protocol","sync-opcodes.json"),true);
+        var cfg=new EnergyConfiguration{Options=new EnergyBarOptions{Enabled=false,LowColor="#123456"},Bounds=new Drawing.Rectangle(100,100,320,4),Maximum=120000,Locked=true,Language="es"};
+        var serializer=new System.Web.Script.Serialization.JavaScriptSerializer();string path=Path.Combine(folder,"overlay-settings.json");
+        File.WriteAllText(path,serializer.Serialize(new{maximum=cfg.Maximum,x=100,y=100,width=320,height=4,design="slim-v2",locked=true,energyBar=cfg.Options}));
+        using(var owner=new EnergyOverlay(folder)){if(owner.Language!="en")throw new Exception("Legacy language default");owner.ApplyConfiguration(cfg);}
+        using(var reopened=new EnergyOverlay(folder)){if(!ConfigurationHistory.Same(cfg,reopened.Configuration))throw new Exception("Language/preferences must survive restart");}
     }
 }
 
@@ -102,6 +114,9 @@ internal sealed class HelperSettings : Window {
     readonly TextBlock widgetStatus=SettingsVisual.Text("",11);
     readonly DispatcherTimer refresh=new DispatcherTimer();readonly BarDesign.GlowWorkspace previewGlow=new BarDesign.GlowWorkspace();readonly TextBlock activation=SettingsVisual.Text("Enabled",12,"#A7ADBA");
     readonly Button undo,redo;
+    readonly Button[] sections=new Button[2];readonly ComboBox languagePicker=new ComboBox{Width=190,Height=38};
+    readonly TextBlock sectionTitle=SettingsVisual.Text("Energy Bar",27),sectionSubtitle=SettingsVisual.Text("Energy bar for dash and sprint",13,"#929AA8");
+    readonly Grid activationRow=new Grid{Margin=new Thickness(0,18,0,0)};readonly StackPanel generalPage=new StackPanel();bool generalSelected;
     bool loading;DateTime noticeUntil;internal bool IsDisposed {get;private set;}
     internal HelperSettings(EnergyOverlay owner){
         overlay=owner;Title="Aion 2 Helper · Settings";SettingsVisual.Theme(this);Width=980;Height=816;MinWidth=880;MinHeight=650;
@@ -113,18 +128,19 @@ internal sealed class HelperSettings : Window {
         foreach(var size in new[]{GridLength.Auto,GridLength.Auto,GridLength.Auto,new GridLength(1,GridUnitType.Star),GridLength.Auto})body.RowDefinitions.Add(new RowDefinition{Height=size});
         var header=new Grid{Margin=new Thickness(0,0,0,18)};body.Children.Add(header);header.ColumnDefinitions.Add(new ColumnDefinition());header.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
         header.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});header.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
-        var titles=new StackPanel();titles.Children.Add(SettingsVisual.Text("Energy Bar",27));titles.Children.Add(new TextBlock{Text="Energy bar for dash and sprint",Foreground=SettingsVisual.Brush("#929AA8"),Margin=new Thickness(0,6,0,0)});header.Children.Add(titles);
+        var titles=new StackPanel();titles.Children.Add(sectionTitle);sectionSubtitle.Margin=new Thickness(0,6,0,0);titles.Children.Add(sectionSubtitle);header.Children.Add(titles);
         var tools=new StackPanel{Orientation=Orientation.Horizontal,VerticalAlignment=VerticalAlignment.Top};Grid.SetColumn(tools,1);header.Children.Add(tools);
         var minimize=SettingsVisual.Button("−",delegate{WindowState=WindowState.Minimized;});minimize.Width=30;minimize.Height=30;minimize.Padding=new Thickness(0);minimize.Background=SettingsVisual.Brush("#102F3542");AutomationProperties.SetName(minimize,"Minimize Settings");tools.Children.Add(minimize);
         var close=SettingsVisual.Button("×",delegate{Close();});close.Width=30;close.Height=30;close.FontSize=18;close.Margin=new Thickness(8,0,0,0);close.Padding=new Thickness(0);close.Background=SettingsVisual.Brush("#102F3542");AutomationProperties.SetName(close,"Close Settings");tools.Children.Add(close);
         titles.MouseLeftButtonDown+=delegate(object sender,MouseButtonEventArgs e){if(e.ButtonState==MouseButtonState.Pressed)DragMove();};
-        var activationRow=new Grid{Margin=new Thickness(0,18,0,0)};activationRow.ColumnDefinitions.Add(new ColumnDefinition());activationRow.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});Grid.SetRow(activationRow,1);Grid.SetColumnSpan(activationRow,2);header.Children.Add(activationRow);activationRow.Children.Add(SettingsVisual.Text("Enable Energy Bar",13));
+        activationRow.ColumnDefinitions.Add(new ColumnDefinition());activationRow.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});Grid.SetRow(activationRow,1);Grid.SetColumnSpan(activationRow,2);header.Children.Add(activationRow);activationRow.Children.Add(SettingsVisual.Text("Enable Energy Bar",13));
         var activationControls=new StackPanel{Orientation=Orientation.Horizontal};Grid.SetColumn(activationControls,1);activationRow.Children.Add(activationControls);activation.Margin=new Thickness(0,0,10,0);activationControls.Children.Add(activation);var enabled=new CheckBox();switches["Enabled"]=enabled;AutomationProperties.SetName(enabled,"Enable Energy Bar");activationControls.Children.Add(enabled);
         BuildPreview(body);
         Grid.SetRow(segmented,2);body.Children.Add(segmented);
         string[] names={"Behavior","Appearance","Position & calibration"};for(int n=0;n<3;n++){int tab=n;segmented.ColumnDefinitions.Add(new ColumnDefinition());tabs[n]=SettingsVisual.Button(names[n],delegate{SelectTab(tab);});tabs[n].Margin=new Thickness(n==0?0:4,0,n==2?0:4,0);Grid.SetColumn(tabs[n],n);segmented.Children.Add(tabs[n]);pages[n]=new StackPanel{Margin=new Thickness(0,0,12,0)};}
         scroller.Content=pageHost;scroller.SetResourceReference(FrameworkElement.StyleProperty,"SlimScroll");Grid.SetRow(scroller,3);body.Children.Add(scroller);foreach(var page in pages)pageHost.Children.Add(page);
         BuildBehavior();BuildAppearance();BuildPosition();
+        BuildGeneral(body);
         var footer=new Grid{Margin=new Thickness(0,14,0,0)};Grid.SetRow(footer,4);footer.ColumnDefinitions.Add(new ColumnDefinition());footer.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});body.Children.Add(footer);
         var historyActions=new StackPanel{Orientation=Orientation.Horizontal};footer.Children.Add(historyActions);
         undo=SettingsVisual.Button("↶  Undo",overlay.UndoConfiguration);undo.ToolTip="Undo the last change · Ctrl+Z";undo.Margin=new Thickness(0,0,8,0);historyActions.Children.Add(undo);
@@ -134,7 +150,7 @@ internal sealed class HelperSettings : Window {
         previewSlider.ValueChanged+=delegate{UpdatePreview();};SizeChanged+=delegate{UpdatePreview();};
         overlay.SettingsChanged+=Reload;Closed+=delegate{IsDisposed=true;refresh.Stop();refresh.Tick-=RefreshStatus;overlay.SettingsChanged-=Reload;previewImage.Source=null;};
         refresh.Interval=TimeSpan.FromMilliseconds(400);refresh.Tick+=RefreshStatus;Loaded+=delegate{refresh.Start();UpdatePreview();};
-        KeyDown+=delegate(object sender,KeyEventArgs e){if(e.Handled)return;if(Keyboard.Modifiers==ModifierKeys.Control&&e.Key==Key.Z){overlay.UndoConfiguration();e.Handled=true;}else if(Keyboard.Modifiers==ModifierKeys.Control&&e.Key==Key.Y){overlay.RedoConfiguration();e.Handled=true;}else if(e.Key==Key.Escape){Close();e.Handled=true;}};Reload();SelectTab(0);
+        KeyDown+=delegate(object sender,KeyEventArgs e){if(e.Handled)return;if(Keyboard.Modifiers==ModifierKeys.Control&&e.Key==Key.Z){overlay.UndoConfiguration();e.Handled=true;}else if(Keyboard.Modifiers==ModifierKeys.Control&&e.Key==Key.Y){overlay.RedoConfiguration();e.Handled=true;}else if(e.Key==Key.Escape){Close();e.Handled=true;}};Reload();SelectTab(0);SelectSection(true);
     }
     void BuildSidebar(Grid layout){
         var nav=new Grid{Margin=new Thickness(0)};var shell=new Border{Background=SettingsVisual.Brush("#40262A34"),CornerRadius=new CornerRadius(16,0,0,16),BorderBrush=SettingsVisual.Brush("#14FFFFFF"),BorderThickness=new Thickness(0,0,1,0),Child=nav};layout.Children.Add(shell);
@@ -144,7 +160,7 @@ internal sealed class HelperSettings : Window {
         string path=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"assets","aion-2-helper.png");if(File.Exists(path)){var bitmap=new BitmapImage();bitmap.BeginInit();bitmap.UriSource=new Uri(path);bitmap.CacheOption=BitmapCacheOption.OnLoad;bitmap.DecodePixelWidth=96;bitmap.EndInit();bitmap.Freeze();image.Source=bitmap;}brand.Children.Add(image);
         brand.Children.Add(SettingsVisual.Text("Aion 2 Helper",19));brand.Children.Add(new TextBlock{Text="SETTINGS",FontSize=10,Foreground=SettingsVisual.Brush("#818A9B"),Margin=new Thickness(0,8,0,0)});nav.Children.Add(brand);
         var section=new StackPanel{Margin=new Thickness(12,12,12,0)};Grid.SetRow(section,1);nav.Children.Add(section);
-        var selected=SettingsVisual.Button("◉   Energy Bar",delegate{});selected.HorizontalContentAlignment=HorizontalAlignment.Left;selected.Background=SettingsVisual.Brush("#235DC7B0");selected.Foreground=SettingsVisual.Brush("#A7E5D5");selected.BorderBrush=SettingsVisual.Brush("#3067C7B0");selected.Padding=new Thickness(12,11,12,11);section.Children.Add(selected);
+        for(int n=0;n<2;n++){bool isGeneral=n==0;var button=SettingsVisual.Button(isGeneral?"◉   General":"◉   Energy Bar",delegate{SelectSection(isGeneral);});button.HorizontalContentAlignment=HorizontalAlignment.Left;button.Padding=new Thickness(12,11,12,11);button.Margin=new Thickness(0,0,0,7);sections[n]=button;section.Children.Add(button);}
         var general=new StackPanel{Margin=new Thickness(22,20,18,25)};Grid.SetRow(general,2);nav.Children.Add(general);
         general.Children.Add(new Border{Height=1,Background=SettingsVisual.Brush("#16FFFFFF"),Margin=new Thickness(0,0,0,15)});
         general.Children.Add(SettingsVisual.Text("GENERAL STATUS",10,"#818A9B"));
@@ -153,6 +169,19 @@ internal sealed class HelperSettings : Window {
         widgetStatus.Margin=new Thickness(0,10,0,0);widgetStatus.LineHeight=16;general.Children.Add(widgetStatus);
         var widgets=SettingsVisual.Text("Move and resize widgets directly on screen.",11,"#8994A6");widgets.Margin=new Thickness(0,16,0,0);widgets.LineHeight=16;general.Children.Add(widgets);
         nav.MouseLeftButtonDown+=delegate(object sender,MouseButtonEventArgs e){if(e.OriginalSource==nav&&e.ButtonState==MouseButtonState.Pressed)DragMove();};
+    }
+    void BuildGeneral(Grid body){
+        generalPage.VerticalAlignment=VerticalAlignment.Top;Grid.SetRow(generalPage,1);Grid.SetRowSpan(generalPage,3);body.Children.Add(generalPage);
+        var group=Group(generalPage,"APPLICATION");var row=Row(group,"Language","Choose the language used by Aion 2 Helper.");Grid.SetColumn(languagePicker,1);row.Children.Add(languagePicker);AutomationProperties.SetName(languagePicker,"Language");
+        languagePicker.Items.Add(new ComboBoxItem{Content="English",Tag="en"});languagePicker.Items.Add(new ComboBoxItem{Content="Español",Tag="es"});
+        languagePicker.SelectionChanged+=delegate{if(loading||IsDisposed)return;var item=languagePicker.SelectedItem as ComboBoxItem;if(item==null)return;var cfg=overlay.Configuration;cfg.Language=(string)item.Tag;overlay.ApplyConfiguration(cfg);};
+        var note=SettingsVisual.Text("Changes apply immediately and are saved automatically.",11,"#8994A6");note.Margin=new Thickness(2,0,0,0);generalPage.Children.Add(note);
+    }
+    void SelectSection(bool general){
+        generalSelected=general;sectionTitle.Text=general?"General":"Energy Bar";sectionSubtitle.Text=general?"App preferences":"Energy bar for dash and sprint";
+        generalPage.Visibility=general?Visibility.Visible:Visibility.Collapsed;activationRow.Visibility=previewCard.Visibility=segmented.Visibility=scroller.Visibility=general?Visibility.Collapsed:Visibility.Visible;
+        for(int n=0;n<2;n++){bool selected=(n==0)==general;sections[n].Background=SettingsVisual.Brush(selected?"#235DC7B0":"#0CFFFFFF");sections[n].Foreground=SettingsVisual.Brush(selected?"#A7E5D5":"#929CAD");sections[n].BorderBrush=SettingsVisual.Brush(selected?"#3067C7B0":"#10FFFFFF");}
+        UiLanguage.Apply(this,overlay.Language);
     }
     void BuildPreview(Grid body){
         var content=new StackPanel();var head=SettingsVisual.Text("PREVIEW",10,"#929CAD");head.Margin=new Thickness(0,0,0,10);content.Children.Add(head);
@@ -185,33 +214,33 @@ internal sealed class HelperSettings : Window {
         var group=Group(pages[2],"GEOMETRY");Number(group,"Width","Width","px",BarDesign.MinimumWidth,BarDesign.MaximumWidth,0,1);Number(group,"Height","Thickness","px",BarDesign.MinimumHeight,BarDesign.MaximumHeight,0,1);Number(group,"X","Horizontal position","px",-100000,100000,0,1);Number(group,"Y","Vertical position","px",-100000,100000,0,1);
         ActionRow(group,"Reset size · 320 × 4",delegate{var cfg=overlay.Configuration;cfg.Bounds=new Drawing.Rectangle(cfg.Bounds.Location,new Drawing.Size(320,4));overlay.ApplyConfiguration(cfg);});
         group=Group(pages[2],"ENERGY CALIBRATION");Number(group,"Maximum","Character maximum","",1,uint.MaxValue,0,100,"Reference value for 100% energy.");
-        ActionRow(group,"Use current reading as maximum",delegate{if(!overlay.Calibrate()){noticeUntil=DateTime.UtcNow.AddSeconds(8);status.Text="No game reading. Enter the game, dash once, and wait for full energy before calibrating.";}});
+        ActionRow(group,"Use current reading as maximum",delegate{if(!overlay.Calibrate()){noticeUntil=DateTime.UtcNow.AddSeconds(8);status.Text=UiLanguage.Text("No game reading. Enter the game, dash once, and wait for full energy before calibrating.",overlay.Language);}});
         group.Children.Add(new TextBlock{Text="Enter the game with your character and dash once to start receiving readings. Wait until your energy is completely full, then click the button to save that value as your maximum.\n\nThis uses your current energy; it does not automatically detect your maximum. Using it before energy is full will give an incorrect percentage. Only recalibrate if you change characters or the bar no longer matches the game.",FontSize=11,Foreground=SettingsVisual.Brush("#8994A6"),TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,13)});
     }
     void SelectTab(int selected){for(int n=0;n<3;n++){pages[n].Visibility=n==selected?Visibility.Visible:Visibility.Collapsed;tabs[n].Background=SettingsVisual.Brush(n==selected?"#383A4659":"#0CFFFFFF");tabs[n].BorderBrush=SettingsVisual.Brush(n==selected?"#3DFFFFFF":"#10FFFFFF");tabs[n].Foreground=SettingsVisual.Brush(n==selected?"#F0F1F5":"#929CAD");}scroller.ScrollToTop();}
     bool Flag(string key){return switches[key].IsChecked==true;}decimal Num(string key){return numbers[key].Value;}
     internal EnergyConfiguration ReadConfiguration(){
         var options=new EnergyBarOptions{Enabled=Flag("Enabled"),AutoHide=Flag("AutoHide"),Fade=Flag("Fade"),Smooth=Flag("Smooth"),Emissive=Flag("Emissive"),DynamicColors=Flag("DynamicColors"),HoldSeconds=(double)Num("HoldSeconds"),FadeSeconds=(double)Num("FadeMs")/1000,SmoothingSeconds=(double)Num("SmoothMs")/1000,GlowPercent=(int)Num("GlowPercent"),TrackOpacity=(int)Math.Round((double)Num("TrackPercent")*255/100),LowColor=colorValues["LowColor"],MediumColor=colorValues["MediumColor"],HighColor=colorValues["HighColor"]};options.Normalize();
-        return new EnergyConfiguration{Options=options,Bounds=new Drawing.Rectangle((int)Num("X"),(int)Num("Y"),(int)Num("Width"),(int)Num("Height")),Locked=overlay.InteractionLock.Locked,Maximum=(uint)Num("Maximum")};
+        return new EnergyConfiguration{Options=options,Bounds=new Drawing.Rectangle((int)Num("X"),(int)Num("Y"),(int)Num("Width"),(int)Num("Height")),Locked=overlay.InteractionLock.Locked,Maximum=(uint)Num("Maximum"),Language=overlay.Language};
     }
     void Changed(){if(loading||IsDisposed)return;overlay.ApplyConfiguration(ReadConfiguration());}
-    void UpdateWidgetStatus(){string text=overlay.InteractionLock.Locked?"Widgets locked":"Widgets unlocked";if(widgetStatus.Text==text)return;widgetStatus.Text=text;widgetStatus.Foreground=SettingsVisual.Brush(overlay.InteractionLock.Locked?"#EB9A91":"#84B8AB");}
+    void UpdateWidgetStatus(){string text=UiLanguage.Text(overlay.InteractionLock.Locked?"Widgets locked":"Widgets unlocked",overlay.Language);if(widgetStatus.Text==text)return;widgetStatus.Text=text;widgetStatus.Foreground=SettingsVisual.Brush(overlay.InteractionLock.Locked?"#EB9A91":"#84B8AB");}
     void RefreshStatus(object sender,EventArgs e){if(DateTime.UtcNow>=noticeUntil&&status.Text!=overlay.ReadingStatus)status.Text=overlay.ReadingStatus;UpdateWidgetStatus();}
     void Reload(){if(IsDisposed)return;loading=true;try{
-        var cfg=overlay.Configuration;var o=cfg.Options;switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
+        var cfg=overlay.Configuration;languagePicker.SelectedIndex=cfg.Language=="es"?1:0;var o=cfg.Options;switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
         numbers["Width"].Value=cfg.Bounds.Width;numbers["Height"].Value=cfg.Bounds.Height;numbers["X"].Value=cfg.Bounds.X;numbers["Y"].Value=cfg.Bounds.Y;numbers["Maximum"].Value=cfg.Maximum;numbers["HoldSeconds"].Value=(decimal)o.HoldSeconds;numbers["FadeMs"].Value=(decimal)(o.FadeSeconds*1000);numbers["SmoothMs"].Value=(decimal)(o.SmoothingSeconds*1000);numbers["GlowPercent"].Value=o.GlowPercent;numbers["TrackPercent"].Value=(decimal)(o.TrackOpacity*100.0/255);
         SetColor("LowColor",o.LowColor);SetColor("MediumColor",o.MediumColor);SetColor("HighColor",o.HighColor);
         foreach(var input in numbers.Values)input.IsEnabled=o.Enabled;foreach(var input in colors.Values)input.IsEnabled=o.Enabled;foreach(var input in switches)if(input.Key!="Enabled")input.Value.IsEnabled=o.Enabled;foreach(var tab in tabs)tab.IsEnabled=o.Enabled;
         numbers["HoldSeconds"].IsEnabled=o.Enabled&&o.AutoHide;numbers["FadeMs"].IsEnabled=o.Enabled&&o.Fade;numbers["SmoothMs"].IsEnabled=o.Enabled&&o.Smooth;numbers["GlowPercent"].IsEnabled=o.Enabled&&o.Emissive;colors["LowColor"].IsEnabled=colors["HighColor"].IsEnabled=o.Enabled&&o.DynamicColors;
         previewCard.IsEnabled=segmented.IsEnabled=scroller.IsEnabled=previewSlider.IsEnabled=o.Enabled;previewCard.Opacity=o.Enabled?1:.38;segmented.Opacity=scroller.Opacity=o.Enabled?1:.45;
-        activation.Text=o.Enabled?"Enabled":"Disabled";undo.IsEnabled=overlay.CanUndoConfiguration;redo.IsEnabled=overlay.CanRedoConfiguration;UpdatePreview();status.Text=overlay.ReadingStatus;UpdateWidgetStatus();
+        activation.Text=o.Enabled?"Enabled":"Disabled";undo.IsEnabled=overlay.CanUndoConfiguration;redo.IsEnabled=overlay.CanRedoConfiguration;UpdatePreview();status.Text=overlay.ReadingStatus;UpdateWidgetStatus();UiLanguage.Apply(this,overlay.Language);
     }finally{loading=false;}}
     void SetColor(string key,string hex){
         colorValues[key]=hex;var content=new StackPanel{Orientation=Orientation.Horizontal};content.Children.Add(new Border{Width=17,Height=17,CornerRadius=new CornerRadius(5),Background=SettingsVisual.Brush(hex),BorderBrush=SettingsVisual.Brush("#45FFFFFF"),BorderThickness=new Thickness(1),Margin=new Thickness(0,0,9,0)});content.Children.Add(SettingsVisual.Text(hex.ToUpperInvariant(),12,"#D1D6E0"));colors[key].Content=content;
     }
-    void PickColor(string key,string label){var picker=new HelperColorPicker(colorValues[key],label){Owner=this};if(picker.ShowDialog()==true){SetColor(key,picker.SelectedHex);Changed();}}
+    void PickColor(string key,string label){var picker=new HelperColorPicker(colorValues[key],label,overlay.Language){Owner=this};if(picker.ShowDialog()==true){SetColor(key,picker.SelectedHex);Changed();}}
     void UpdatePreview(){if(colorValues.Count!=3||IsDisposed)return;int width=(int)Math.Max(200,Math.Min(640,ActualWidth>0?ActualWidth-325:550));var o=ReadConfiguration().Options;if(!o.Enabled){o.DynamicColors=false;o.MediumColor="#555B65";}using(var image=BarDesign.RenderEmissive(width,4,previewSlider.Value/100,false,true,1,o,previewGlow))previewImage.Source=SettingsVisual.Bitmap(image);previewValue.Text=Math.Round(previewSlider.Value)+" %";}
-    internal void VerifyLayout(){if(switches.Count!=6||numbers.Count!=10||colors.Count!=3)throw new Exception("Missing settings control");for(int n=0;n<3;n++){SelectTab(n);if(pages[n].Children.Count==0||pages[n].Visibility!=Visibility.Visible)throw new Exception("Empty settings tab");}VerifyModuleState(overlay.Configuration.Options.Enabled);}
+    internal void VerifyLayout(){SelectSection(false);if(switches.Count!=6||numbers.Count!=10||colors.Count!=3)throw new Exception("Missing settings control");for(int n=0;n<3;n++){SelectTab(n);if(pages[n].Children.Count==0||pages[n].Visibility!=Visibility.Visible)throw new Exception("Empty settings tab");}VerifyModuleState(overlay.Configuration.Options.Enabled);}
     void VerifyModuleState(bool enabled){if(!switches["Enabled"].IsEnabled||previewCard.IsEnabled!=enabled||segmented.IsEnabled!=enabled||scroller.IsEnabled!=enabled||previewSlider.IsEnabled!=enabled)throw new Exception("Module switch must stay enabled while all energy controls/preview are disabled");if(!enabled)foreach(var control in numbers.Values)if(control.IsEnabled)throw new Exception("Disabled energy inputs must reject editing");}
     internal void VerifyHistory(string root){
         var baseline=overlay.Configuration;if(undo.IsEnabled||redo.IsEnabled)throw new Exception("Initial history buttons");
@@ -231,13 +260,28 @@ internal sealed class HelperSettings : Window {
         redo.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));if(overlay.Configuration.Options.MediumColor!="#654321"||!undo.IsEnabled||redo.IsEnabled)throw new Exception("Reopened redo button");
         undo.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));if(!ConfigurationHistory.Same(overlay.Configuration,baseline)||!ConfigurationHistory.Same(ReadConfiguration(),baseline)||undo.IsEnabled||!redo.IsEnabled)throw new Exception("Reopened undo button");
     }
+    internal void VerifyLanguages(string root){
+        var original=overlay.Configuration;languagePicker.SelectedIndex=0;var english=overlay.Configuration;SelectSection(true);
+        string designs=Path.Combine(root,"designs");Directory.CreateDirectory(designs);SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-general-en.png"));
+        languagePicker.SelectedIndex=1;var spanish=english.Copy();spanish.Language="es";
+        if(!ConfigurationHistory.Same(spanish,overlay.Configuration)||!ConfigurationHistory.Same(spanish,ReadConfiguration())||!generalSelected||Title!="Aion 2 Helper · Ajustes"||(string)sections[1].Content!="◉   Barra de energía")throw new Exception("Live Spanish selection must preserve energy preferences and the current section");
+        SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-general-es.png"));SelectSection(false);SelectTab(1);
+        if(sectionTitle.Text!="Barra de energía"||(string)tabs[1].Content!="Apariencia")throw new Exception("Energy section translations");
+        SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-energy-es.png"));
+        var menu=new HelperTrayMenu(overlay);try{menu.Verify();if(!menu.VerifyLanguage("Ajustes"))throw new Exception("Spanish tray menu");SettingsVisual.RenderPreview(menu,Path.Combine(designs,"tray-menu-es.png"));}finally{menu.Close();}
+        var picker=new HelperColorPicker("#B85416","Medium energy","es");try{if(!picker.VerifyLanguage("Elegir color"))throw new Exception("Spanish color picker");SettingsVisual.RenderPreview(picker,Path.Combine(designs,"color-picker-es.png"));}finally{picker.Close();}
+        SelectSection(true);var disabled=spanish.Copy();disabled.Options.Enabled=false;overlay.ApplyConfiguration(disabled);if(!languagePicker.IsEnabled||generalPage.Opacity!=1)throw new Exception("Language must remain editable with the energy module disabled");
+        overlay.UndoConfiguration();overlay.UndoConfiguration();if(!ConfigurationHistory.Same(english,overlay.Configuration)||languagePicker.SelectedIndex!=0||Title!="Aion 2 Helper · Settings"||(string)tabs[1].Content!="Appearance"||(string)sections[1].Content!="◉   Energy Bar")throw new Exception("Undo language must restore all English labels");
+        overlay.RedoConfiguration();if(!ConfigurationHistory.Same(spanish,overlay.Configuration)||languagePicker.SelectedIndex!=1)throw new Exception("Redo language");overlay.ApplyConfiguration(original);
+    }
 }
 
 internal sealed class HelperTrayMenu : Window {
     [StructLayout(LayoutKind.Sequential)]struct NativeRect {internal int Left,Top,Right,Bottom;}
     [DllImport("user32.dll")]static extern bool GetWindowRect(IntPtr window,out NativeRect rectangle);
-    readonly List<Button> actions=new List<Button>();readonly string lockLabel;internal bool IsDisposed {get;private set;}
+    readonly List<Button> actions=new List<Button>();readonly string lockLabel;readonly string menuLanguage;internal bool IsDisposed {get;private set;}
     internal HelperTrayMenu(EnergyOverlay owner){
+        menuLanguage=owner.Language;
         Title="Aion 2 Helper · Menu";SettingsVisual.Theme(this);Width=246;Height=194;ResizeMode=ResizeMode.NoResize;ShowInTaskbar=false;Topmost=true;WindowStartupLocation=WindowStartupLocation.Manual;
         var content=new StackPanel{Margin=new Thickness(9,10,9,9)};Content=SettingsVisual.Shell(content);KeyboardNavigation.SetDirectionalNavigation(content,KeyboardNavigationMode.Cycle);
         var title=SettingsVisual.Text("AION 2 HELPER",10,"#8895A8");title.Margin=new Thickness(12,2,0,9);content.Children.Add(title);
@@ -245,7 +289,7 @@ internal sealed class HelperTrayMenu : Window {
         lockLabel=owner.Configuration.Locked?"Unlock":"Lock";AddAction(content,lockLabel,owner.Configuration.Locked?"unlock":"lock",owner.ToggleWidgetsLock);
         content.Children.Add(new Border{Height=1,Background=SettingsVisual.Brush("#18FFFFFF"),Margin=new Thickness(11,7,11,7)});
         AddAction(content,"Quit Aion 2 Helper","close",delegate{owner.Close();});
-        Deactivated+=delegate{if(IsVisible&&!IsDisposed)Close();};Closed+=delegate{IsDisposed=true;};KeyDown+=delegate(object sender,KeyEventArgs e){if(e.Key==Key.Escape){Close();e.Handled=true;}};
+        Deactivated+=delegate{if(IsVisible&&!IsDisposed)Close();};Closed+=delegate{IsDisposed=true;};KeyDown+=delegate(object sender,KeyEventArgs e){if(e.Key==Key.Escape){Close();e.Handled=true;}};UiLanguage.Apply(this,owner.Language);
     }
     void AddAction(StackPanel host,string label,string kind,Action action){
         var button=SettingsVisual.Button("",delegate{Close();action();});button.Padding=new Thickness(12,9,12,9);button.BorderThickness=new Thickness(0);button.Background=Brushes.Transparent;button.Margin=new Thickness(0,1,0,1);AutomationProperties.SetName(button,label);
@@ -267,9 +311,10 @@ internal sealed class HelperTrayMenu : Window {
         Opacity=1;Activate();actions[0].Focus();
     }
     internal void Verify(){
-        if(actions.Count!=3||AutomationProperties.GetName(actions[1])!=lockLabel)throw new Exception("Tray menu commands/lock label");
+        if(actions.Count!=3||AutomationProperties.GetName(actions[1])!=UiLanguage.Text(lockLabel,menuLanguage))throw new Exception("Tray menu commands/lock label");
         foreach(var area in new[]{new Drawing.Rectangle(0,0,1920,1040),new Drawing.Rectangle(-1920,0,1920,1040)})foreach(var cursor in new[]{new Drawing.Point(area.Left+2,area.Top+2),new Drawing.Point(area.Right-2,area.Bottom+30)})if(!area.Contains(new Drawing.Rectangle(Position(cursor,area,246,194),new Drawing.Size(246,194))))throw new Exception("Tray menu must fit the target monitor working area");
     }
+    internal bool VerifyLanguage(string settingsLabel){return AutomationProperties.GetName(actions[0])==settingsLabel;}
     internal void VerifyLockCommand(EnergyOverlay owner){
         owner.Show();System.Windows.Forms.Application.DoEvents();var before=owner.Configuration;actions[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         if(!IsDisposed||owner.Configuration.Locked==before.Locked)throw new Exception("Tray lock command must close the popup and toggle the shared lock");
@@ -292,13 +337,15 @@ internal sealed class PickerHue : FrameworkElement {
 }
 
 internal sealed class HelperColorPicker : Window {
+    readonly TextBlock heading=SettingsVisual.Text("Choose color",23);
     readonly PickerPlane plane=new PickerPlane();readonly PickerHue hue=new PickerHue();readonly TextBox hex=new TextBox();readonly TextBox[] rgb={new TextBox(),new TextBox(),new TextBox()};
     readonly Border current=new Border(),original=new Border();readonly TextBlock error=SettingsVisual.Text("",11,"#EB9A91");readonly Image glow=new Image{Height=20,Stretch=Stretch.None};readonly BarDesign.GlowWorkspace workspace=new BarDesign.GlowWorkspace();
-    bool writing;internal string SelectedHex {get;private set;}
-    internal HelperColorPicker(string initial,string title){
+    readonly string language;bool writing;internal string SelectedHex {get;private set;}
+    internal HelperColorPicker(string initial,string title,string selectedLanguage="en"){
+        language=UiLanguage.Normalize(selectedLanguage);
         Title="Aion 2 Helper · Color";SettingsVisual.Theme(this);ResizeMode=ResizeMode.NoResize;Width=434;Height=610;WindowStartupLocation=WindowStartupLocation.CenterOwner;
         var content=new StackPanel{Margin=new Thickness(23,20,23,20)};Content=SettingsVisual.Shell(content);
-        var header=new Grid();header.ColumnDefinitions.Add(new ColumnDefinition());header.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});content.Children.Add(header);header.Children.Add(SettingsVisual.Text("Choose color",23));var close=SettingsVisual.Button("×",delegate{DialogResult=false;});close.Width=30;close.Height=30;close.Padding=new Thickness(0);Grid.SetColumn(close,1);header.Children.Add(close);AutomationProperties.SetName(close,"Cancel color selection");header.MouseLeftButtonDown+=delegate(object sender,MouseButtonEventArgs e){if(e.ButtonState==MouseButtonState.Pressed&&e.OriginalSource is TextBlock)DragMove();};
+        var header=new Grid();header.ColumnDefinitions.Add(new ColumnDefinition());header.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});content.Children.Add(header);header.Children.Add(heading);var close=SettingsVisual.Button("×",delegate{DialogResult=false;});close.Width=30;close.Height=30;close.Padding=new Thickness(0);Grid.SetColumn(close,1);header.Children.Add(close);AutomationProperties.SetName(close,"Cancel color selection");header.MouseLeftButtonDown+=delegate(object sender,MouseButtonEventArgs e){if(e.ButtonState==MouseButtonState.Pressed&&e.OriginalSource is TextBlock)DragMove();};
         content.Children.Add(new TextBlock{Text=title,FontSize=12,Foreground=SettingsVisual.Brush("#929CAD"),Margin=new Thickness(0,6,0,18)});content.Children.Add(plane);hue.Margin=new Thickness(0,14,0,14);content.Children.Add(hue);
         var samples=new Grid();samples.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(48)});samples.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(48)});samples.ColumnDefinitions.Add(new ColumnDefinition());content.Children.Add(samples);
         original.Background=SettingsVisual.Brush(initial);original.CornerRadius=new CornerRadius(8,0,0,8);original.Height=36;original.ToolTip="Previous color";samples.Children.Add(original);current.CornerRadius=new CornerRadius(0,8,8,0);current.Height=36;Grid.SetColumn(current,1);samples.Children.Add(current);glow.Margin=new Thickness(15,0,0,0);Grid.SetColumn(glow,2);samples.Children.Add(glow);
@@ -309,15 +356,16 @@ internal sealed class HelperColorPicker : Window {
         var actions=new Grid{Margin=new Thickness(0,22,0,0)};actions.ColumnDefinitions.Add(new ColumnDefinition());actions.ColumnDefinitions.Add(new ColumnDefinition());content.Children.Add(actions);var cancel=SettingsVisual.Button("Cancel",delegate{DialogResult=false;});cancel.Margin=new Thickness(0,0,5,0);actions.Children.Add(cancel);var apply=SettingsVisual.Button("Apply color",delegate{if(CommitFields())DialogResult=true;},true);apply.Margin=new Thickness(5,0,0,0);Grid.SetColumn(apply,1);actions.Children.Add(apply);
         plane.Changed+=UpdateColor;hue.Changed+=delegate{plane.Hue=hue.Hue;plane.InvalidateVisual();UpdateColor();};
         hex.TextChanged+=delegate{if(!writing)hex.Tag=true;};foreach(var input in rgb)input.TextChanged+=delegate{if(!writing)input.Tag=true;};
-        KeyDown+=delegate(object sender,KeyEventArgs e){if(e.Key==Key.Escape){DialogResult=false;e.Handled=true;}};Closed+=delegate{glow.Source=null;};SetHex(initial);
+        KeyDown+=delegate(object sender,KeyEventArgs e){if(e.Key==Key.Escape){DialogResult=false;e.Handled=true;}};Closed+=delegate{glow.Source=null;};SetHex(initial);UiLanguage.Apply(this,language);
     }
     void SetHex(string value){double h,s,v;SettingsVisual.ToHsv((Color)ColorConverter.ConvertFromString(value),out h,out s,out v);plane.Hue=h;plane.Saturation=s;plane.Value=v;hue.Hue=h;plane.InvalidateVisual();hue.InvalidateVisual();UpdateColor();}
     void UpdateColor(){var color=SettingsVisual.Hsv(plane.Hue,plane.Saturation,plane.Value);SelectedHex=SettingsVisual.Hex(color);writing=true;try{hex.Text=SelectedHex;hex.Tag=null;for(int n=0;n<3;n++){rgb[n].Text=new[]{color.R,color.G,color.B}[n].ToString(CultureInfo.InvariantCulture);rgb[n].Tag=null;}}finally{writing=false;}error.Text="";current.Background=new SolidColorBrush(color);
         var options=new EnergyBarOptions{DynamicColors=false,MediumColor=SelectedHex};using(var bitmap=BarDesign.RenderEmissive(160,4,.8,false,true,1,options,workspace))glow.Source=SettingsVisual.Bitmap(bitmap);
     }
     bool CommitFields(){if(writing)return true;bool dirtyRgb=false;foreach(var input in rgb)if(input.Tag!=null)dirtyRgb=true;
-        if(hex.Tag!=null){string value=hex.Text.Trim();if(!value.StartsWith("#"))value="#"+value;if(!EnergyBarOptions.ValidColor(value)){error.Text="Enter a valid HEX color, such as #B85416.";return false;}SetHex(value);}
-        else if(dirtyRgb){byte r,g,b;if(!byte.TryParse(rgb[0].Text,out r)||!byte.TryParse(rgb[1].Text,out g)||!byte.TryParse(rgb[2].Text,out b)){error.Text="RGB values must be between 0 and 255.";return false;}SetHex(SettingsVisual.Hex(Color.FromRgb(r,g,b)));}return true;
+        if(hex.Tag!=null){string value=hex.Text.Trim();if(!value.StartsWith("#"))value="#"+value;if(!EnergyBarOptions.ValidColor(value)){error.Text=UiLanguage.Text("Enter a valid HEX color, such as #B85416.",language);return false;}SetHex(value);}
+        else if(dirtyRgb){byte r,g,b;if(!byte.TryParse(rgb[0].Text,out r)||!byte.TryParse(rgb[1].Text,out g)||!byte.TryParse(rgb[2].Text,out b)){error.Text=UiLanguage.Text("RGB values must be between 0 and 255.",language);return false;}SetHex(SettingsVisual.Hex(Color.FromRgb(r,g,b)));}return true;
     }
     internal void VerifyColorInputs(){hex.Text="invalid";if(CommitFields())throw new Exception("Invalid HEX accepted");hex.Text="123456";if(!CommitFields()||SelectedHex!="#123456")throw new Exception("HEX input");rgb[0].Text="256";if(CommitFields())throw new Exception("Invalid RGB accepted");rgb[0].Text="42";if(!CommitFields()||!SelectedHex.StartsWith("#2A"))throw new Exception("RGB input");}
+    internal bool VerifyLanguage(string text){return heading.Text==text;}
 }
