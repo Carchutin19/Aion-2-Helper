@@ -52,6 +52,13 @@ the default options, restart the helper, then dash once with your character.
 - EN/ES requirement-card rendering, button labels/accessibility, official URL,
   and continued access to FPS/General with Energy Bar disabled.
 - Packaged Settings, FPS, Energy Bar and native capture self-tests.
+- A subsequent 20-minute gameplay observation recorded 2,839 energy readings
+  with zero decoder errors and valid FPS in all 1,188 observations. Mean combined
+  CPU was 0.046% of total capacity on a 32-logical-processor PC; resident memory
+  stayed around 275 MiB. The FPS refresh interval was 2,000 ms. See
+  [performance details and limits](performance/README.md) for the configuration
+  and method. This is an observation of the existing build, without a change to
+  its rendering or a claim of improved game FPS.
 
 ---
 

@@ -1,5 +1,52 @@
 # Optimization verification
 
+## v1.2.2 — 20-minute gameplay observation, 10 October 2026
+
+A complete 1,200-second session sampled OS process counters and the helper's
+existing status file about once per second, producing 1,188 observations. The
+game and helper stayed running with normal gameplay. No additional game capture,
+frame trace, memory inspection or changes to settings were used during the run.
+
+Configuration: Windows 11 Home (build 26300), 32 logical processors, Energy Bar enabled at 610 × 6
+pixels with emissive glow at 100%, smoothing, fades and automatic hiding; FPS
+Counter enabled at 87 × 37 pixels with its background and a **2,000 ms refresh
+interval**. This is an existing application session, rather than a cold launch.
+The default 250 ms FPS interval was not measured in this session.
+
+| Measurement | Helper + FPS reader |
+| --- | ---: |
+| Mean CPU, normalized to the PC's total logical capacity | 0.046% |
+| Highest CPU observation over an approximately one-second interval | 0.676% |
+| Mean resident working set | 274.94 MiB |
+| Highest observed resident working set | 275.18 MiB |
+| New energy readings | 2,839 |
+| Energy decoder errors during the run | 0 |
+| Observations with a valid FPS reading | 1,188 / 1,188 |
+
+Mean resident memory was 239.11 MiB for the main helper and 35.82 MiB for the FPS
+reader. The combined working set stayed between 274.66 and 275.18 MiB. Comparing
+the first and last minute, the combined resident mean increased by only 0.084 MiB;
+private committed memory increased by 0.433 MiB. GDI objects stayed at 56 apart
+from a temporary increase to 58 and returned to 56. Handles fluctuated within a
+bounded range. No sustained resource growth was observed over these 20 minutes.
+
+The energy widget was visible in 561 observations and hidden in 627. The same FPS
+reader remained running throughout, with no PresentMon fallback or reader restart
+observed. The sampler's own mean CPU was 0.048% and resident memory 32.9 MiB;
+these are excluded from all helper figures above.
+
+On this 32-logical-processor PC, 0.046% of total CPU corresponds to roughly 1.47%
+of one logical processor. These measurements describe this configuration and
+workload, rather than a guarantee for other PCs. The actual game process's CPU
+and RAM counters were protected; its bootstrap process was not used as a proxy.
+GPU cost was not measured. FPS values are snapshots of the existing counter,
+not frame-time data or 1% lows, and there was no helper-on/off comparison.
+Brief interruptions between observations cannot be excluded.
+
+The observations do not identify an additional performance change worth making.
+The existing rendering, emissive glow and text appearance remain intact. Raw
+process/status samples and the local monitoring tools remain private.
+
 ## v1.2.1 — 9 October 2026
 
 Compared against the public v1.2.0 executable on the same development PC:
