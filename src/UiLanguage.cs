@@ -9,6 +9,7 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
+        {"Player {0}","Jugador {0}"},
         {"◉   Notifications","◉   Notificaciones"},{"Notifications","Notificaciones"},{"Useful alerts while you play","Avisos útiles mientras juegas"},{"Enable notifications","Activar notificaciones"},
         {"PARTY INVITATIONS","INVITACIONES DE GRUPO"},{"Show party invitations","Mostrar invitaciones de grupo"},{"Play notification sound","Reproducir sonido"},{"Sound volume","Volumen del sonido"},{"Text size","Tamaño del texto"},{"Notification duration","Duración del aviso"},{"Test notification","Probar notificación"},
         {"Enable all notifications","Activar todas las notificaciones"},{"NOTIFICATION TYPES","TIPOS DE NOTIFICACIÓN"},{"Party invitations","Invitaciones al grupo"},{"COMMON SETTINGS","AJUSTES COMUNES"},
@@ -17,6 +18,16 @@ internal static class UiLanguage {
         {"All notifications are disabled.","Todas las notificaciones están desactivadas."},{"Party invitations are disabled.","Las invitaciones al grupo están desactivadas."},
         {"Party invitation","Invitación al grupo"},{"{0} is inviting you to a party.","{0} te está invitando al grupo."},{"Sample player","Jugador de ejemplo"},{"Sample notification · not a game event","Notificación de ejemplo · no es un evento del juego"},
         {"Notification","Notificación"},{"This is a sample notification.","Esto es una notificación de ejemplo."},
+        {"Shugo Festival","Festival de Shugo"},{"Shugo Festival starts in 5 minutes.","El festival de Shugo empieza en 5 minutos."},
+        {"Shugo Festival · 5 minutes before","Festival de Shugo · 5 minutos antes"},{"Test Shugo reminder","Probar aviso de Shugo"},
+        {"Shugo Festival · registration opens","Festival de Shugo · apertura de inscripción"},
+        {"You can now sign up for Shugo Festival.","Ya puedes apuntarte al festival de Shugo."},
+        {"Test 5-minute reminder","Probar aviso de 5 minutos"},{"Test opening reminder","Probar aviso de apertura"},
+        {"Reminders at :55 and :00 while Aion 2 is open. Turn each one on or off independently.","Avisos a los :55 y a la hora en punto mientras Aion 2 está abierto. Puedes activar o desactivar cada uno por separado."},
+        {"Hourly Shugo reminders enabled.","Avisos horarios de Shugo activados."},
+        {"Hourly reminder at :55 while Aion 2 is open. Uses the hourly :00 schedule and your computer clock.","Aviso a los :55 mientras Aion 2 está abierto. Sigue el horario de cada hora en punto y el reloj del PC."},
+        {"Party invitations and hourly Shugo reminders enabled.","Invitaciones al grupo y avisos horarios de Shugo activados."},
+        {"Hourly Shugo reminder enabled (:55).","Aviso horario de Shugo activado (:55)."},{"No notification types enabled.","No hay tipos de notificación activados."},
         {"Invitation detection is awaiting a live test.","Detección de invitaciones pendiente de la prueba en el juego."},{"Listening for party invitations.","Esperando invitaciones de grupo."},{"Notification sound file is missing.","No se encuentra el archivo de sonido."},{"Notification sound could not be played.","No se ha podido reproducir el sonido."},
         {"POSITION & SIZE","POSICIÓN Y TAMAÑO"},{"Unlock widgets to move or resize the notification area. A sample stays visible while editing; it does not play a sound.","Desbloquea los widgets para mover o ajustar el área de avisos. Al editar se muestra un ejemplo sin reproducir sonido."},
         {"◉   DPS Meter","◉   Medidor de DPS"},{"DPS Meter","Medidor de DPS"},{"Combat damage · experimental alpha","Daño en combate · versión alpha experimental"},
@@ -94,7 +105,7 @@ internal static class UiLanguage {
         {"✓  Changes saved automatically","✓  Cambios guardados automáticamente"},{"Move and resize widgets directly on screen.","Mueve y ajusta los widgets directamente en pantalla."},
         {"Widgets locked","Widgets bloqueados"},{"Widgets unlocked","Widgets desbloqueados"},{"Lock","Bloquear"},{"Unlock","Desbloquear"},{"Quit Aion 2 Helper","Cerrar Aion 2 Helper"},
         {"Energy bar for dash and sprint","Barra de energía para dash y sprint"},{"Enable Energy Bar","Activar barra de energía"},{"Enabled","Activada"},{"Disabled","Desactivada"},
-        {"PREVIEW","VISTA PREVIA"},{"Preview energy","Energía de la vista previa"},{"Behavior","Comportamiento"},{"Appearance","Apariencia"},{"Position & calibration","Posición y calibración"},
+        {"PREVIEW","VISTA PREVIA"},{"Preview energy","Energía de la vista previa"},{"Behavior","Comportamiento"},{"Appearance","Apariencia"},{"Position & size","Posición y tamaño"},
         {"↶  Undo","↶  Deshacer"},{"↷  Redo","↷  Rehacer"},{"Undo the last change · Ctrl+Z","Deshacer el último cambio · Ctrl+Z"},{"Redo the undone change · Ctrl+Y","Rehacer el cambio · Ctrl+Y"},{"Done","Listo"},
         {"Minimize Settings","Minimizar ajustes"},{"Close Settings","Cerrar ajustes"},{"VISIBILITY","VISIBILIDAD"},{"Auto-hide","Ocultar automáticamente"},
         {"Waits, then hides when energy is full.","Espera y se oculta al llegar al máximo de energía."},{"Delay at 100%","Espera al 100%"},
@@ -104,9 +115,6 @@ internal static class UiLanguage {
         {"High energy","Energía alta"},{"Medium energy","Energía media"},{"Low energy","Energía baja"},{"From 75%","Desde el 75%"},{"Up to 25%","Hasta el 25%"},{"35–65% · also used as the fixed color","35–65% · también se usa como color fijo"},
         {"LIGHT & CONTRAST","BRILLO Y CONTRASTE"},{"Emissive glow","Brillo emisivo"},{"A bright filament with a soft halo.","Un filamento luminoso con un halo suave."},{"Glow intensity","Intensidad del brillo"},{"Dark track opacity","Opacidad de la línea oscura"},{"Opacity of the background line.","Opacidad de la línea de fondo."},{"Reset effects and colors","Restablecer efectos y colores"},
         {"GEOMETRY","TAMAÑO Y POSICIÓN"},{"Width","Longitud"},{"Thickness","Grosor"},{"Horizontal position","Posición horizontal"},{"Vertical position","Posición vertical"},{"Reset size · 320 × 4","Restablecer tamaño · 320 × 4"},
-        {"ENERGY CALIBRATION","CALIBRACIÓN DE ENERGÍA"},{"Character maximum","Máximo del personaje"},{"Reference value for 100% energy.","Valor de referencia para el 100% de energía."},{"Use current reading as maximum","Usar lectura actual como máximo"},
-        {"No game reading. Enter the game, dash once, and wait for full energy before calibrating.","Sin lectura del juego. Entra con tu personaje, haz un dash y espera a tener la energía llena antes de calibrar."},
-        {"Enter the game with your character and dash once to start receiving readings. Wait until your energy is completely full, then click the button to save that value as your maximum.\n\nThis uses your current energy; it does not automatically detect your maximum. Using it before energy is full will give an incorrect percentage. Only recalibrate if you change characters or the bar no longer matches the game.","Entra con tu personaje y haz un dash para empezar a recibir lecturas. Espera a tener la energía completamente llena y pulsa el botón para guardar ese valor como máximo.\n\nSe usa tu energía actual; el máximo no se detecta automáticamente. Si lo haces antes de llenar la barra, el porcentaje será incorrecto. Recalibra solo si cambias de personaje o la barra deja de coincidir con el juego."},
         {"Choose color","Elegir color"},{"Cancel color selection","Cancelar selección de color"},{"Previous color","Color anterior"},{"Cancel","Cancelar"},{"Apply color","Aplicar color"},{"HEX color","Color HEX"},{"Red","Rojo"},{"Green","Verde"},{"Blue","Azul"},
         {"Enter a valid HEX color, such as #B85416.","Introduce un color HEX válido, como #B85416."},{"RGB values must be between 0 and 255.","Los valores RGB deben estar entre 0 y 255."},
         {"Energy Bar disabled","Barra de energía desactivada"},{"No data · dash once to start","Sin datos · haz un dash para iniciar"},
@@ -130,7 +138,7 @@ internal static class UiLanguage {
         if(text==null)return null;string translated;if(English.TryGetValue(text,out translated))text=translated;
         if(Normalize(language)!="es")return text;if(Spanish.TryGetValue(text,out translated))return translated;
         foreach(string prefix in Prefixes)if(text.StartsWith(prefix,StringComparison.Ordinal))return (prefix=="Choose color: "?"Elegir color: ":prefix=="Decrease "?"Reducir ":"Aumentar ")+Text(text.Substring(prefix.Length),language);
-        return text.Replace(" · recalibrate the maximum"," · recalibra el máximo");
+        return text.Replace(" · waiting for maximum energy stats"," · esperando el máximo del juego");
     }
     sealed class Label {internal string Original,Rendered;}
     // Attached data lives only as long as its UI element, avoiding global window references.

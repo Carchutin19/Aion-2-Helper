@@ -34,6 +34,7 @@ internal sealed class EnergyBarOptions {
         legacy.Enabled=false;legacy.AutoHide=false;legacy.HoldSeconds=2.25;legacy.LowColor="#123456";legacy.Emissive=false;
         var serializer=new System.Web.Script.Serialization.JavaScriptSerializer();var restored=Read(serializer.Deserialize<Dictionary<string,object>>(serializer.Serialize(new {energyBar=legacy})));
         if(restored.Enabled||restored.AutoHide||restored.Emissive||restored.HoldSeconds!=2.25||restored.LowColor!="#123456")throw new Exception("Settings must survive saving/reopening, including a disabled energy bar");
+        var previous=Read(serializer.Deserialize<Dictionary<string,object>>("{\"energyBar\":{\"AutoMaximum\":false,\"LowColor\":\"#123456\",\"Enabled\":false}}"));if(previous.LowColor!="#123456"||previous.Enabled)throw new Exception("Retired calibration switch must not reset other preferences");
         restored.LowColor="bad";restored.FadeSeconds=double.NaN;restored.GlowPercent=999;restored.Normalize();
         if(restored.LowColor!="#A02D2D"||restored.FadeSeconds!=.2||restored.GlowPercent!=200)throw new Exception("Invalid settings must have safe drawing/animation limits");
     }

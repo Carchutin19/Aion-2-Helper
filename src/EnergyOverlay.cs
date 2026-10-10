@@ -278,7 +278,7 @@ internal sealed class EnergyOverlay:Form {
     readonly BarMotion motion=new BarMotion();readonly Stopwatch animationClock=Stopwatch.StartNew();double lastPoll=-2,lastRaise=-1;
     readonly ToolStripMenuItem stateItem=new ToolStripMenuItem("Waiting for data");readonly ToolStripMenuItem editItem=new ToolStripMenuItem();
     internal readonly WidgetLock InteractionLock=new WidgetLock();
-    readonly ConfigurationHistory configurationHistory=new ConfigurationHistory();bool restoringConfiguration;
+    readonly ConfigurationHistory configurationHistory=new ConfigurationHistory();bool restoringConfiguration;uint lastAutomaticMaximum;
     bool locked {get{return InteractionLock.Locked;}set{InteractionLock.Locked=value;}}
     string language="en";
     internal string Language {get{return language;}}
@@ -325,17 +325,21 @@ internal sealed class EnergyOverlay:Form {
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80)&~0x40000;cp.Style&=~0x40000;return cp;}}
     protected override bool ShowWithoutActivation {get{return true;}}
     void LoadSettings(){try{var cfg=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(File.ReadAllText(Path.Combine(root,"overlay-settings.json")));signal.Maximum=Convert.ToUInt32(cfg["maximum"]);if(signal.Maximum==0)signal.Maximum=113900;
+        object savedAuto;if(cfg.TryGetValue("automaticMaximum",out savedAuto)){uint value=Convert.ToUInt32(savedAuto);if(value>0&&value<=100000000)lastAutomaticMaximum=value;}
         bool migrate=!cfg.ContainsKey("design")||Convert.ToString(cfg["design"])!="slim-v2";int previousHeight=cfg.ContainsKey("height")?Convert.ToInt32(cfg["height"]):BarDesign.DefaultHeight;
         if(cfg.ContainsKey("width"))initialSize=new System.Drawing.Size(Math.Max(BarDesign.MinimumWidth,Math.Min(BarDesign.MaximumWidth,Convert.ToInt32(cfg["width"]))),migrate?BarDesign.DefaultHeight:Math.Max(BarDesign.MinimumHeight,Math.Min(BarDesign.MaximumHeight,previousHeight)));CoreSize=initialSize;
         var position=new System.Drawing.Point(Convert.ToInt32(cfg["x"]),Convert.ToInt32(cfg["y"])+(migrate?(previousHeight-initialSize.Height)/2:0));if(Screen.AllScreens.Any(s=>s.WorkingArea.IntersectsWith(new Rectangle(position,initialSize))))CoreBounds=new Rectangle(position,initialSize);
         if(cfg.ContainsKey("locked"))locked=Convert.ToBoolean(cfg["locked"]);options=EnergyBarOptions.Read(cfg);language=UiLanguage.Read(cfg);fpsOptions=FpsOptions.Read(cfg);dpsOptions=DpsOptions.Read(cfg);notificationOptions=NotificationOptions.Read(cfg);
     }catch{}}
-    void SaveSettings(){if(!restoringConfiguration)configurationHistory.Observe(Configuration);if(!preview){var core=CoreBounds;File.WriteAllText(Path.Combine(root,"overlay-settings.json"),new JavaScriptSerializer().Serialize(new {maximum=signal.Maximum,x=core.X,y=core.Y,width=core.Width,height=core.Height,locked=locked,field="008D/u32/kind3",validated=true,design="slim-v2",palette="dark-energy-v1",emissive=options.Emissive,language=language,energyBar=options,fps=fpsOptions,dps=dpsOptions,notifications=notificationOptions}));}if(SettingsChanged!=null)SettingsChanged();}
+    void SaveSettings(bool recordHistory=true){if(recordHistory&&!restoringConfiguration)configurationHistory.Observe(Configuration);if(!preview){var core=CoreBounds;File.WriteAllText(Path.Combine(root,"overlay-settings.json"),new JavaScriptSerializer().Serialize(new {maximum=signal.Maximum,automaticMaximum=lastAutomaticMaximum,x=core.X,y=core.Y,width=core.Width,height=core.Height,locked=locked,field="008D/u32/kind3",validated=true,design="slim-v2",palette="dark-energy-v1",emissive=options.Emissive,language=language,energyBar=options,fps=fpsOptions,dps=dpsOptions,notifications=notificationOptions}));}if(recordHistory&&SettingsChanged!=null)SettingsChanged();}
     void ApplyLock(){if(!locked&&!preview)dpsOptions.Bounds=DpsDesign.UsableBounds(dpsOptions.Bounds);int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,locked?style|0x20:style&~0x20);editItem.Text=UiLanguage.Text(locked?"Unlock":"Lock",language);renderKey="";}
     void ToggleLock(){EndResize();locked=!locked;}
     internal void ToggleWidgetsLock(){ToggleLock();}
     internal string ReadingStatus {get{return UiLanguage.Text(options.Enabled?(NpcapSupport.Current.Required?NpcapSupport.Current.Message:status):"Energy Bar disabled",language);}}
     internal EnergyConfiguration Configuration {get{return new EnergyConfiguration{Options=options.Copy(),Bounds=CoreBounds,Locked=locked,Maximum=signal.Maximum,Language=language,Fps=fpsOptions.Copy(),Dps=dpsOptions.Copy(),Notifications=notificationOptions.Copy()};}}
+    uint EnergyMaximum(DashSignal.Snapshot snapshot){return snapshot.DetectedMaximum>0?snapshot.DetectedMaximum:lastAutomaticMaximum>0?lastAutomaticMaximum:signal.Maximum;}
+    internal uint DetectedEnergyMaximum {get{return signal.ReadSnapshot().DetectedMaximum;}}
+    internal uint EffectiveEnergyMaximum {get{return EnergyMaximum(signal.ReadSnapshot());}}
     internal string DpsStatus {get{return dpsOptions.Enabled?(NpcapSupport.Current.Required?NpcapSupport.Current.Message:dpsWidget.ReadingStatus):"DPS disabled";}}
     internal void ResetDpsEncounter(){combat.ResetEncounter();}
     internal string FpsStatus {get{return UiLanguage.Text(fpsWidget.ReadingStatus,language);}}
@@ -355,7 +359,6 @@ internal sealed class EnergyOverlay:Form {
         if(!preview&&wasEnabled!=(options.Enabled||dpsOptions.Enabled||notificationOptions.Enabled&&notificationOptions.PartyInvites)){recorder.MaintainAsync(options.Enabled||dpsOptions.Enabled||notificationOptions.Enabled&&notificationOptions.PartyInvites);lastPoll=animationClock.Elapsed.TotalSeconds;}
         combatHistory.Configure(dpsOptions);ApplyLock();fpsWidget.Configure(fpsOptions,locked,preview);dpsWidget.Configure(dpsOptions,locked);notificationWidget.Configure(notificationOptions,locked);renderKey="";statusKey="";UpdateBar();SaveSettings();
     }
-    internal bool Calibrate(){var reading=signal.Current;if(!IsFresh||reading==null||reading.Value==0)return false;signal.Maximum=reading.Value;renderKey="";UpdateBar();SaveSettings();return true;}
     internal void OpenSettings(){
         if(trayMenu!=null&&!trayMenu.IsDisposed)trayMenu.Close();
         if(settingsWindow==null||settingsWindow.IsDisposed)settingsWindow=new HelperSettings(this);
@@ -366,7 +369,9 @@ internal sealed class EnergyOverlay:Form {
     internal void OpenDpsHistory(){OpenSettings();settingsWindow.ShowDpsHistory();}
     internal void OpenNotificationSettings(){OpenSettings();settingsWindow.ShowNotifications();}
     internal void TestNotification(){notificationWidget.Test();}
-    internal string NotificationStatus {get{return !notificationOptions.Enabled?"All notifications are disabled.":!notificationOptions.PartyInvites?"Party invitations are disabled.":notificationWidget.AudioError??(notifications.DetectionReady?"Listening for party invitations.":"Invitation detection is awaiting a live test.");}}
+    internal void TestShugoNotification(){notificationWidget.TestShugo();}
+    internal void TestShugoOpeningNotification(){notificationWidget.TestShugoOpening();}
+    internal string NotificationStatus {get{return !notificationOptions.Enabled?"All notifications are disabled.":notificationWidget.AudioError??(notificationOptions.PartyInvites?((notificationOptions.ShugoFestival||notificationOptions.ShugoOpening)?"Party invitations and hourly Shugo reminders enabled.":"Listening for party invitations."):((notificationOptions.ShugoFestival||notificationOptions.ShugoOpening)?"Hourly Shugo reminders enabled.":"No notification types enabled."));}}
     internal void OpenTrayMenu(System.Drawing.Point position){
         if(closing)return;if(trayMenu!=null&&!trayMenu.IsDisposed)trayMenu.Close();var popup=new HelperTrayMenu(this);trayMenu=popup;popup.Closed+=delegate{if(trayMenu==popup)trayMenu=null;};popup.ShowAt(position);
     }
@@ -380,13 +385,15 @@ internal sealed class EnergyOverlay:Form {
     }
     bool Fresh(DashSignal.Snapshot snapshot,double now){return preview||(recorder.Active&&snapshot.Reading!=null&&now-snapshot.LastTraffic<=4);}
     bool IsFresh {get{return Fresh(signal.ReadSnapshot(),(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds);}}
-    double Ratio {get{var r=signal.Current;return preview?previewRatio:r==null?0:(double)r.Value/signal.Maximum;}}
+    double Ratio {get{var snapshot=signal.ReadSnapshot();var r=snapshot.Reading;return preview?previewRatio:r==null?0:(double)r.Value/EnergyMaximum(snapshot);}}
     void UpdateBar(){
-        if(closing)return;var snapshot=signal.ReadSnapshot();var r=snapshot.Reading;double utcNow=(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds,now=animationClock.Elapsed.TotalSeconds;bool fresh=Fresh(snapshot,utcNow);double ratio=preview?previewRatio:r==null?0:(double)r.Value/signal.Maximum;
-        string nextStatus=!options.Enabled?"Energy Bar disabled":fresh?ratio.ToString("P0")+(ratio>1?" · recalibrate the maximum":""):(startError.Length>0?startError:"No data · dash once to start");
+        if(closing)return;var snapshot=signal.ReadSnapshot();var r=snapshot.Reading;double utcNow=(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds,now=animationClock.Elapsed.TotalSeconds;bool fresh=Fresh(snapshot,utcNow);
+        if(!preview&&fresh&&snapshot.DetectedMaximum>0&&lastAutomaticMaximum!=snapshot.DetectedMaximum){lastAutomaticMaximum=snapshot.DetectedMaximum;SaveSettings(false);}
+        uint maximum=EnergyMaximum(snapshot);double ratio=preview?previewRatio:r==null?0:(double)r.Value/maximum;
+        string nextStatus=!options.Enabled?"Energy Bar disabled":fresh?ratio.ToString("P0")+(ratio>1?" · waiting for maximum energy stats":""):(startError.Length>0?startError:"No data · dash once to start");
         if(nextStatus!=status)status=nextStatus;string localized=ReadingStatus;
         if(stateItem.Text!=localized){stateItem.Text=localized;string tooltip="Aion 2 Helper · "+localized;tray.Text=tooltip.Substring(0,Math.Min(63,tooltip.Length));}
-        motion.Step(now,!locked,fresh,ratio,preview?(uint)(previewRatio*100):r==null?0:r.Value,preview?100:signal.Maximum,options,preview?-1:fresh&&r!=null?Math.Max(0,utcNow-r.Timestamp):0);
+        motion.Step(now,!locked,fresh,ratio,preview?(uint)(previewRatio*100):r==null?0:r.Value,preview?100:maximum,options,preview?-1:fresh&&r!=null?Math.Max(0,utcNow-r.Timestamp):0);
         bool show=options.Enabled&&motion.Opacity>0;
         if(show&&!Visible){RenderNow(true);Show();OverlayNative.RaiseWithoutFocus(Handle);}else if(!show&&Visible)Hide();
         if(Visible)RenderNow();
@@ -396,7 +403,7 @@ internal sealed class EnergyOverlay:Form {
         if(!motion.Animating&&motion.FullSince.HasValue&&motion.Opacity>0){double remaining=options.HoldSeconds-(now-motion.FullSince.Value);if(remaining>0)interval=Math.Min(interval,Math.Max(1,(int)Math.Ceiling(remaining*1000)));}
         if(timer.Interval!=interval)timer.Interval=interval;
     }
-    void WriteStatus(DashSignal.Snapshot snapshot,bool fresh){var core=CoreBounds;var r=snapshot.Reading;statusWriter.Publish(new {ts=r==null?0:r.Timestamp,actor=r==null?0:r.Actor,value=r==null?0:r.Value,maximum=signal.Maximum,percentage=(r==null?0:(double)r.Value/signal.Maximum)*100,displayedPercentage=motion.Value*100,opacity=motion.Opacity,enabled=options.Enabled,autoHide=options.AutoHide,fullHoldSeconds=options.HoldSeconds,fadeSeconds=options.Fade?options.FadeSeconds:0,smoothingSeconds=options.Smooth?options.SmoothingSeconds:0,samples=snapshot.Samples,errors=snapshot.Errors,fresh=fresh,editing=options.Enabled&&!locked,visible=Visible,width=core.Width,height=core.Height,x=core.X,y=core.Y,status=status,fpsValue=fpsWidget.Value,fpsStatus=fpsWidget.ReadingStatus,notifications=notifications.Status,notificationWindow=notificationWidget.WindowStatus,dpsWindow=dpsWidget.WindowStatus,dps=dpsOptions.Enabled?DpsSignal.Export(combat.Read((DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds)):null,style="slim-v2",emissive=options.Emissive});}
+    void WriteStatus(DashSignal.Snapshot snapshot,bool fresh){var core=CoreBounds;var r=snapshot.Reading;statusWriter.Publish(new {ts=r==null?0:r.Timestamp,actor=r==null?0:r.Actor,value=r==null?0:r.Value,maximum=EnergyMaximum(snapshot),detectedMaximum=snapshot.DetectedMaximum,automaticMaximum=true,percentage=(r==null?0:(double)r.Value/EnergyMaximum(snapshot))*100,displayedPercentage=motion.Value*100,opacity=motion.Opacity,enabled=options.Enabled,autoHide=options.AutoHide,fullHoldSeconds=options.HoldSeconds,fadeSeconds=options.Fade?options.FadeSeconds:0,smoothingSeconds=options.Smooth?options.SmoothingSeconds:0,samples=snapshot.Samples,errors=snapshot.Errors,fresh=fresh,editing=options.Enabled&&!locked,visible=Visible,width=core.Width,height=core.Height,x=core.X,y=core.Y,status=status,fpsValue=fpsWidget.Value,fpsStatus=fpsWidget.ReadingStatus,notifications=notifications.Status,notificationWindow=notificationWidget.WindowStatus,dpsWindow=dpsWidget.WindowStatus,dps=dpsOptions.Enabled?DpsSignal.Export(combat.Read((DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds)):null,style="slim-v2",emissive=options.Emissive});}
     void RenderNow(bool includeHidden=false){
         if(!ready||closing||rendering||!options.Enabled||(!Visible&&!includeHidden))return;rendering=true;
         try {float scale=1;try{scale=OverlayNative.GetDpiForWindow(Handle)/96f;}catch(EntryPointNotFoundException){}double ratio=motion.Value;byte alpha=(byte)Math.Round(motion.Opacity*255);
@@ -443,6 +450,9 @@ internal sealed class EnergyOverlay:Form {
                 var limits=(OverlayNative.MinMaxInfo)Marshal.PtrToStructure(buffer,typeof(OverlayNative.MinMaxInfo));
                 if(limits.MinTrackSize.Y!=13||limits.MinTrackSize.X!=50||limits.MaxTrackSize.X<=3000)throw new Exception("Native tracking limits including halo");
                 window.CoreSize=new System.Drawing.Size(444,3);Application.DoEvents();if(window.CoreSize.Height!=3||window.ClientSize.Height!=13)throw new Exception("Real window/client minimum height with halo: window="+window.Size+", client="+window.ClientSize);
+                var maximumFrames=new List<byte>();foreach(byte kind in new byte[]{10,3,3}){uint energyValue=kind==10?115700u:85700u;var frame=new byte[]{14,0,0x8d,1,1,1,kind,0,0,0,0};Buffer.BlockCopy(BitConverter.GetBytes(energyValue),0,frame,7,4);maximumFrames.AddRange(frame);}
+                window.configurationHistory.Observe(window.Configuration);int undoSteps=window.configurationHistory.UndoCount;window.signal.Consume(new Segment{Src="maximum-test",Dst="self",SrcPort=13328,DstPort=1234,Seq=100,Data=maximumFrames.ToArray()},1);Application.DoEvents();
+                if(window.DetectedEnergyMaximum!=115700||window.EffectiveEnergyMaximum!=115700||window.configurationHistory.UndoCount!=undoSteps)throw new Exception("Automatic maximum must reach overlay without creating undo history");
                 if((OverlayNative.GetWindowLong(handle,-16)&0x40000)!=0)throw new Exception("System sizing frame must be absent");
                 window.BeginResize(11,new System.Drawing.Point(0,0));window.ResizeTo(new System.Drawing.Point(200,0));window.EndResize();window.Activate();OverlayNative.RaiseWithoutFocus(handle);Application.DoEvents();
                 if(window.CoreSize.Height!=3||window.CoreSize.Width!=644)throw new Exception("Resize/focus/topmost must preserve slim thickness");

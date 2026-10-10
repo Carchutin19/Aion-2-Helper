@@ -1,4 +1,4 @@
-﻿# Aion 2 Helper
+# Aion 2 Helper
 
 **Customizable utility overlays for Aion 2.**
 
@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.4.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.4.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.4.0/Aion-2-Helper-v1.4.0-windows-x64.zip).
+The [v1.5.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.5.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.5.0/Aion-2-Helper-v1.5.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy Bar, DPS Meter and Notifications;
@@ -44,6 +44,13 @@ estimating energy by counting key presses.
 Energy readings, hidden-nameplate operation, and visibility with Aion's Fullscreen
 setting were verified on the development PC. Overlay visibility on other systems
 may vary with the game's presentation mode.
+
+Maximum energy is detected automatically from server stat updates, independently
+of current energy. Changes to capacity update the percentage and full-energy
+hiding without manual calibration. Calibration controls have been removed from
+Settings. Until a server maximum arrives, the saved reference is used; start the
+helper before entering the game, or re-enter with your character if the initial
+stats were missed. Glow, smoothing and fades are preserved.
 
 ## Available now: FPS Counter
 
@@ -145,8 +152,17 @@ in the background on changes, with atomic replacement; no per-hit disk writes.
 
 ## Available now: Notifications
 
-Notifications are now active. **Party invitations are the only supported
-notification type in v1.4.0**; more alerts are planned.
+Notifications include incoming **party invitations** and two independently
+switchable **Shugo Festival** alerts:
+
+- **:55 each hour:** "Shugo Festival starts in 5 minutes."
+- **:00:** "You can now sign up for Shugo Festival."
+
+Shugo alerts follow the hourly schedule reported for the game. They use the
+clock while Aion 2 is running and share notification sound, appearance and fades.
+They do not verify registration availability with the server. Start the helper
+before the alert time; it does not replay missed reminders after startup. Each
+Shugo alert has its own toggle and test button, independent of party invitations.
 
 When another player invites you to a party, a dark on-screen notice displays
 that player's name, with an optional notification sound and smooth fade in/out.
@@ -155,7 +171,7 @@ Open **Settings → Notifications** to configure it:
 - **Enable all notifications:** turn the entire module on/off without losing
   your individual choices.
 - **Notification types → Party invitations:** independently enable/disable
-  incoming party invitation alerts. Future types will have their own switches.
+  incoming party invitation alerts. Shugo advance/opening alerts have separate switches.
 - **Common settings:** optional sound, volume, display duration, fade toggle
   and fade duration.
 - Shared text color and size, background opacity, position, width and height
@@ -180,10 +196,9 @@ can show again. Notification rendering wakes on the event instead of waiting
 for the Energy Bar's refresh or visibility, and it needs no dash to identify the
 inviting player.
 
-**Npcap is required.** The incoming invitation format was verified on the Global
+**Npcap is required for party invitations.** The incoming invitation format was verified on the Global
 client with both accepted and declined invitations. Other invitation variants
-and alliance requests have not been validated. Event reminders and additional
-notification types are planned; they are not included in this version.
+and alliance requests have not been validated. Additional notification types are planned. Shugo reminders use the clock and need no packet capture.
 
 ## Planned features
 
@@ -191,8 +206,7 @@ These are development goals, **not features included in the current version**:
 
 - **Expanded combat data:** more supported event types and validated boss,
   stagger, buff/debuff and healing details for the experimental DPS Meter.
-- **Additional notifications:** on-screen reminders, including alerts five minutes
-  before supported game events start.
+- **Additional notifications:** on-screen reminders, for further supported game events beyond Shugo Festival.
 - **Custom status bars:** player health and mana, and target/enemy bars where
   the required data is available.
 - **More languages:** further translations beyond English and Spanish.
@@ -267,7 +281,7 @@ the color picker, and normal energy status messages, and persist across restarts
 English is the default for new installations and preferences from earlier versions.
 Low-level diagnostic tools and native error messages remain in English.
 
-Energy Bar has **Behavior**, **Appearance**, and **Position & calibration** tabs,
+Energy Bar has **Behavior**, **Appearance**, and **Position & size** tabs,
 with a persistent preview above them.
 
 **Enable Energy Bar** controls the whole module. Disabling it hides the widget,
@@ -285,7 +299,7 @@ Colors and glow are fully adjustable. The default core size is 320 × 4 pixels;
 thickness can be reduced to 3 pixels. Glow margins are separate from core size.
 
 Preferences save automatically to **overlay-settings.json**. Undo/redo keeps up to
-100 changes, including colors, effects, position, size, calibration, lock state,
+100 changes, including colors, effects, position, size, lock state,
 and language.
 Configuration undo history survives reopening Settings within the same application session and resets
 when the app exits. A new edit after undo replaces the pending redo branch.
@@ -293,7 +307,7 @@ Text fields retain their local undo while editing.
 
 To update from an earlier version, close Aion 2 Helper and extract the new ZIP into the same
 folder, replacing the program files. Keep **overlay-settings.json** to preserve
-your colors, effects, geometry, calibration, and lock state. The release ZIP does
+your colors, effects, geometry, saved energy reference, and lock state. The release ZIP does
 not contain or replace this file. Keep **combat-history.json** to retain saved
 combats when updating from versions that already have history. Neither file is
 included in release ZIPs.
@@ -301,17 +315,18 @@ included in release ZIPs.
 **General status** separates the connection/reading message from the widget lock:
 green when unlocked and red when locked.
 
-### Energy calibration
+### Automatic energy capacity
 
-The character maximum defines the value corresponding to 100% energy. The value
-verified for the development character was **113900**; it is not universal.
+The helper reads both current energy and the maximum capacity sent by the game.
+It updates capacity independently of the current amount, so gaining more energy
+capacity no longer requires a Settings calibration or leaves the bar stuck
+visible above 100%. Automatic stat changes do not add undo/redo steps.
 
-Enter the game, dash once to start receiving readings, wait until the in-game
-energy is completely full, then click **Use current reading as maximum**.
-The button saves the energy received at that moment. **It does not detect your
-maximum automatically.** Using it with partial energy would give an incorrect
-percentage. Recalibrate only when changing characters or when the bar no longer
-matches the game.
+The last detected maximum is saved across restarts. Start the helper before
+entering the game to receive initial stats. If it was opened after you entered,
+re-enter with your character to receive a fresh maximum. Until then, the saved
+reference is provisional; it is not a guess based on partial energy. This also
+matters after changing characters.
 
 With no current game data, the bar shows a grey dashed line and Settings reports
 the missing signal. Missing data is never treated as full energy.

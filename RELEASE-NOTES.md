@@ -1,4 +1,84 @@
-﻿# Aion 2 Helper v1.4.0 Alpha — Party Invitation Notifications
+# Aion 2 Helper v1.5.0 Alpha — Shugo Festival Alerts & Automatic Energy Capacity
+
+This update adds two Shugo Festival reminders and makes maximum energy automatic.
+The DPS Meter also accepts confirmed party members before their names arrive.
+**The application remains alpha software, and the DPS Meter is incomplete.**
+
+## Shugo Festival notifications
+
+- **Five minutes before each hour (:55):** "Shugo Festival starts in 5 minutes."
+- **On the hour (:00):** "You can now sign up for Shugo Festival."
+- Separate switches for the advance reminder, registration reminder and party
+  invitations. Disable any one without disabling the others.
+- Shared optional sound, volume, text color/size, dark background, position,
+  duration and fade settings. Each Shugo reminder has its own test button.
+- English and Spanish messages follow the selected application language.
+- Scheduled reminders run while Aion 2 is open. They follow the hourly clock
+  schedule; they do not query the server or confirm that an event is available.
+  Missed alerts are not replayed after starting the helper.
+
+The timer checks at minute boundaries, checks the game process only when an
+alert is due, and stops when both Shugo reminders or all notifications are off.
+Clock reminders do not need Npcap; party invitation detection still does.
+
+## Energy Bar improvement
+
+Previously, increasing energy capacity could leave the saved maximum too low:
+Settings could report over 100%, and the bar could remain visible when full.
+The helper now reads the maximum sent by the game independently of current
+energy and automatically applies capacity changes, including decreases.
+
+**Manual calibration controls have been removed.** The Energy Bar tabs are
+**Behavior**, **Appearance**, and **Position & size**. Emissive glow, colors,
+smoothing, fade transitions and the configurable full-energy hiding delay stay
+available. Automatic capacity updates do not create undo/redo entries.
+
+The last detected capacity is saved for the next launch. Start the helper before
+entering with your character to receive initial stats. If you open it after
+entering, re-enter with your character to receive a fresh maximum. Until the
+server maximum arrives, the saved reference is provisional, especially when
+switching characters; partial energy is never taken as an inferred maximum.
+
+Validated in game: a server maximum of 115700 produced 100% at full energy and
+the expected automatic hide, without Settings calibration.
+
+## DPS party recovery
+
+When party vital updates arrived before character names, early damage/healing
+from those members could be skipped and the widget could initially show only
+yourself. Confirmed party members can now contribute before their name arrives.
+A temporary "Player <ID>" label changes to the received name on the same row,
+without losing or duplicating accepted totals. English/Spanish labels are supported.
+Membership remains scoped to the current connection and expires or clears on
+leave/reset; an unconfirmed nearby actor is not inferred to be a party member.
+
+**DPS coverage is still partial and experimental.** Unsupported combat events
+and data missed before identification can still be absent. This release does
+not claim complete boss, stagger, aggro, buff/debuff or healing coverage.
+
+## Updating and validation
+
+Download **Aion-2-Helper-v1.5.0-windows-x64.zip**, close the helper, and extract all
+files into the existing installation folder. Keep **overlay-settings.json** and
+**combat-history.json** to preserve settings and fight history. These personal
+files and raw research captures are not included in the ZIP.
+
+Npcap is installed separately for energy, combat and party invitation capture.
+If FPS measurement needs permission, run the helper as administrator or use
+**Start measurement as administrator** in FPS settings.
+
+Protocol, settings, rendering/resource, notifications and DPS regression checks
+passed, including maximum-only stat updates, partial energy, membership before
+names, late identity updates and membership expiry. Existing graphics and
+notification fade/sound behavior are preserved.
+
+Please report problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+Optional donations are welcome through [Nexus Mods](https://www.nexusmods.com/aion2/mods/9)
+— coffee is still our favorite buff! ☕
+
+---
+
+# Aion 2 Helper v1.4.0 Alpha — Party Invitation Notifications
 
 **Notifications are now active! For this release, party invitations are the
 only supported notification type.** More useful alerts are planned.

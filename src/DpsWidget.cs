@@ -102,7 +102,7 @@ internal static class DpsDesign {
         }
     }
     static string Amount(double value,int width,Font font){string full=value.ToString("N0",CultureInfo.InvariantCulture);if(TextRenderer.MeasureText(full,font,Size.Empty,TextFormatFlags.NoPadding).Width<=width)return full;return value>=1000000?(value/1000000).ToString("0.#",CultureInfo.InvariantCulture)+"M":value>=1000?(value/1000).ToString("0.#",CultureInfo.InvariantCulture)+"K":full;}
-    internal static string DisplayName(DpsSignal.Row row,DpsSignal.Snapshot snapshot,DpsOptions options,string language){return row.Actor==snapshot.SelfActor&&(options.ShowSelfAsYou||row.Name==null)?UiLanguage.Text("You",language):row.Name??"?";}
+    internal static string DisplayName(DpsSignal.Row row,DpsSignal.Snapshot snapshot,DpsOptions options,string language){return row.Actor==snapshot.SelfActor&&(options.ShowSelfAsYou||row.Name==null)?UiLanguage.Text("You",language):row.Name??string.Format(UiLanguage.Text("Player {0}",language),row.Actor);}
     internal static Bitmap Render(int width,int height,DpsSignal.Snapshot snapshot,DpsOptions options,bool editing,string language,DpsPaintWorkspace workspace,IDictionary<uint,double> ratios=null,bool includeBars=true){
         float scale=Math.Max(.8f,Math.Min(3f,width/380f));workspace.Prepare(width,height,Math.Max(.8f,Math.Min(3f,width/520f)));var bitmap=new Bitmap(width,height,PixelFormat.Format32bppPArgb);
         int pad=(int)(12*scale),titleHeight=TabBounds(width).Top,header=HeaderHeight(width),footer=FooterHeight(width,height),line=Math.Max(21,(height-header-footer)/(options.MaxRows+1));

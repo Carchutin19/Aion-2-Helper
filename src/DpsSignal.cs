@@ -67,7 +67,7 @@ internal sealed class DpsSignal {
     Row CombatRow(uint actor){Row row;if(!actors.TryGetValue(actor,out row)){if(actors.Count>=128)return null;row=new Row{Actor=actor};actors[actor]=row;}return row;}
     bool StartImpact(double timestamp){if(last>0&&timestamp<last)return false;if(last==0||completed||timestamp-last>=options.IdleSeconds)ClearEncounter();if(first==0)first=timestamp;last=timestamp;return true;}
     bool RecordHealing(Hit hit,double timestamp){
-        if(conflicted.Contains(hit.Source)||conflicted.Contains(hit.Target)||!names.ContainsKey(hit.Source)&&hit.Source!=Self||!names.ContainsKey(hit.Target)&&hit.Target!=Self)return false;
+        if(!ConfirmedPlayer(hit.Source,timestamp)||!ConfirmedPlayer(hit.Target,timestamp))return false;
         if(!StartImpact(timestamp))return true;var done=CombatRow(hit.Source);var received=CombatRow(hit.Target);if(done==null||received==null)return true;
         done.Healing+=hit.Amount;received.HealingReceived+=hit.Amount;done.LastImpact=received.LastImpact=timestamp;Touch(hit.Source,timestamp);Touch(hit.Target,timestamp);
         if(hit.CriticalKnown){done.HealingEvents++;received.ReceivedEvents++;done.HealingPrimary+=hit.PrimaryAmount;received.ReceivedPrimary+=hit.PrimaryAmount;if(hit.Critical){done.HealingCriticals++;received.ReceivedCriticals++;done.HealingCritical+=hit.PrimaryAmount;received.ReceivedCritical+=hit.PrimaryAmount;}}
@@ -97,6 +97,10 @@ internal sealed class DpsSignal {
         ResolveParty(lastTraffic);
     }
     uint Self {get{if(!string.IsNullOrEmpty(options.SelfName)){foreach(var pair in names)if(pair.Value==options.SelfName)return pair.Key;return 0;}return localActor;}}
+    // Valid party-only vital packets establish membership before an appearance
+    // packet supplies the display name. Keep those hits; never infer players
+    // from their skill prefix, or keep expired/foreign-flow membership.
+    bool ConfirmedPlayer(uint actor,double timestamp){double observed;return actor!=0&&!conflicted.Contains(actor)&&!npcs.Contains(actor)&&(actor==Self||names.ContainsKey(actor)||partyVitals.TryGetValue(actor,out observed)&&timestamp>=observed&&timestamp-observed<=120);}
     void FinishEncounter(string reason){if(completed||actors.Count==0||first<=0||last<=0)return;completed=true;if(EncounterCompleted==null)return;double duration=Math.Max(1,last-first);var record=new DpsHistoryRecord{Id=Guid.NewGuid().ToString("N"),Started=first,Ended=last,Duration=duration,Reason=reason,Scope=options.Scope,Map=currentMap,SelfActor=Self,PartyKnown=partyKnown,PartyRecovered=partyKnown&&explicitParty.Count==0,Party=new List<uint>(party),Pending=pending,DirectFrames=directFrames,ParsedDirect=parsedDirect,UnknownTargets=unknownTargets,UnknownSources=unknownSources};foreach(var pair in actors){string name;byte role;names.TryGetValue(pair.Key,out name);roles.TryGetValue(pair.Key,out role);record.Players.Add(DpsHistoryPlayer.Capture(pair.Value,name,role,duration));}record.Players.Sort(delegate(DpsHistoryPlayer a,DpsHistoryPlayer b){int order=b.Damage.CompareTo(a.Damage);return order==0?a.Actor.CompareTo(b.Actor):order;});EncounterCompleted(record);}
     internal void Finish(string reason){lock(gate)FinishEncounter(reason);}
     void ClearEncounter(string reason="Inactivity"){FinishEncounter(reason);actors.Clear();first=last=0;pending=0;completed=false;revision++;}
@@ -106,9 +110,9 @@ internal sealed class DpsSignal {
         uint self=Self;if(deferredParty.Count>0&&self!=0){if(!deferredFull||deferredParty.Contains(self)){if(deferredFull)explicitParty.Clear();foreach(uint id in deferredParty)if(!conflicted.Contains(id))explicitParty.Add(id);explicitParty.Add(self);}deferredParty.Clear();deferredFull=false;}
         expiredParty.Clear();foreach(var pair in partyVitals)if(now-pair.Value>120||conflicted.Contains(pair.Key)||npcs.Contains(pair.Key))expiredParty.Add(pair.Key);foreach(uint id in expiredParty)partyVitals.Remove(id);
         bool changed=false;expiredParty.Clear();foreach(uint id in party)if(id!=self&&!explicitParty.Contains(id)&&!partyVitals.ContainsKey(id))expiredParty.Add(id);foreach(uint id in expiredParty){party.Remove(id);changed=true;}
-        if(self!=0){bool known=explicitParty.Count>0;foreach(var pair in partyVitals)if(names.ContainsKey(pair.Key)&&!conflicted.Contains(pair.Key)&&!npcs.Contains(pair.Key))known=true;
+        if(self!=0){bool known=explicitParty.Count>0||partyVitals.Count>0;
             if(known)changed|=party.Add(self);else changed|=party.Remove(self);
-            foreach(uint id in explicitParty)if(!conflicted.Contains(id)&&(party.Count<12||party.Contains(id)))changed|=party.Add(id);foreach(var pair in partyVitals)if(names.ContainsKey(pair.Key)&&!conflicted.Contains(pair.Key)&&!npcs.Contains(pair.Key)&&(party.Count<12||party.Contains(pair.Key)))changed|=party.Add(pair.Key);
+            foreach(uint id in explicitParty)if(!conflicted.Contains(id)&&(party.Count<12||party.Contains(id)))changed|=party.Add(id);foreach(var pair in partyVitals)if((party.Count<12||party.Contains(pair.Key)))changed|=party.Add(pair.Key);
             if(partyKnown!=known){partyKnown=known;changed=true;}}
         if(changed)revision++;
     }
@@ -175,7 +179,7 @@ internal sealed class DpsSignal {
             if(!npcs.Contains(hit.Target)||names.ContainsKey(hit.Target)||parents.ContainsKey(hit.Target)||conflicted.Contains(hit.Source)||hit.Source==hit.Target){unknownTargets++;return;}
             // Retain identified/local players only; never label an unknown NPC as
             // a player just because its skill happens to have a class prefix.
-            if(!names.ContainsKey(hit.Source)&&hit.Source!=Self){pending++;unknownSources++;return;}
+            if(!ConfirmedPlayer(hit.Source,timestamp)){pending++;unknownSources++;return;}
             // Cosmetic fallback for already identified damage sources only.
             // It never establishes identity, party membership or ownership.
             if(!roles.ContainsKey(hit.Source)){uint family=hit.Skill/1000000;SetRole(hit.Source,family==11||family==12?(byte)3:family==17||family==18?(byte)2:(byte)1);}

@@ -16,11 +16,12 @@ internal sealed class DashSignal {
         internal uint FirstPending(){uint first=0;int distance=int.MaxValue;foreach(uint seq in Pending.Keys){int delta=unchecked((int)(seq-Next));if(delta<distance){first=seq;distance=delta;}}return first;}
     }
     internal sealed class Reading {internal int Actor;internal uint Value;internal double Timestamp;}
-    internal struct Snapshot {internal Reading Reading;internal double LastTraffic;internal int Samples,Errors;}
+    internal struct Snapshot {internal Reading Reading;internal uint DetectedMaximum;internal double LastTraffic;internal int Samples,Errors;}
     static readonly object protocolGate=new object();static readonly Dictionary<string,HashSet<int>> protocols=new Dictionary<string,HashSet<int>>(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string,Flow> streams=new Dictionary<string,Flow>();readonly HashSet<int> known;readonly object gate=new object();readonly byte[][] decompression=new byte[5][];
     Reading reading;double lastTraffic;int samples,errors;
-    internal uint Maximum=113900; // Maximum validated against this character's HUD.
+    internal uint Maximum=113900; // Manual fallback; never inferred from partially full energy.
+    readonly Dictionary<string,Dictionary<uint,uint>> energyMaxima=new Dictionary<string,Dictionary<uint,uint>>();string readingStream;
     internal Action<Reading> OnReading;
     internal Action<byte[],int,int,double,string> OnFrame;
     internal Action OnReset;
@@ -29,8 +30,9 @@ internal sealed class DashSignal {
             if(!protocols.TryGetValue(path,out opcodes)){var json=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(File.ReadAllText(path));opcodes=new HashSet<int>(((System.Collections.IEnumerable)json["syncOpcodes"]).Cast<object>().Select(Convert.ToInt32));opcodes.Add(65535);protocols[path]=opcodes;}known=opcodes;
         }
     }
-    internal Snapshot ReadSnapshot(){lock(gate){return new Snapshot{Reading=reading,LastTraffic=lastTraffic,Samples=samples,Errors=errors};}}
-    internal void Reset(){lock(gate){streams.Clear();reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
+    uint DetectedMaximum(){Dictionary<uint,uint> actors;uint value;return reading!=null&&readingStream!=null&&energyMaxima.TryGetValue(readingStream,out actors)&&actors.TryGetValue((uint)reading.Actor,out value)?value:0;}
+    internal Snapshot ReadSnapshot(){lock(gate){return new Snapshot{Reading=reading,DetectedMaximum=DetectedMaximum(),LastTraffic=lastTraffic,Samples=samples,Errors=errors};}}
+    internal void Reset(){lock(gate){streams.Clear();energyMaxima.Clear();readingStream=null;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
     internal Reading Current {get{lock(gate){return reading;}}}
     internal double LastTraffic {get{lock(gate){return lastTraffic;}}}
     internal int Samples {get{lock(gate){return samples;}}}
@@ -39,7 +41,7 @@ internal sealed class DashSignal {
         if(s.SrcPort!=13328)return;
         lock(gate){lastTraffic=ts;Flow flow;
             if(!streams.TryGetValue(s.Key,out flow)){flow=new Flow();if(streams.Count>=32)streams.Clear();streams[s.Key]=flow;reading=null;}
-            uint seq=s.Seq;if((s.Flags&2)!=0){seq++;if(flow.Started){flow=new Flow();streams[s.Key]=flow;reading=null;}}
+            uint seq=s.Seq;if((s.Flags&2)!=0){seq++;energyMaxima.Remove(s.Key);if(flow.Started){flow=new Flow();streams[s.Key]=flow;reading=null;}}
             if(!flow.Started){flow.Next=seq;flow.Started=true;}
             int delta=unchecked((int)(seq-flow.Next));
             if(delta>0){byte[] previous;if(flow.Pending.TryGetValue(seq,out previous))flow.PendingBytes-=previous.Length;flow.Pending[seq]=s.Data;flow.PendingBytes+=s.Data.Length;
@@ -79,11 +81,16 @@ internal sealed class DashSignal {
         if(OnFrame!=null)OnFrame(data,start,end,ts,stream);
         if(data[start]!=0||data[start+1]!=0x8d)return;
         int cursor=start+2;uint actor;if(!ReadVar(data,ref cursor,end,out actor)||cursor>=end)return;int flags=data[cursor++];if((flags&~3)!=0)return;
-        uint? candidate=null;
-        for(int width=4;width<=8;width+=4){if((flags&(width==4?1:2))==0)continue;if(cursor>=end)return;int count=data[cursor++];
-            for(int n=0;n<count;n++){if(cursor+1+width>end)return;int kind=data[cursor];if(width==4&&kind==3)candidate=BitConverter.ToUInt32(data,cursor+1);cursor+=1+width;}}
-        if(cursor!=end||!candidate.HasValue||candidate.Value>100000000)return;
-        reading=new Reading{Actor=(int)actor,Value=candidate.Value,Timestamp=ts};samples++;if(OnReading!=null)OnReading(reading);
+        uint? candidate=null,maximum=null;
+        for(int width=4;width<=8;width+=4){if((flags&(width==4?1:2))==0)continue;uint count;if(!ReadVar(data,ref cursor,end,out count)||count>(end-cursor)/(width+1))return;
+            for(int n=0;n<count;n++){int kind=data[cursor];if(width==4&&kind==3)candidate=BitConverter.ToUInt32(data,cursor+1);if(width==4&&kind==10)maximum=BitConverter.ToUInt32(data,cursor+1);cursor+=1+width;}}
+        if(cursor!=end||actor==0||actor>int.MaxValue||candidate.HasValue&&candidate.Value>100000000||maximum.HasValue&&(maximum.Value==0||maximum.Value>100000000))return;
+        // Global 008D u32 kind10 is the server's maximum energy, independent of
+        // current kind3. It can precede the first dash or arrive by itself on a
+        // level/stat change. Bind it to both TCP flow and actor, never nearby NPCs.
+        if(maximum.HasValue&&stream!=null){Dictionary<uint,uint> actors;if(!energyMaxima.TryGetValue(stream,out actors)){if(energyMaxima.Count>=32)energyMaxima.Clear();actors=new Dictionary<uint,uint>();energyMaxima[stream]=actors;}if(actors.Count>=64&&!actors.ContainsKey(actor))actors.Clear();actors[actor]=maximum.Value;}
+        if(!candidate.HasValue){if(maximum.HasValue&&reading!=null&&reading.Actor==(int)actor&&readingStream==stream&&OnReading!=null)OnReading(reading);return;}
+        readingStream=stream;reading=new Reading{Actor=(int)actor,Value=candidate.Value,Timestamp=ts};samples++;if(OnReading!=null)OnReading(reading);
     }
     static int Extra(byte[] data,ref int position,int count,int end){
         if(count==15){byte more;do{if(position>=end)throw new InvalidDataException();more=data[position++];count+=more;}while(more==255);}return count;
@@ -106,6 +113,7 @@ internal sealed class DashSignal {
         bool rejected=false;try{Lz4(new byte[]{0,0,0},0,4);}catch(InvalidDataException){rejected=true;}if(!rejected)throw new Exception("Invalid LZ4 offset");
         rejected=false;try{Lz4(new byte[]{0x50,104,101,108,108,111},0,5,5);}catch(InvalidDataException){rejected=true;}if(!rejected)throw new Exception("LZ4 must not read past its containing frame");
         VerifyContainers(root);
+        VerifyEnergyMaximum(root);
         byte[] frame=new byte[]{14,0,0x8d,1,1,1,3,100,0,0,0},data=new byte[44];for(int n=0;n<4;n++)System.Buffer.BlockCopy(frame,0,data,n*frame.Length,frame.Length);
         foreach(uint sequence in new uint[]{100,uint.MaxValue-4}){
             var decoder=new DashSignal(root);Func<int,int,Segment> segment=delegate(int offset,int count){var payload=new byte[count];System.Buffer.BlockCopy(data,offset,payload,0,count);return new Segment{Src="test",Dst="self",SrcPort=13328,DstPort=1234,Seq=unchecked(sequence+(uint)offset),Data=payload};};
@@ -115,6 +123,24 @@ internal sealed class DashSignal {
             decoder.Reset();if(decoder.Current!=null)throw new Exception("Restarted capture must discard the old reading");var resumed=segment(0,44);resumed.Seq=unchecked(sequence+1000u);decoder.Consume(resumed,2);
             if(decoder.Samples!=8||decoder.Errors!=0||decoder.Current.Timestamp!=2)throw new Exception("Capture restart must resume at a new TCP sequence without waiting for missing old packets");
         }
+    }
+    static void VerifyEnergyMaximum(string root){
+        var decoder=new DashSignal(root);int wakes=0;decoder.OnReading=delegate{wakes++;};
+        Action<string,string,double> apply=delegate(string hex,string flow,double ts){var bytes=new byte[hex.Length/2];for(int n=0;n<bytes.Length;n++)bytes[n]=Convert.ToByte(hex.Substring(n*2,2),16);decoder.Decode(bytes,0,bytes.Length,ts,0,flow);};
+        apply("008D0101010A70C00100","a",1); // Maximum can precede local identification.
+        if(decoder.Current!=null||decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("Maximum alone must not invent current energy/local identity");
+        apply("008D01010103404B0100","a",2); // 84800 current, 114800 full.
+        if(decoder.Current.Value!=84800||decoder.ReadSnapshot().DetectedMaximum!=114800)throw new Exception("Server maximum must work with partial energy");
+        apply("008D0201010AA0860100","a",3);apply("008D0101010AA0860100","b",3);
+        if(decoder.ReadSnapshot().DetectedMaximum!=114800)throw new Exception("Other actors/flows must not recalibrate local energy");
+        apply("008D0101010A9CC10100","a",4); // Captured 115100 maximum-only stat change.
+        if(decoder.ReadSnapshot().DetectedMaximum!=115100||decoder.Current.Value!=84800||decoder.Current.Timestamp!=2||decoder.Samples!=1||wakes!=2)throw new Exception("Maximum-only update must wake UI without falsifying energy freshness/samples");
+        apply("008D0101010A70C0010000","a",5);apply("008D0101010A00000000","a",5);
+        if(decoder.ReadSnapshot().DetectedMaximum!=115100)throw new Exception("Malformed/zero maximum must leave previous value intact");
+        apply("008D0101010A70C00100","a",6);
+        if(decoder.ReadSnapshot().DetectedMaximum!=114800)throw new Exception("Maximum decreases must also be honored");
+        decoder.Reset();apply("008D01010103404B0100","a",7);
+        if(decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("Restart must clear stale actor/flow maxima");
     }
     static void VerifyContainers(string root){
         Func<uint,byte[]> frame=delegate(uint value){var bytes=new byte[]{14,0,0x8d,1,1,1,3,0,0,0,0};System.Buffer.BlockCopy(BitConverter.GetBytes(value),0,bytes,7,4);return bytes;};
