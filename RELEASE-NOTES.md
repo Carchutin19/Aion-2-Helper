@@ -1,4 +1,45 @@
-﻿# Aion 2 Helper v1.2.1 — Performance improvements
+﻿# Aion 2 Helper v1.2.2 — Npcap setup guidance
+
+This public preview makes the separate Energy Bar requirement clearer for new
+users and replaces missing-library errors with useful setup guidance.
+
+## What's new
+
+- Detect missing Npcap before entering the game.
+- Show **Npcap is required for Energy Bar** in the energy status.
+- Add a requirement card in **Settings → General** with a **Download Npcap**
+  button opening the official download page in your browser.
+- Show reinstall guidance if the library or its dependencies cannot load.
+- Clear the warning after successful dependency validation.
+- Translate the new guidance and button into English and Spanish.
+- Keep FPS and General settings usable without Npcap, including when Energy Bar
+  is disabled.
+
+Npcap remains a separate installation. No installer, driver or DLL is bundled;
+the button opens its official site. The installed library is validated once and
+cached; file/native checks stay off the rendering timer. Energy Bar visuals,
+FPS measurement and existing preferences are preserved.
+
+## Updating
+
+Close Aion 2 Helper and extract all contents of
+**Aion-2-Helper-v1.2.2-windows-x64.zip** into your existing folder. Keep
+**overlay-settings.json** to preserve your preferences.
+
+If Npcap is missing, open **Settings → General → Download Npcap**, install it with
+the default options, restart the helper, then dash once with your character.
+
+## Validation
+
+- Simulated missing libraries, failed loading, architecture/entry-point errors,
+  recovery and cached validation.
+- EN/ES requirement-card rendering, button labels/accessibility, official URL,
+  and continued access to FPS/General with Energy Bar disabled.
+- Packaged Settings, FPS, Energy Bar and native capture self-tests.
+
+---
+
+# Aion 2 Helper v1.2.1 — Performance improvements
 
 This public preview reduces recurring work in FPS measurement, rendering and
 energy decoding while preserving the widgets' appearance and settings.

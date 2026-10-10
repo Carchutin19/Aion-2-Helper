@@ -330,7 +330,7 @@ internal sealed class EnergyOverlay:Form {
     void ApplyLock(){int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,locked?style|0x20:style&~0x20);editItem.Text=UiLanguage.Text(locked?"Unlock":"Lock",language);renderKey="";}
     void ToggleLock(){EndResize();locked=!locked;}
     internal void ToggleWidgetsLock(){ToggleLock();}
-    internal string ReadingStatus {get{return UiLanguage.Text(options.Enabled?status:"Energy Bar disabled",language);}}
+    internal string ReadingStatus {get{return UiLanguage.Text(options.Enabled?(NpcapSupport.Current.Required?NpcapSupport.Current.Message:status):"Energy Bar disabled",language);}}
     internal EnergyConfiguration Configuration {get{return new EnergyConfiguration{Options=options.Copy(),Bounds=CoreBounds,Locked=locked,Maximum=signal.Maximum,Language=language,Fps=fpsOptions.Copy()};}}
     internal string FpsStatus {get{return UiLanguage.Text(fpsWidget.ReadingStatus,language);}}
     internal bool FpsNeedsAdministrator {get{return fpsWidget.NeedsAdministrator;}}

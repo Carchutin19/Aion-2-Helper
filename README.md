@@ -5,8 +5,8 @@
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.2.1 public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.2.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.2.1/Aion-2-Helper-v1.2.1-windows-x64.zip).
+The [v1.2.2 public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.2.2)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.2.2/Aion-2-Helper-v1.2.2-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately;
 the game must be running with your character in the world to receive energy updates.
@@ -85,6 +85,22 @@ or measured. They are not included in the current build.
 This is a Windows desktop application. **Npcap** is required for Energy Bar
 readings; FPS measurement uses Windows presentation events. The application was
 developed and tested with Aion 2 Global.
+
+### Install Npcap for Energy Bar
+
+Npcap is a separate requirement and is not bundled in the ZIP. Download the
+**Npcap Installer** from [the official Npcap site](https://npcap.com/#download),
+run it with its default options, then restart Aion 2 Helper. Install the complete
+package, which supplies the library and capture driver. Enter with your character
+and dash once to begin receiving energy readings.
+
+When Npcap is missing, **Settings → General** shows **Npcap is required for Energy
+Bar** and a **Download Npcap** button opening the official download page. A library
+that cannot load produces reinstall guidance. Successful validation clears the
+warning. The help is also available with Energy Bar disabled; **FPS Counter works
+without Npcap**.
+
+### Run the helper
 
 1. Run **Aion2Helper.exe** or **Aion-2-Helper.cmd**.
 2. Enter the game with your character and dash once to receive an energy update.

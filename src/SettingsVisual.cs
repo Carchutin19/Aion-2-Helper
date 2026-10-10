@@ -53,7 +53,7 @@ internal static class SettingsVisual {
         saturation=value==0?0:delta/value;hue=delta==0?0:value==r?60*((g-b)/delta%6):value==g?60*((b-r)/delta+2):60*((r-g)/delta+4);if(hue<0)hue+=360;
     }
     internal static void Verify(string root){
-        ConfigurationHistory.Verify();
+        ConfigurationHistory.Verify();NpcapSupport.Verify();
         foreach(string hex in new[]{"#000000","#FFFFFF","#A02D2D","#B85416","#287044","#00FFFF","#FF00FF","#FFFF00","#123456"}){
             var c=(Color)ColorConverter.ConvertFromString(hex);double h,s,v;ToHsv(c,out h,out s,out v);if(Hex(Hsv(h,s,v))!=hex)throw new Exception("HSV round-trip: "+hex);
         }
@@ -69,6 +69,7 @@ internal static class SettingsVisual {
         }
         using(var owner=new EnergyOverlay(root,true)){var settings=new HelperSettings(owner);try{settings.VerifyLanguages(root);}finally{settings.Close();}}
         VerifyLanguagePersistence(root);
+        using(var owner=new EnergyOverlay(root,true)){bool installed=false;var missing=new NpcapSupport(delegate{return installed;},delegate{});var settings=new HelperSettings(owner,missing);try{settings.VerifyNpcap(root,missing,delegate{installed=true;});}finally{settings.Close();}}
         File.WriteAllText(Path.Combine(root,"settings-test.txt"),"PASS: HSV/HEX round-trip, decimal input without rounding unedited fields, settings preserve all options/geometry/maximum, every tab has controls, picker HEX/RGB validation; disabled module blocks controls/preview but retains its activation switch; bounded undo/redo, immutable snapshots, branch replacement, no-op saves preserve redo; overlay restoration, buttons and history across Settings reopening; tray menu screen bounds and shared lock command; live EN/ES selection, localized energy settings/tray/color picker, language undo/redo, independent general settings, persistence/restart and legacy/invalid language fallback.");
     }
     static void VerifyLanguagePersistence(string root){
@@ -115,11 +116,12 @@ internal sealed class HelperSettings : Window {
     readonly DispatcherTimer refresh=new DispatcherTimer();readonly BarDesign.GlowWorkspace previewGlow=new BarDesign.GlowWorkspace();readonly TextBlock activation=SettingsVisual.Text("Enabled",12,"#A7ADBA");
     readonly Button undo,redo;
     readonly Button[] sections=new Button[3];readonly FpsSettingsPane fpsPage;readonly ComboBox languagePicker=new ComboBox{Width=190,Height=38};
+    readonly NpcapSupport npcSupport;readonly TextBlock npcMessage=SettingsVisual.Text("",13,"#E4B986");Border npcCard;Button npcDownload;
     readonly TextBlock sectionTitle=SettingsVisual.Text("Energy Bar",27),sectionSubtitle=SettingsVisual.Text("Energy bar for dash and sprint",13,"#929AA8");
     readonly Grid activationRow=new Grid{Margin=new Thickness(0,18,0,0)};readonly StackPanel generalPage=new StackPanel();bool generalSelected;
     bool loading;DateTime noticeUntil;internal bool IsDisposed {get;private set;}
-    internal HelperSettings(EnergyOverlay owner){
-        overlay=owner;Title="Aion 2 Helper · Settings";SettingsVisual.Theme(this);Width=980;Height=816;MinWidth=880;MinHeight=650;
+    internal HelperSettings(EnergyOverlay owner,NpcapSupport dependency=null){
+        overlay=owner;npcSupport=dependency??NpcapSupport.Current;Title="Aion 2 Helper · Settings";SettingsVisual.Theme(this);Width=980;Height=816;MinWidth=880;MinHeight=650;
         var work=SystemParameters.WorkArea;Width=Math.Min(Width,work.Width-24);Height=Math.Min(Height,work.Height-24);MinWidth=Math.Min(MinWidth,Width);MinHeight=Math.Min(MinHeight,Height);
         using(var icon=owner.Icon.ToBitmap())Icon=SettingsVisual.Bitmap(icon);
         var layout=new Grid();layout.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(190)});layout.ColumnDefinitions.Add(new ColumnDefinition());Content=SettingsVisual.Shell(layout);
@@ -177,7 +179,14 @@ internal sealed class HelperSettings : Window {
         languagePicker.Items.Add(new ComboBoxItem{Content="English",Tag="en"});languagePicker.Items.Add(new ComboBoxItem{Content="Español",Tag="es"});
         languagePicker.SelectionChanged+=delegate{if(loading||IsDisposed)return;var item=languagePicker.SelectedItem as ComboBoxItem;if(item==null)return;var cfg=overlay.Configuration;cfg.Language=(string)item.Tag;overlay.ApplyConfiguration(cfg);};
         var note=SettingsVisual.Text("Changes apply immediately and are saved automatically.",11,"#8994A6");note.Margin=new Thickness(2,0,0,0);generalPage.Children.Add(note);
+        var requirement=new StackPanel();requirement.Children.Add(SettingsVisual.Text("ENERGY BAR REQUIREMENT",10,"#929CAD"));npcMessage.Margin=new Thickness(0,10,0,0);requirement.Children.Add(npcMessage);
+        var help=SettingsVisual.Text("Install Npcap, then restart Aion 2 Helper. FPS Counter works without it.",12,"#A7ADBA");help.Margin=new Thickness(0,8,0,14);requirement.Children.Add(help);
+        npcDownload=SettingsVisual.Button("Download Npcap",OpenNpcapDownload,true);npcDownload.HorizontalAlignment=HorizontalAlignment.Left;npcDownload.ToolTip=NpcapSupport.DownloadUrl;AutomationProperties.SetName(npcDownload,"Download Npcap");requirement.Children.Add(npcDownload);
+        npcCard=SettingsVisual.Card(requirement,new Thickness(18,16,18,16));npcCard.Margin=new Thickness(0,24,0,0);generalPage.Children.Add(npcCard);UpdateNpcap();
     }
+    void OpenNpcapDownload(){try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(NpcapSupport.DownloadUrl){UseShellExecute=true});}catch(System.ComponentModel.Win32Exception){DownloadFailed();}catch(InvalidOperationException){DownloadFailed();}}
+    void DownloadFailed(){noticeUntil=DateTime.UtcNow.AddSeconds(10);status.Text=UiLanguage.Text("Could not open the browser. Download Npcap at https://npcap.com/#download",overlay.Language);}
+    void UpdateNpcap(){var visibility=npcSupport.Required?Visibility.Visible:Visibility.Collapsed;if(npcCard.Visibility!=visibility)npcCard.Visibility=visibility;string message=UiLanguage.Text(npcSupport.Message,overlay.Language);if(npcMessage.Text!=message)npcMessage.Text=message;}
     void SelectSection(bool general){SelectModule(general?0:1);}
     void SelectModule(int module){
         generalSelected=module==0;sectionTitle.Text=module==0?"General":module==1?"Energy Bar":"FPS Counter";sectionSubtitle.Text=module==0?"App preferences":module==1?"Energy bar for dash and sprint":"Your game frame rate, at a glance";
@@ -227,7 +236,7 @@ internal sealed class HelperSettings : Window {
     }
     void Changed(){if(loading||IsDisposed)return;overlay.ApplyConfiguration(ReadConfiguration());}
     void UpdateWidgetStatus(){string text=UiLanguage.Text(overlay.InteractionLock.Locked?"Widgets locked":"Widgets unlocked",overlay.Language);if(widgetStatus.Text==text)return;widgetStatus.Text=text;widgetStatus.Foreground=SettingsVisual.Brush(overlay.InteractionLock.Locked?"#EB9A91":"#84B8AB");}
-    void RefreshStatus(object sender,EventArgs e){fpsPage.UpdateStatus();if(DateTime.UtcNow>=noticeUntil&&status.Text!=overlay.ReadingStatus)status.Text=overlay.ReadingStatus;UpdateWidgetStatus();}
+    void RefreshStatus(object sender,EventArgs e){fpsPage.UpdateStatus();UpdateNpcap();if(DateTime.UtcNow>=noticeUntil&&status.Text!=overlay.ReadingStatus)status.Text=overlay.ReadingStatus;UpdateWidgetStatus();}
     void Reload(){if(IsDisposed)return;loading=true;try{
         var cfg=overlay.Configuration;if(fpsPage!=null)fpsPage.Reload();languagePicker.SelectedIndex=cfg.Language=="es"?1:0;var o=cfg.Options;switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
         numbers["Width"].Value=cfg.Bounds.Width;numbers["Height"].Value=cfg.Bounds.Height;numbers["X"].Value=cfg.Bounds.X;numbers["Y"].Value=cfg.Bounds.Y;numbers["Maximum"].Value=cfg.Maximum;numbers["HoldSeconds"].Value=(decimal)o.HoldSeconds;numbers["FadeMs"].Value=(decimal)(o.FadeSeconds*1000);numbers["SmoothMs"].Value=(decimal)(o.SmoothingSeconds*1000);numbers["GlowPercent"].Value=o.GlowPercent;numbers["TrackPercent"].Value=(decimal)(o.TrackOpacity*100.0/255);
@@ -235,7 +244,7 @@ internal sealed class HelperSettings : Window {
         foreach(var input in numbers.Values)input.IsEnabled=o.Enabled;foreach(var input in colors.Values)input.IsEnabled=o.Enabled;foreach(var input in switches)if(input.Key!="Enabled")input.Value.IsEnabled=o.Enabled;foreach(var tab in tabs)tab.IsEnabled=o.Enabled;
         numbers["HoldSeconds"].IsEnabled=o.Enabled&&o.AutoHide;numbers["FadeMs"].IsEnabled=o.Enabled&&o.Fade;numbers["SmoothMs"].IsEnabled=o.Enabled&&o.Smooth;numbers["GlowPercent"].IsEnabled=o.Enabled&&o.Emissive;colors["LowColor"].IsEnabled=colors["HighColor"].IsEnabled=o.Enabled&&o.DynamicColors;
         previewCard.IsEnabled=segmented.IsEnabled=scroller.IsEnabled=previewSlider.IsEnabled=o.Enabled;previewCard.Opacity=o.Enabled?1:.38;segmented.Opacity=scroller.Opacity=o.Enabled?1:.45;
-        activation.Text=o.Enabled?"Enabled":"Disabled";undo.IsEnabled=overlay.CanUndoConfiguration;redo.IsEnabled=overlay.CanRedoConfiguration;UpdatePreview();status.Text=overlay.ReadingStatus;UpdateWidgetStatus();UiLanguage.Apply(this,overlay.Language);
+        activation.Text=o.Enabled?"Enabled":"Disabled";undo.IsEnabled=overlay.CanUndoConfiguration;redo.IsEnabled=overlay.CanRedoConfiguration;UpdatePreview();status.Text=overlay.ReadingStatus;UpdateWidgetStatus();UpdateNpcap();UiLanguage.Apply(this,overlay.Language);
     }finally{loading=false;}}
     void SetColor(string key,string hex){
         colorValues[key]=hex;var content=new StackPanel{Orientation=Orientation.Horizontal};content.Children.Add(new Border{Width=17,Height=17,CornerRadius=new CornerRadius(5),Background=SettingsVisual.Brush(hex),BorderBrush=SettingsVisual.Brush("#45FFFFFF"),BorderThickness=new Thickness(1),Margin=new Thickness(0,0,9,0)});content.Children.Add(SettingsVisual.Text(hex.ToUpperInvariant(),12,"#D1D6E0"));colors[key].Content=content;
@@ -263,6 +272,15 @@ internal sealed class HelperSettings : Window {
         if(undo.IsEnabled||!redo.IsEnabled)throw new Exception("History must survive closing/reopening Settings");
         redo.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));if(overlay.Configuration.Options.MediumColor!="#654321"||!undo.IsEnabled||redo.IsEnabled)throw new Exception("Reopened redo button");
         undo.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));if(!ConfigurationHistory.Same(overlay.Configuration,baseline)||!ConfigurationHistory.Same(ReadConfiguration(),baseline)||undo.IsEnabled||!redo.IsEnabled)throw new Exception("Reopened undo button");
+    }
+    internal void VerifyNpcap(string root,NpcapSupport requirement,Action install){
+        var original=overlay.Configuration;var cfg=original.Copy();cfg.Language="en";cfg.Fps.Enabled=true;overlay.ApplyConfiguration(cfg);SelectModule(0);UpdateNpcap();
+        if(npcCard.Visibility!=Visibility.Visible||npcMessage.Text!=NpcapSupport.MissingMessage||!npcDownload.IsEnabled||(string)npcDownload.ToolTip!=NpcapSupport.DownloadUrl||(string)npcDownload.Content!="Download Npcap")throw new Exception("Missing Npcap requires visible guidance and the official download action");
+        SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-npcap-en.png"));cfg.Language="es";overlay.ApplyConfiguration(cfg);
+        if(npcMessage.Text!="Npcap es necesario para la barra de energía."||(string)npcDownload.Content!="Descargar Npcap"||AutomationProperties.GetName(npcDownload)!="Descargar Npcap")throw new Exception("Npcap guidance must switch language immediately");
+        SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-npcap-es.png"));SelectModule(2);if(!fpsPage.IsEnabled||sectionTitle.Text!="Contador de FPS")throw new Exception("Missing Npcap must not disable FPS settings");
+        cfg.Options.Enabled=false;overlay.ApplyConfiguration(cfg);SelectModule(0);if(!npcDownload.IsEnabled||npcCard.Visibility!=Visibility.Visible)throw new Exception("Dependency help remains accessible with Energy Bar off");
+        install();requirement.EnsureAvailable();RefreshStatus(null,null);if(npcCard.Visibility!=Visibility.Collapsed)throw new Exception("Successful dependency validation must clear the warning");overlay.ApplyConfiguration(original);
     }
     internal void VerifyLanguages(string root){
         var original=overlay.Configuration;languagePicker.SelectedIndex=0;var english=overlay.Configuration;SelectSection(true);

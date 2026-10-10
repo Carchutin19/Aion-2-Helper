@@ -63,7 +63,13 @@ internal static class UiLanguage {
         {"Enter a valid HEX color, such as #B85416.","Introduce un color HEX válido, como #B85416."},{"RGB values must be between 0 and 255.","Los valores RGB deben estar entre 0 y 255."},
         {"Energy Bar disabled","Barra de energía desactivada"},{"No data · dash once to start","Sin datos · haz un dash para iniciar"},
         {"Enter the game with your character first: no Aion connections detected.","Entra con tu personaje antes de iniciar: no se detectan conexiones de Aion."},
-        {"Npcap returned no adapters.","Npcap no ha encontrado adaptadores de red."}
+        {"Npcap returned no adapters.","Npcap no ha encontrado adaptadores de red."},
+        {"ENERGY BAR REQUIREMENT","REQUISITO DE LA BARRA DE ENERGÍA"},
+        {"Npcap is required for Energy Bar.","Npcap es necesario para la barra de energía."},
+        {"Npcap could not be loaded. Reinstall Npcap for Energy Bar.","No se ha podido cargar Npcap. Reinstálalo para la barra de energía."},
+        {"Install Npcap, then restart Aion 2 Helper. FPS Counter works without it.","Instala Npcap y reinicia Aion 2 Helper. El contador de FPS funciona sin él."},
+        {"Download Npcap","Descargar Npcap"},
+        {"Could not open the browser. Download Npcap at https://npcap.com/#download","No se ha podido abrir el navegador. Descarga Npcap en https://npcap.com/#download"}
     };
     static readonly Dictionary<string,string> English=Reverse();
     static readonly string[] Prefixes={"Choose color: ","Decrease ","Increase "};

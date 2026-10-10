@@ -17,6 +17,7 @@ internal static class Native {
     [DllImport("user32.dll")] internal static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint key);
     [DllImport("user32.dll")] internal static extern bool UnregisterHotKey(IntPtr h, int id);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern int pcap_findalldevs(out IntPtr devices, StringBuilder error);
+    [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern IntPtr pcap_lib_version();
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern void pcap_freealldevs(IntPtr devices);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl, CharSet=CharSet.Ansi)] internal static extern IntPtr pcap_open_live(string device, int snaplen, int promiscuous, int timeout, StringBuilder error);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern int pcap_next_ex(IntPtr h, out IntPtr header, out IntPtr data);
@@ -119,7 +120,7 @@ internal sealed class Recorder:IDisposable {
         }}catch(Exception ex){lock(sync){lastStartError=ex.Message;}}finally{Interlocked.Exchange(ref maintenanceQueued,0);}});
     }
     void StartCore() {
-        if(active)return;RefreshFlows();
+        if(active)return;NpcapSupport.Current.EnsureAvailable();RefreshFlows();
         lock(sync){if(flows.Count==0)throw new Exception("Enter the game with your character first: no Aion connections detected.");}
         Native.SetDllDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"Npcap"));
         var err=new StringBuilder(512);IntPtr head;
@@ -229,7 +230,7 @@ internal static class Entry {
         var reused=new byte[65535];Buffer.BlockCopy(b,0,reused,0,b.Length);Assert(Segment.Parse(reused,1,57)==null,"Reusable packet buffer must respect actual captured length");Assert(Segment.Parse(reused,1,58).Data.Length==4,"Reusable packet buffer must ignore stale tail bytes");
         byte[] v6=new byte[65];v6[0]=0x60;v6[5]=25;v6[6]=6;v6[23]=1;v6[39]=2;v6[40]=1;v6[43]=2;v6[52]=0x50;v6[64]=42;
         var six=Segment.Parse(v6,12);Assert(six!=null&&six.Src=="::1"&&six.Dst=="::2"&&six.Data.Length==5&&six.Data[4]==42,"IPv6 raw packet");
-        Native.SetDllDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"Npcap"));
+        NpcapSupport.Current.EnsureAvailable();
         DashSignal.VerifyProtocol(root);
         var err=new StringBuilder(512);IntPtr head;Assert(Native.pcap_findalldevs(out head,err)==0,"Npcap enumeration: "+err);int devices=0,opened=0,events=0;
         try {for(IntPtr ptr=head;ptr!=IntPtr.Zero;){var d=(Native.Device)Marshal.PtrToStructure(ptr,typeof(Native.Device));devices++;string name=Marshal.PtrToStringAnsi(d.Name);
