@@ -28,3 +28,17 @@ Reference checkouts and their original licenses remain in `research/`.
 The specific energy field (`u32`, kind 3 in `008D`) was identified from a local
 capture and verified by the user. It was not a stamina field already identified
 in the consulted readers.
+
+The experimental offline `tools/analyze_combat.py` also consults the MIT
+Aion DPS Meter protocol reference above for direct damage and appearance frames.
+Global-client party snapshot layout and additional-impact amounts were checked
+against local observations. This tool is not integrated into released binaries.
+The local live DPS prototype also uses independently implemented class metadata
+reading informed by the MIT reference's wire class identifiers. Class coloring
+is cosmetic and does not establish player identity or party membership.
+
+Additional research reference:
+
+- https://github.com/cyberbadger6969/aion2-dps-meter,
+  revision `453c1634f325c4e87eec475a6b03844617564d5f` (GPL-3.0).
+  Code is not copied or linked into the executables or offline tools.

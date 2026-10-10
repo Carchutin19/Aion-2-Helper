@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -115,7 +115,7 @@ internal sealed class HelperSettings : Window {
     readonly TextBlock widgetStatus=SettingsVisual.Text("",11);
     readonly DispatcherTimer refresh=new DispatcherTimer();readonly BarDesign.GlowWorkspace previewGlow=new BarDesign.GlowWorkspace();readonly TextBlock activation=SettingsVisual.Text("Enabled",12,"#A7ADBA");
     readonly Button undo,redo;
-    readonly Button[] sections=new Button[3];readonly FpsSettingsPane fpsPage;readonly ComboBox languagePicker=new ComboBox{Width=190,Height=38};
+    readonly Button[] sections=new Button[4];readonly FpsSettingsPane fpsPage;readonly DpsSettingsPane dpsPage;readonly ComboBox languagePicker=new ComboBox{Width=190,Height=38};
     readonly NpcapSupport npcSupport;readonly TextBlock npcMessage=SettingsVisual.Text("",13,"#E4B986");Border npcCard;Button npcDownload;
     readonly TextBlock sectionTitle=SettingsVisual.Text("Energy Bar",27),sectionSubtitle=SettingsVisual.Text("Energy bar for dash and sprint",13,"#929AA8");
     readonly Grid activationRow=new Grid{Margin=new Thickness(0,18,0,0)};readonly StackPanel generalPage=new StackPanel();bool generalSelected;
@@ -144,6 +144,7 @@ internal sealed class HelperSettings : Window {
         BuildBehavior();BuildAppearance();BuildPosition();
         BuildGeneral(body);
         fpsPage=new FpsSettingsPane(overlay,this);Grid.SetRow(fpsPage,1);Grid.SetRowSpan(fpsPage,3);body.Children.Add(fpsPage);
+        dpsPage=new DpsSettingsPane(overlay,this);Grid.SetRow(dpsPage,1);Grid.SetRowSpan(dpsPage,3);body.Children.Add(dpsPage);
         var footer=new Grid{Margin=new Thickness(0,14,0,0)};Grid.SetRow(footer,4);footer.ColumnDefinitions.Add(new ColumnDefinition());footer.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});body.Children.Add(footer);
         var historyActions=new StackPanel{Orientation=Orientation.Horizontal};footer.Children.Add(historyActions);
         undo=SettingsVisual.Button("↶  Undo",overlay.UndoConfiguration);undo.ToolTip="Undo the last change · Ctrl+Z";undo.Margin=new Thickness(0,0,8,0);historyActions.Children.Add(undo);
@@ -163,7 +164,7 @@ internal sealed class HelperSettings : Window {
         string path=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"assets","aion-2-helper.png");if(File.Exists(path)){var bitmap=new BitmapImage();bitmap.BeginInit();bitmap.UriSource=new Uri(path);bitmap.CacheOption=BitmapCacheOption.OnLoad;bitmap.DecodePixelWidth=96;bitmap.EndInit();bitmap.Freeze();image.Source=bitmap;}brand.Children.Add(image);
         brand.Children.Add(SettingsVisual.Text("Aion 2 Helper",19));brand.Children.Add(new TextBlock{Text="SETTINGS",FontSize=10,Foreground=SettingsVisual.Brush("#818A9B"),Margin=new Thickness(0,8,0,0)});nav.Children.Add(brand);
         var section=new StackPanel{Margin=new Thickness(12,12,12,0)};Grid.SetRow(section,1);nav.Children.Add(section);
-        for(int n=0;n<3;n++){int module=n;var button=SettingsVisual.Button(n==0?"◉   General":n==1?"◉   Energy Bar":"◉   FPS Counter",delegate{SelectModule(module);});button.HorizontalContentAlignment=HorizontalAlignment.Left;button.Padding=new Thickness(12,11,12,11);button.Margin=new Thickness(0,0,0,7);sections[n]=button;section.Children.Add(button);}
+        for(int n=0;n<4;n++){int module=n;var button=SettingsVisual.Button(n==0?"◉   General":n==1?"◉   Energy Bar":n==2?"◉   FPS Counter":"◉   DPS Meter",delegate{SelectModule(module);});button.HorizontalContentAlignment=HorizontalAlignment.Left;button.Padding=new Thickness(12,11,12,11);button.Margin=new Thickness(0,0,0,7);sections[n]=button;section.Children.Add(button);}
         var general=new StackPanel{Margin=new Thickness(22,20,18,25)};Grid.SetRow(general,2);nav.Children.Add(general);
         general.Children.Add(new Border{Height=1,Background=SettingsVisual.Brush("#16FFFFFF"),Margin=new Thickness(0,0,0,15)});
         general.Children.Add(SettingsVisual.Text("GENERAL STATUS",10,"#818A9B"));
@@ -179,8 +180,8 @@ internal sealed class HelperSettings : Window {
         languagePicker.Items.Add(new ComboBoxItem{Content="English",Tag="en"});languagePicker.Items.Add(new ComboBoxItem{Content="Español",Tag="es"});
         languagePicker.SelectionChanged+=delegate{if(loading||IsDisposed)return;var item=languagePicker.SelectedItem as ComboBoxItem;if(item==null)return;var cfg=overlay.Configuration;cfg.Language=(string)item.Tag;overlay.ApplyConfiguration(cfg);};
         var note=SettingsVisual.Text("Changes apply immediately and are saved automatically.",11,"#8994A6");note.Margin=new Thickness(2,0,0,0);generalPage.Children.Add(note);
-        var requirement=new StackPanel();requirement.Children.Add(SettingsVisual.Text("ENERGY BAR REQUIREMENT",10,"#929CAD"));npcMessage.Margin=new Thickness(0,10,0,0);requirement.Children.Add(npcMessage);
-        var help=SettingsVisual.Text("Install Npcap, then restart Aion 2 Helper. FPS Counter works without it.",12,"#A7ADBA");help.Margin=new Thickness(0,8,0,14);requirement.Children.Add(help);
+        var requirement=new StackPanel();requirement.Children.Add(SettingsVisual.Text("GAME DATA REQUIREMENT",10,"#929CAD"));npcMessage.Margin=new Thickness(0,10,0,0);requirement.Children.Add(npcMessage);
+        var help=SettingsVisual.Text("Install Npcap for Energy Bar and DPS Meter, then restart Aion 2 Helper. FPS Counter works without it.",12,"#A7ADBA");help.Margin=new Thickness(0,8,0,14);requirement.Children.Add(help);
         npcDownload=SettingsVisual.Button("Download Npcap",OpenNpcapDownload,true);npcDownload.HorizontalAlignment=HorizontalAlignment.Left;npcDownload.ToolTip=NpcapSupport.DownloadUrl;AutomationProperties.SetName(npcDownload,"Download Npcap");requirement.Children.Add(npcDownload);
         npcCard=SettingsVisual.Card(requirement,new Thickness(18,16,18,16));npcCard.Margin=new Thickness(0,24,0,0);generalPage.Children.Add(npcCard);UpdateNpcap();
     }
@@ -189,9 +190,9 @@ internal sealed class HelperSettings : Window {
     void UpdateNpcap(){var visibility=npcSupport.Required?Visibility.Visible:Visibility.Collapsed;if(npcCard.Visibility!=visibility)npcCard.Visibility=visibility;string message=UiLanguage.Text(npcSupport.Message,overlay.Language);if(npcMessage.Text!=message)npcMessage.Text=message;}
     void SelectSection(bool general){SelectModule(general?0:1);}
     void SelectModule(int module){
-        generalSelected=module==0;sectionTitle.Text=module==0?"General":module==1?"Energy Bar":"FPS Counter";sectionSubtitle.Text=module==0?"App preferences":module==1?"Energy bar for dash and sprint":"Your game frame rate, at a glance";
-        generalPage.Visibility=module==0?Visibility.Visible:Visibility.Collapsed;fpsPage.Visibility=module==2?Visibility.Visible:Visibility.Collapsed;activationRow.Visibility=previewCard.Visibility=segmented.Visibility=scroller.Visibility=module==1?Visibility.Visible:Visibility.Collapsed;
-        for(int n=0;n<3;n++){bool selected=n==module;sections[n].Background=SettingsVisual.Brush(selected?"#235DC7B0":"#0CFFFFFF");sections[n].Foreground=SettingsVisual.Brush(selected?"#A7E5D5":"#929CAD");sections[n].BorderBrush=SettingsVisual.Brush(selected?"#3067C7B0":"#10FFFFFF");}
+        generalSelected=module==0;sectionTitle.Text=module==0?"General":module==1?"Energy Bar":module==2?"FPS Counter":"DPS Meter";sectionSubtitle.Text=module==0?"App preferences":module==1?"Energy bar for dash and sprint":module==2?"Your game frame rate, at a glance":"Combat damage · experimental alpha";
+        generalPage.Visibility=module==0?Visibility.Visible:Visibility.Collapsed;fpsPage.Visibility=module==2?Visibility.Visible:Visibility.Collapsed;dpsPage.Visibility=module==3?Visibility.Visible:Visibility.Collapsed;activationRow.Visibility=previewCard.Visibility=segmented.Visibility=scroller.Visibility=module==1?Visibility.Visible:Visibility.Collapsed;
+        for(int n=0;n<4;n++){bool selected=n==module;sections[n].Background=SettingsVisual.Brush(selected?"#235DC7B0":"#0CFFFFFF");sections[n].Foreground=SettingsVisual.Brush(selected?"#A7E5D5":"#929CAD");sections[n].BorderBrush=SettingsVisual.Brush(selected?"#3067C7B0":"#10FFFFFF");}
         UiLanguage.Apply(this,overlay.Language);
     }
     void BuildPreview(Grid body){
@@ -232,13 +233,13 @@ internal sealed class HelperSettings : Window {
     bool Flag(string key){return switches[key].IsChecked==true;}decimal Num(string key){return numbers[key].Value;}
     internal EnergyConfiguration ReadConfiguration(){
         var options=new EnergyBarOptions{Enabled=Flag("Enabled"),AutoHide=Flag("AutoHide"),Fade=Flag("Fade"),Smooth=Flag("Smooth"),Emissive=Flag("Emissive"),DynamicColors=Flag("DynamicColors"),HoldSeconds=(double)Num("HoldSeconds"),FadeSeconds=(double)Num("FadeMs")/1000,SmoothingSeconds=(double)Num("SmoothMs")/1000,GlowPercent=(int)Num("GlowPercent"),TrackOpacity=(int)Math.Round((double)Num("TrackPercent")*255/100),LowColor=colorValues["LowColor"],MediumColor=colorValues["MediumColor"],HighColor=colorValues["HighColor"]};options.Normalize();
-        return new EnergyConfiguration{Options=options,Bounds=new Drawing.Rectangle((int)Num("X"),(int)Num("Y"),(int)Num("Width"),(int)Num("Height")),Locked=overlay.InteractionLock.Locked,Maximum=(uint)Num("Maximum"),Language=overlay.Language,Fps=overlay.Configuration.Fps};
+        return new EnergyConfiguration{Options=options,Bounds=new Drawing.Rectangle((int)Num("X"),(int)Num("Y"),(int)Num("Width"),(int)Num("Height")),Locked=overlay.InteractionLock.Locked,Maximum=(uint)Num("Maximum"),Language=overlay.Language,Fps=overlay.Configuration.Fps,Dps=overlay.Configuration.Dps};
     }
     void Changed(){if(loading||IsDisposed)return;overlay.ApplyConfiguration(ReadConfiguration());}
     void UpdateWidgetStatus(){string text=UiLanguage.Text(overlay.InteractionLock.Locked?"Widgets locked":"Widgets unlocked",overlay.Language);if(widgetStatus.Text==text)return;widgetStatus.Text=text;widgetStatus.Foreground=SettingsVisual.Brush(overlay.InteractionLock.Locked?"#EB9A91":"#84B8AB");}
-    void RefreshStatus(object sender,EventArgs e){fpsPage.UpdateStatus();UpdateNpcap();if(DateTime.UtcNow>=noticeUntil&&status.Text!=overlay.ReadingStatus)status.Text=overlay.ReadingStatus;UpdateWidgetStatus();}
+    void RefreshStatus(object sender,EventArgs e){fpsPage.UpdateStatus();dpsPage.UpdateStatus();UpdateNpcap();if(DateTime.UtcNow>=noticeUntil&&status.Text!=overlay.ReadingStatus)status.Text=overlay.ReadingStatus;UpdateWidgetStatus();}
     void Reload(){if(IsDisposed)return;loading=true;try{
-        var cfg=overlay.Configuration;if(fpsPage!=null)fpsPage.Reload();languagePicker.SelectedIndex=cfg.Language=="es"?1:0;var o=cfg.Options;switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
+        var cfg=overlay.Configuration;if(fpsPage!=null)fpsPage.Reload();if(dpsPage!=null)dpsPage.Reload();languagePicker.SelectedIndex=cfg.Language=="es"?1:0;var o=cfg.Options;switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
         numbers["Width"].Value=cfg.Bounds.Width;numbers["Height"].Value=cfg.Bounds.Height;numbers["X"].Value=cfg.Bounds.X;numbers["Y"].Value=cfg.Bounds.Y;numbers["Maximum"].Value=cfg.Maximum;numbers["HoldSeconds"].Value=(decimal)o.HoldSeconds;numbers["FadeMs"].Value=(decimal)(o.FadeSeconds*1000);numbers["SmoothMs"].Value=(decimal)(o.SmoothingSeconds*1000);numbers["GlowPercent"].Value=o.GlowPercent;numbers["TrackPercent"].Value=(decimal)(o.TrackOpacity*100.0/255);
         SetColor("LowColor",o.LowColor);SetColor("MediumColor",o.MediumColor);SetColor("HighColor",o.HighColor);
         foreach(var input in numbers.Values)input.IsEnabled=o.Enabled;foreach(var input in colors.Values)input.IsEnabled=o.Enabled;foreach(var input in switches)if(input.Key!="Enabled")input.Value.IsEnabled=o.Enabled;foreach(var tab in tabs)tab.IsEnabled=o.Enabled;
@@ -252,6 +253,9 @@ internal sealed class HelperSettings : Window {
     void PickColor(string key,string label){var picker=new HelperColorPicker(colorValues[key],label,overlay.Language){Owner=this};if(picker.ShowDialog()==true){SetColor(key,picker.SelectedHex);Changed();}}
     void UpdatePreview(){if(colorValues.Count!=3||IsDisposed)return;int width=(int)Math.Max(200,Math.Min(640,ActualWidth>0?ActualWidth-325:550));var o=ReadConfiguration().Options;if(!o.Enabled){o.DynamicColors=false;o.MediumColor="#555B65";}using(var image=BarDesign.RenderEmissive(width,4,previewSlider.Value/100,false,true,1,o,previewGlow))previewImage.Source=SettingsVisual.Bitmap(image);previewValue.Text=Math.Round(previewSlider.Value)+" %";}
     internal void ShowFps(){SelectModule(2);}
+    internal void ShowDps(){SelectModule(3);}
+    internal void ShowDpsHistory(){SelectModule(3);dpsPage.SelectHistory(true);}
+    internal void VerifyDps(string root){SelectModule(3);dpsPage.Verify();var original=overlay.Configuration;var c=original.Copy();c.Language="en";c.Dps.Enabled=true;c.Dps.AutoHide=true;overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-en.png"));c.Language="es";overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-es.png"));dpsPage.RenderSections(Path.Combine(root,"designs"));overlay.CombatHistory.Add(DpsVerification.HistorySample(DpsHistory.UtcNow()));dpsPage.SelectHistory(true);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-history-es.png"));dpsPage.RenderHistoryDetails(Path.Combine(root,"designs","settings-dps-history-players-es.png"));dpsPage.SelectHistory(false);overlay.CombatHistory.Clear();if(sectionTitle.Text!="Medidor de DPS")throw new Exception("DPS localization");overlay.ApplyConfiguration(original);}
     internal void VerifyFps(string root){SelectModule(2);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-fps-en.png"));var cfg=overlay.Configuration;cfg.Language="es";overlay.ApplyConfiguration(cfg);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-fps-es.png"));if(sectionTitle.Text!="Contador de FPS")throw new Exception("FPS section localization");}
     internal void VerifyLayout(){SelectSection(false);if(switches.Count!=6||numbers.Count!=10||colors.Count!=3)throw new Exception("Missing settings control");for(int n=0;n<3;n++){SelectTab(n);if(pages[n].Children.Count==0||pages[n].Visibility!=Visibility.Visible)throw new Exception("Empty settings tab");}VerifyModuleState(overlay.Configuration.Options.Enabled);}
     void VerifyModuleState(bool enabled){if(!switches["Enabled"].IsEnabled||previewCard.IsEnabled!=enabled||segmented.IsEnabled!=enabled||scroller.IsEnabled!=enabled||previewSlider.IsEnabled!=enabled)throw new Exception("Module switch must stay enabled while all energy controls/preview are disabled");if(!enabled)foreach(var control in numbers.Values)if(control.IsEnabled)throw new Exception("Disabled energy inputs must reject editing");}
@@ -277,7 +281,7 @@ internal sealed class HelperSettings : Window {
         var original=overlay.Configuration;var cfg=original.Copy();cfg.Language="en";cfg.Fps.Enabled=true;overlay.ApplyConfiguration(cfg);SelectModule(0);UpdateNpcap();
         if(npcCard.Visibility!=Visibility.Visible||npcMessage.Text!=NpcapSupport.MissingMessage||!npcDownload.IsEnabled||(string)npcDownload.ToolTip!=NpcapSupport.DownloadUrl||(string)npcDownload.Content!="Download Npcap")throw new Exception("Missing Npcap requires visible guidance and the official download action");
         SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-npcap-en.png"));cfg.Language="es";overlay.ApplyConfiguration(cfg);
-        if(npcMessage.Text!="Npcap es necesario para la barra de energía."||(string)npcDownload.Content!="Descargar Npcap"||AutomationProperties.GetName(npcDownload)!="Descargar Npcap")throw new Exception("Npcap guidance must switch language immediately");
+        if(npcMessage.Text!="Npcap es necesario para la barra de energía y el medidor de DPS."||(string)npcDownload.Content!="Descargar Npcap"||AutomationProperties.GetName(npcDownload)!="Descargar Npcap")throw new Exception("Npcap guidance must switch language immediately");
         SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-npcap-es.png"));SelectModule(2);if(!fpsPage.IsEnabled||sectionTitle.Text!="Contador de FPS")throw new Exception("Missing Npcap must not disable FPS settings");
         cfg.Options.Enabled=false;overlay.ApplyConfiguration(cfg);SelectModule(0);if(!npcDownload.IsEnabled||npcCard.Visibility!=Visibility.Visible)throw new Exception("Dependency help remains accessible with Energy Bar off");
         install();requirement.EnsureAvailable();RefreshStatus(null,null);if(npcCard.Visibility!=Visibility.Collapsed)throw new Exception("Successful dependency validation must clear the warning");overlay.ApplyConfiguration(original);

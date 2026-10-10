@@ -22,13 +22,15 @@ internal sealed class DashSignal {
     Reading reading;double lastTraffic;int samples,errors;
     internal uint Maximum=113900; // Maximum validated against this character's HUD.
     internal Action<Reading> OnReading;
+    internal Action<byte[],int,int,double,string> OnFrame;
+    internal Action OnReset;
     internal DashSignal(string root){
         string path=Path.GetFullPath(Path.Combine(root,"protocol","sync-opcodes.json"));lock(protocolGate){HashSet<int> opcodes;
             if(!protocols.TryGetValue(path,out opcodes)){var json=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(File.ReadAllText(path));opcodes=new HashSet<int>(((System.Collections.IEnumerable)json["syncOpcodes"]).Cast<object>().Select(Convert.ToInt32));opcodes.Add(65535);protocols[path]=opcodes;}known=opcodes;
         }
     }
     internal Snapshot ReadSnapshot(){lock(gate){return new Snapshot{Reading=reading,LastTraffic=lastTraffic,Samples=samples,Errors=errors};}}
-    internal void Reset(){lock(gate){streams.Clear();reading=null;lastTraffic=0;}}
+    internal void Reset(){lock(gate){streams.Clear();reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
     internal Reading Current {get{lock(gate){return reading;}}}
     internal double LastTraffic {get{lock(gate){return lastTraffic;}}}
     internal int Samples {get{lock(gate){return samples;}}}
@@ -45,7 +47,7 @@ internal sealed class DashSignal {
             }else{int overlap=-delta;if(overlap>=s.Data.Length)return;flow.Append(s.Data,overlap);flow.Next=unchecked(seq+(uint)s.Data.Length);}
             while(flow.Pending.Count>0){uint first=flow.FirstPending();delta=unchecked((int)(first-flow.Next));if(delta>0)break;
                 byte[] data=flow.Pending[first];flow.Pending.Remove(first);flow.PendingBytes-=data.Length;if(-delta<data.Length){flow.Append(data,-delta);flow.Next=unchecked(first+(uint)data.Length);}}
-            Cut(flow,ts);
+            Cut(flow,ts,s.Key);
         }
     }
     static bool ReadVar(byte[] data,ref int position,int end,out uint value){
@@ -55,7 +57,7 @@ internal sealed class DashSignal {
         uint length;body=at;end=at;if(!ReadVar(data,ref body,limit,out length))return 0;
         if(length<6||length>65535)return -1;end=body+(int)length-4;return end<=limit?1:0;
     }
-    void Cut(Flow flow,double ts){
+    void Cut(Flow flow,double ts,string stream){
         int position=0;
         if(!flow.Synced){for(int candidate=0;candidate<flow.Count;candidate++){int at=candidate;bool good=true;
                 for(int k=0;k<3;k++){int body,end;if(Frame(flow.Buffer,at,flow.Count,out body,out end)!=1||!known.Contains((flow.Buffer[body]<<8)|flow.Buffer[body+1])){good=false;break;}at=end;}
@@ -63,17 +65,18 @@ internal sealed class DashSignal {
             if(!flow.Synced){if(flow.Count>65535){System.Buffer.BlockCopy(flow.Buffer,flow.Count-65535,flow.Buffer,0,65535);flow.Count=65535;}return;}
         }
         while(position<flow.Count){if(flow.Buffer[position]==0){position++;continue;}int body,end,result=Frame(flow.Buffer,position,flow.Count,out body,out end);if(result==0)break;if(result<0){position++;errors++;continue;}
-            Decode(flow.Buffer,body,end,ts,0);position=end;}
+            Decode(flow.Buffer,body,end,ts,0,stream);position=end;}
         if(position>0){flow.Count-=position;if(flow.Count>0)System.Buffer.BlockCopy(flow.Buffer,position,flow.Buffer,0,flow.Count);}
         if(flow.Count>65535){errors++;System.Buffer.BlockCopy(flow.Buffer,flow.Count-65535,flow.Buffer,0,65535);flow.Count=65535;flow.Synced=false;}
     }
-    void Decode(byte[] data,int start,int end,double ts,int depth){
+    void Decode(byte[] data,int start,int end,double ts,int depth,string stream=null){
         if(depth>4){errors++;return;}if(end-start<2)return;
         if(data[start]==255&&data[start+1]==255){
             try{if(end-start<7)throw new InvalidDataException();int expected=BitConverter.ToInt32(data,start+2);if(expected<=0||expected>1000000)throw new InvalidDataException();byte[] raw=decompression[depth];if(raw==null||raw.Length<expected){raw=new byte[Math.Max(expected,Math.Min(1000000,raw==null?8192:raw.Length*2))];decompression[depth]=raw;}Lz4Into(data,start+6,expected,end,raw);int position=0;
-                while(position<expected){if(raw[position]==0){position++;continue;}int body,frameEnd;if(Frame(raw,position,expected,out body,out frameEnd)!=1)throw new InvalidDataException();Decode(raw,body,frameEnd,ts,depth+1);position=frameEnd;}}
+                while(position<expected){if(raw[position]==0){position++;continue;}int body,frameEnd;if(Frame(raw,position,expected,out body,out frameEnd)!=1)throw new InvalidDataException();Decode(raw,body,frameEnd,ts,depth+1,stream);position=frameEnd;}}
             catch(InvalidDataException){errors++;}return;
         }
+        if(OnFrame!=null)OnFrame(data,start,end,ts,stream);
         if(data[start]!=0||data[start+1]!=0x8d)return;
         int cursor=start+2;uint actor;if(!ReadVar(data,ref cursor,end,out actor)||cursor>=end)return;int flags=data[cursor++];if((flags&~3)!=0)return;
         uint? candidate=null;

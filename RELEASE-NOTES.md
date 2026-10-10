@@ -1,4 +1,137 @@
-﻿# Aion 2 Helper v1.2.2 — Npcap setup guidance
+﻿# Aion 2 Helper v1.3.0 Alpha — Experimental DPS Meter & Combat History
+
+**The DPS Meter is not complete. It currently reads partial combat data, and
+unsupported events can be missing from damage and healing totals. We are
+actively working on identifying more data, validating it in game and improving
+reliability. Please treat this as an experimental preview.**
+
+This release adds an independently configurable combat widget alongside Energy
+Bar and FPS Counter, plus persistent records with statistics for each player.
+
+## Combat widget
+
+- Direct damage and DPS, supported damage over time, healing done/received and
+  HPS. Switch views using **Damage / Heals / Received** tabs directly on the
+  widget, including while it is locked.
+- Choose **Self**, **Party** or **Nearby players**. Nearby includes only players
+  whose supported combat information reaches your client, not the whole server.
+- Recover a party that was already formed when the helper starts and process
+  roster changes. Recovery can take time as identity and party data arrive.
+  If the widget asks for identification, dash once with your character.
+- Choose separate colors for damage, healer/support and tank roles, or use one
+  color. Configure background opacity, refresh interval, displayed row count,
+  encounter inactivity timeout, auto-hide delay, fade and bar smoothing.
+- Move and resize using Settings or the unlocked widget. Taskbar/tray handling
+  keeps Windows controls accessible in the tested configuration.
+- Optionally show your name as **You / Tú** based on the selected app language,
+  and optionally keep yourself first regardless of ranking. Both are off by
+  default. Recorded player names retain their actual identity.
+- Shared lock, automatic saving, undo/redo and English/Spanish support.
+
+DPS Meter is **off by default** for new installations and older preferences
+without a DPS section. Enable it under **Settings → DPS Meter → Configuration**.
+Base refresh is **500 ms**; the default encounter timeout is **10 seconds**.
+Auto-hide starts off. Existing Energy Bar visuals and FPS preferences are retained.
+
+## Critical statistics: what is measured
+
+- **Critical amount share:** the portion of eligible primary direct damage or
+  healing attributed to critical results.
+- **Critical impact frequency:** the percentage of eligible primary direct
+  events that were critical. This is an observed frequency, **not your character's
+  theoretical critical chance**.
+
+Additional impacts and periodic ticks are excluded from those denominators.
+An em dash means there are no eligible events. Positive critical-healing results
+still need live validation; the shared result mapping has synthetic test coverage.
+
+## Persistent combat history, with one row per player
+
+The new **Settings → DPS Meter → History** tab keeps completed encounters in a
+styled table. Each fight retains every identified player's accepted statistics,
+independently of the widget filter, current view or displayed row limit.
+
+- Inspect damage/DPS, supported periodic damage, critical amounts and frequencies,
+  healing/HPS, healing received and event counts in a horizontally scrolling
+  player table. Choose a player-name filter or view everyone together.
+- Export the selected fight as **TXT** to any location chosen in the save dialog.
+  The export follows the player filter and describes the metric limitations.
+- Delete a selected fight or use the per-row delete button; clear all history.
+- Set a maximum of **1–1000 fights** (**100** by default). New records evict the
+  oldest when the limit is reached.
+- Optionally remove old records after a chosen number of hours or days.
+  Automatic age cleanup is off by default; the initial age value is seven days.
+- History stays available for viewing/export when DPS Meter is disabled and
+  survives helper restarts in local **combat-history.json**.
+
+The configured inactivity timeout ends a fight after a gap without accepted
+combat impacts. Resetting, disabling the meter, connection/area changes or
+closing the helper also save an unfinished fight with its end reason. A dungeon
+or boss is not guaranteed to equal one record; pauses can split encounters.
+Supported same-map boss transitions retain the current encounter.
+
+Deleting records or applying retention limits is irreversible; settings undo
+does not restore erased history. Records and exports contain player names and
+IDs. Normal use does not record raw packets or upload this information.
+
+## What is still missing
+
+**This release does not provide a complete or guaranteed accurate combat log.**
+Only supported event layouts and identified periodic families are counted.
+Unknown skills/effects and unresolved identities can leave gaps. Some DoT and
+HoT are supported; this does not mean every poison, burn or periodic heal is known.
+
+Healing is the announced restoration amount, not effective healing. Overhealing,
+full buff/debuff tracking, buff-related damage/healing attribution, front/back
+classifications, reliable boss identification, stagger contributions and gauges,
+damage during stagger, aggro, item-versus-skill restoration separation and zone
+names remain pending. These are research goals, not enabled features.
+
+Development testing includes open-world combat and dungeon runs on the Global
+client. Coverage can vary by skill, encounter, client update and system. We are
+continuing to collect and validate formats rather than treating missing data as
+zero. Reports describing the skill, encounter and missing behavior are welcome
+through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+
+## Requirements and updating
+
+Download **Aion-2-Helper-v1.3.0-windows-x64.zip**, extract every file together,
+including **tools/presentmon**, and run **Aion2Helper.exe**.
+
+**Npcap is required for Energy Bar and DPS Meter** and remains a separate
+installation. General Settings links to the official download and reports missing
+or unloadable capture support. **FPS Counter works without Npcap**. If FPS readings
+need permission, use **Start measurement as administrator** or run the helper as
+administrator; elevation does not replace Npcap.
+
+To update, close the helper and replace its program files in the existing folder.
+Keep **overlay-settings.json** and, when present, **combat-history.json** to retain
+preferences and saved fights. Neither personal file is included in the ZIP.
+
+## Validation and performance scope
+
+- Automated checks cover accepted damage/healing/DoT and exclusions, critical
+  denominators, party updates/startup recovery, settings persistence, undo/redo,
+  smooth/fade behavior, native clickable locked tabs and rendering/resource reuse.
+- History checks cover one-time completion, immutable per-player snapshots,
+  retaining more rows than the live widget, persistent/atomic saves, safe corrupt
+  file backup, retention, deletion and filtered localized TXT export.
+- A local replay processed **231,303 frames**, retained the eleven distinct party
+  players across the tested runs, reached parties of five, and produced **23
+  encounter records**. This verifies those cases, not complete damage accuracy.
+- History uses background writes on changes rather than writes per hit. Rendering
+  caches are reused; fades/smoothing run faster only while transitioning.
+
+Earlier published CPU/RAM observations predate the combat module and should not
+be interpreted as resource measurements of v1.3.0. The app remains in alpha.
+
+Support is optional; feedback and bug reports help the project grow. Donations
+are welcome through [our Nexus page](https://www.nexusmods.com/aion2/mods/9) —
+coffee remains our favorite buff! ☕
+
+---
+
+# Aion 2 Helper v1.2.2 — Npcap setup guidance
 
 **Alpha release — actively in development.** Behavior may vary between PCs and
 game updates. Please report problems through GitHub Issues.

@@ -5,6 +5,7 @@
 # Personal configuration, connection state, and development handoff
 /overlay-settings.json
 /live-status.json
+/combat-history*.json*
 /diagnostic.txt
 /validation.json
 /HANDOFF.md

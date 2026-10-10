@@ -74,7 +74,7 @@ internal sealed class Segment {
 internal sealed class Recorder:IDisposable {
     readonly object sync=new object(); readonly string root;readonly bool writePackets;
     readonly object lifecycle=new object();readonly ManualResetEvent stopEvent=new ManualResetEvent(true);
-    int maintenanceQueued,liveWorkers;volatile bool requested,disposed;string lastStartError="";
+    int maintenanceQueued,liveWorkers;long lastDiscoveryTicks;volatile bool requested,disposed;string lastStartError="";
     internal string LastStartError {get{lock(sync){return lastStartError;}}}
     internal Action<Segment,double> OnSegment;
     internal Action OnCaptureStarted;
@@ -110,6 +110,17 @@ internal sealed class Recorder:IDisposable {
             }finally{Marshal.FreeHGlobal(memory);}
         }
         lock(sync){flows=updated;processes=names.Count==0?"Game not detected":String.Join(", ",names.ToArray());}
+    }
+    bool Tracked(Segment segment){
+        lock(sync){if(!active)return false;if(flows.ContainsKey(segment.Key))return true;}
+        // A dungeon creates a new TCP connection. Waiting for the normal UI
+        // maintenance tick loses its initial roster and character appearance.
+        // Confirm ownership through Windows before accepting the first payload;
+        // discovery is throttled and the kernel filter remains unchanged.
+        if(segment.SrcPort!=13328)return false;long now=DateTime.UtcNow.Ticks,previous=Interlocked.Read(ref lastDiscoveryTicks);
+        if(now-previous<TimeSpan.TicksPerMillisecond*250||Interlocked.CompareExchange(ref lastDiscoveryTicks,now,previous)!=previous)return false;
+        if(!active||disposed)return false;RefreshFlows();
+        lock(sync)return active&&flows.ContainsKey(segment.Key);
     }
     internal void Start(){lock(lifecycle){if(disposed)throw new ObjectDisposedException("Recorder");StartCore();}}
     internal void MaintainAsync(bool enabled){
@@ -151,6 +162,7 @@ internal sealed class Recorder:IDisposable {
                 // Windows timeval uses 32-bit longs, including on x64.
                 int caplen=Marshal.ReadInt32(hp,8);if(caplen<0||caplen>65535)continue;
                 Marshal.Copy(dp,raw,0,caplen);var s=Segment.Parse(raw,link,caplen);if(s==null)continue;
+                if(!Tracked(s))continue;
                 double ts=(uint)Marshal.ReadInt32(hp,0)+(uint)Marshal.ReadInt32(hp,4)/1000000.0;
                 Action<Segment,double> handler;
                 lock(sync) {string direction;if(!active||!flows.TryGetValue(s.Key,out direction))continue;
@@ -242,6 +254,8 @@ internal static class Entry {
     [STAThread] static int Main(string[] args) {
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
+        if(args.Length>0&&args[0]=="--dps-test"){try{DpsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"dps-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>1&&args[0]=="--dps-replay-test"){try{DpsVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"dps-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--fps-refresh-test")return FpsVerification.VerifyRefresh(root);
         if(args.Length>0&&args[0]=="--fps-standby-test")return FpsVerification.VerifyStandby(root);
         if(args.Length>0&&args[0]=="--fps-live-test")return FpsVerification.Live(root);
@@ -258,6 +272,8 @@ internal static class Entry {
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
         if(args.Length>0&&args[0]=="--ui-preview"){Application.Run(new EnergyOverlay(root,true));return 0;}
         if(args.Length>0&&args[0]=="--fps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenFpsSettings));};Application.Run(overlay);return 0;}
+        if(args.Length>0&&args[0]=="--dps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsSettings));};Application.Run(overlay);return 0;}
+        if(args.Length>0&&args[0]=="--dps-history"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsHistory));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenSettings));};Application.Run(overlay);return 0;}
         string appName=Path.GetFileNameWithoutExtension(Application.ExecutablePath);
         if((args.Length>0&&args[0]=="--overlay")||appName.Equals("AionDash",StringComparison.OrdinalIgnoreCase)||appName.Equals("Aion2Helper",StringComparison.OrdinalIgnoreCase))Application.Run(new EnergyOverlay(root));else Application.Run(new ProbeWindow(root));return 0;
