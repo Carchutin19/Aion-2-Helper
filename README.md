@@ -2,10 +2,14 @@
 
 **Customizable utility overlays for Aion 2.**
 
+**Alpha software — actively in development.** Energy Bar and FPS Counter are
+available now, but behavior may vary between PCs and game updates. Please report
+problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.2.2 public preview](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.2.2)
+The [v1.2.2 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.2.2)
 includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.2.2/Aion-2-Helper-v1.2.2-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately;
@@ -102,7 +106,8 @@ without Npcap**.
 
 ### Run the helper
 
-1. Run **Aion2Helper.exe** or **Aion-2-Helper.cmd**.
+1. Run **Aion2Helper.exe** or **Aion-2-Helper.cmd**. If FPS measurement needs
+   permission on your PC, use the administrator options below.
 2. Enter the game with your character and dash once to receive an energy update.
 3. Right-click the icon next to the clock and choose **Settings**. Double-clicking
    the icon also opens Settings.
@@ -115,6 +120,24 @@ The tray menu contains **Settings**, **Lock / Unlock**, and **Quit Aion 2 Helper
 The lock is shared across widgets; there is no F10 shortcut.
 The overlay has no taskbar button. Windows may place the tray icon in the
 hidden-icons menu.
+
+### Administrator permissions for FPS
+
+**Running as administrator is recommended if FPS readings do not appear on your
+PC.** Windows permissions can differ between systems; some PCs receive FPS
+without elevation, while others need it.
+
+- In **Settings → FPS Counter**, enable the counter and click **Start measurement
+  as administrator** when the button appears. Accept the Windows permission
+  prompt. This elevates only the FPS measurement worker.
+- Alternatively, close the helper from its tray menu, then right-click
+  **Aion2Helper.exe → Run as administrator** and accept the Windows prompt to
+  launch the whole helper with administrator permissions.
+
+The button appears when measurement has no current FPS reading; it does not
+necessarily mean access was denied. If elevation does not help, check that Aion 2
+is running and report the measurement status in GitHub Issues. Administrator
+permissions do not replace the separate Npcap installation needed by Energy Bar.
 
 ### Settings
 

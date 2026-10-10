@@ -1,6 +1,9 @@
 ﻿# Aion 2 Helper v1.2.2 — Npcap setup guidance
 
-This public preview makes the separate Energy Bar requirement clearer for new
+**Alpha release — actively in development.** Behavior may vary between PCs and
+game updates. Please report problems through GitHub Issues.
+
+This alpha release makes the separate Energy Bar requirement clearer for new
 users and replaces missing-library errors with useful setup guidance.
 
 ## What's new
@@ -21,6 +24,19 @@ cached; file/native checks stay off the rendering timer. Energy Bar visuals,
 FPS measurement and existing preferences are preserved.
 
 ## Updating
+
+### FPS permissions
+
+If FPS readings do not appear, running measurement as administrator is
+recommended. In **Settings → FPS Counter**, click **Start measurement as
+administrator** when shown and accept the Windows prompt. This elevates only the
+reader. Alternatively, close the helper from its tray menu and right-click
+**Aion2Helper.exe → Run as administrator** to elevate the whole helper.
+Some PCs can measure FPS without elevation. The button indicates no current
+reading, rather than confirming a permission error. Npcap is still a separate
+Energy Bar requirement.
+
+### Existing settings
 
 Close Aion 2 Helper and extract all contents of
 **Aion-2-Helper-v1.2.2-windows-x64.zip** into your existing folder. Keep
