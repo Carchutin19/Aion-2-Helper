@@ -1,4 +1,94 @@
-﻿# Aion 2 Helper v1.3.0 Alpha — Experimental DPS Meter & Combat History
+﻿# Aion 2 Helper v1.4.0 Alpha — Party Invitation Notifications
+
+**Notifications are now active! For this release, party invitations are the
+only supported notification type.** More useful alerts are planned.
+
+An incoming party invitation now displays the inviting player's name in a
+movable dark overlay, with optional sound and smooth fade in/out. You do not
+need to accept the invitation or dash to identify the inviting player.
+
+## Notifications settings
+
+- **Enable all notifications** turns the entire module on/off while preserving
+  your individual notification choices.
+- **Notification types → Party invitations** independently enables/disables
+  this alert. Disabling it also hides an active invitation and stops its sound.
+- **Common settings** control optional sound, volume, display duration, fade
+  enable/disable and fade duration.
+- Text color/size, dark background opacity, position, width and height are shared
+  across all notification types, ready for the additional types planned later.
+- Move and resize directly using the existing shared **Unlock / Lock** control,
+  or enter geometry in Settings. Locked notices do not intercept game clicks.
+- Generic sample preview: **This is a sample notification.** Use **Test
+  notification** to check the appearance and configured sound. The editing
+  sample shown while unlocked stays silent.
+- English/Spanish, automatic saving and configuration undo/redo.
+
+Party invitations and sound are **enabled by default** when there are no prior
+notification preferences. Defaults: **6-second display**, **250 ms fades** and
+**80% volume**. The notification MP3 is included in the ZIP.
+
+The reader triggers on an incoming invitation and deduplicates repeated copies.
+Accepting or joining a party does not generate a separate invitation notice.
+New invitations from the same player can appear again. The notification window
+works independently of the Energy Bar's visibility.
+
+## Performance and visual quality
+
+- Idle notices avoid queue locks, clock/shell lookups and duplicate work from
+  the shared energy timer. Their animation timer stops when no notice is active.
+- Fades reuse the native bitmap; moves, volume and duration changes do not
+  regenerate text. A single timer deadline handles the stable display period.
+- Settings reuses the sample image and rendering workspace, and skips rebuilding
+  unchanged controls. Preview resources are released when Settings closes.
+- Muting/disabling notifications releases the sound decoder; it opens on demand.
+- All **24** compared notification images remain pixel-identical across tested
+  sizes, languages, sample/real text and editing states.
+
+Isolated benchmarks and a short whole-helper CPU/RAM observation are documented
+in **performance/README.md**. These are development measurements, not a game FPS
+improvement claim or a guarantee for every PC.
+
+## Scope and existing alpha limitations
+
+Incoming party invitations were confirmed on Aion 2 Global, including accepted
+and declined cases, with live visual/sound confirmation. Replaying two private
+fixtures produced exactly **5 invitations from 253,679 decoded frames** and no
+notices from the other frames. Other invitation variants, alliance requests,
+event reminders and other notification types are not included yet.
+
+**The DPS Meter remains incomplete and experimental.** It still reads partial
+combat data; unsupported events can be missing from damage/healing totals.
+We are actively working on broader coverage and validation. This release does
+not add boss/stagger/aggro tracking, complete buff/debuff coverage or other
+previously pending combat research. Energy Bar, FPS Counter, combat history and
+your existing preferences remain available.
+
+## Installation and updating
+
+Download **Aion-2-Helper-v1.4.0-windows-x64.zip** and extract every file together,
+including **assets/sounds** and **tools/presentmon**. Run **Aion2Helper.exe**.
+
+**Npcap is required for Energy Bar, DPS Meter and Notifications** and is installed
+separately. General Settings links to its official download and reports missing
+capture support. **FPS Counter works without Npcap.** If FPS readings need
+permission, use **Start measurement as administrator** or run the helper as
+administrator; elevation does not replace Npcap.
+
+To update, close the helper and replace its program files in the existing folder.
+Keep **overlay-settings.json** and **combat-history.json** to retain preferences
+and saved fights. These personal files are not included in the release ZIP.
+
+Automated notification, settings, rendering/resource and DPS regression checks
+passed. The application remains **alpha software**; report problems through
+[GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+
+Donations are optional and welcome through [our Nexus page](https://www.nexusmods.com/aion2/mods/9)
+— coffee is still our favorite buff! ☕
+
+---
+
+# Aion 2 Helper v1.3.0 Alpha — Experimental DPS Meter & Combat History
 
 **The DPS Meter is not complete. It currently reads partial combat data, and
 unsupported events can be missing from damage and healing totals. We are

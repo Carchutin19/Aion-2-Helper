@@ -1,4 +1,48 @@
-# Optimization verification
+﻿# Optimization verification
+
+## v1.4.0 — Notification review, 10 October 2026
+
+Compared a local notification prototype against its optimized build on the same
+Windows development PC. These are isolated tests, not a helper-on/off gameplay
+FPS comparison. Both builds use the same notification appearance and settings.
+
+| Isolated workload | Before | After |
+| --- | ---: | ---: |
+| 1,000,000 idle shared-timer calls | 87.72 ms | 6.44 ms |
+| 200 unchanged notification-settings reloads | 638.11 ms | 0.08 ms |
+| Temporary managed allocations for those 200 reloads | 45,335,832 bytes | 166,464 bytes |
+
+Idle calls return without locking the notification queue, reading the clock or
+checking shell focus. Repeated settings updates reuse the frozen preview bitmap;
+only visual changes regenerate pixels. These timings can vary with scheduling
+and system load. Allocation totals are temporary managed bytes, not resident RAM.
+The measured hot loops have no per-call managed allocations; the 64-byte total
+reported for them is measurement overhead.
+
+All **24 notification image hashes matched**, covering three sizes, English and
+Spanish, example/real text and editing/locked states. Checks also verify bounded
+GDI resources over 120 resizes, stable native bitmap/presentation reuse,
+independent fade/hold completion, event-driven UI delivery and enable/disable.
+Two private fixtures replayed 253,679 frames and produced exactly five supported
+incoming invitations. Fixtures and detailed benchmark output remain local.
+The repeatable benchmark source is **tools/NotificationPerformanceHarness.cs**.
+
+The large reduction in a preview-only hold microbenchmark includes removing
+repeated native presentations of an invisible test form; it is not presented as
+an equivalent in-game performance gain. Stable real notices keep their bitmap
+and one timer deadline while holding; fades retain their 16 ms animation timer.
+The idle animation timer remains stopped. Audio resources are closed on mute or
+disable, and preview workspaces are released when Settings closes.
+
+A separate **15.05-second whole-helper observation** after a fresh restart, with
+Settings closed, Energy Bar/FPS/DPS/Notifications enabled and the game running,
+measured **0.152% combined CPU** normalized to 32 logical processors. The endpoint
+combined working set was **98.50 MiB** (64.29 main + 34.21 FPS worker); endpoint
+private committed memory was **84.59 MiB**. These are a brief CPU interval and
+memory snapshots, not a long-term leak test, stable memory plateau or notification-
+only cost. No invitation occurred during this sample. Earlier 20-minute figures
+below used different versions/session conditions and are not directly comparable.
+
 
 ## v1.2.2 — 20-minute gameplay observation, 10 October 2026
 

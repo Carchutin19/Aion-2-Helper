@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Automation;
@@ -9,6 +9,16 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
+        {"◉   Notifications","◉   Notificaciones"},{"Notifications","Notificaciones"},{"Useful alerts while you play","Avisos útiles mientras juegas"},{"Enable notifications","Activar notificaciones"},
+        {"PARTY INVITATIONS","INVITACIONES DE GRUPO"},{"Show party invitations","Mostrar invitaciones de grupo"},{"Play notification sound","Reproducir sonido"},{"Sound volume","Volumen del sonido"},{"Text size","Tamaño del texto"},{"Notification duration","Duración del aviso"},{"Test notification","Probar notificación"},
+        {"Enable all notifications","Activar todas las notificaciones"},{"NOTIFICATION TYPES","TIPOS DE NOTIFICACIÓN"},{"Party invitations","Invitaciones al grupo"},{"COMMON SETTINGS","AJUSTES COMUNES"},
+        {"Choose which notifications you want to receive. Turning all notifications off keeps your individual choices.","Elige qué notificaciones quieres recibir. Al desactivarlas todas se conservan tus selecciones."},
+        {"Sound, duration, appearance and position apply to all notification types.","El sonido, la duración, el aspecto y la posición se comparten entre todas las notificaciones."},
+        {"All notifications are disabled.","Todas las notificaciones están desactivadas."},{"Party invitations are disabled.","Las invitaciones al grupo están desactivadas."},
+        {"Party invitation","Invitación al grupo"},{"{0} is inviting you to a party.","{0} te está invitando al grupo."},{"Sample player","Jugador de ejemplo"},{"Sample notification · not a game event","Notificación de ejemplo · no es un evento del juego"},
+        {"Notification","Notificación"},{"This is a sample notification.","Esto es una notificación de ejemplo."},
+        {"Invitation detection is awaiting a live test.","Detección de invitaciones pendiente de la prueba en el juego."},{"Listening for party invitations.","Esperando invitaciones de grupo."},{"Notification sound file is missing.","No se encuentra el archivo de sonido."},{"Notification sound could not be played.","No se ha podido reproducir el sonido."},
+        {"POSITION & SIZE","POSICIÓN Y TAMAÑO"},{"Unlock widgets to move or resize the notification area. A sample stays visible while editing; it does not play a sound.","Desbloquea los widgets para mover o ajustar el área de avisos. Al editar se muestra un ejemplo sin reproducir sonido."},
         {"◉   DPS Meter","◉   Medidor de DPS"},{"DPS Meter","Medidor de DPS"},{"Combat damage · experimental alpha","Daño en combate · versión alpha experimental"},
         {"Enable DPS meter","Activar medidor de DPS"},{"Self","Solo tú"},{"Party","Grupo"},{"Nearby players","Jugadores cercanos"},{"Show players","Mostrar jugadores"},
         {"Combat view","Vista de combate"},{"Healing","Curación"},{"Healing done","Curación realizada"},{"Healing received","Curación recibida"},
@@ -105,9 +115,9 @@ internal static class UiLanguage {
         {"ENERGY BAR REQUIREMENT","REQUISITO DE LA BARRA DE ENERGÍA"},
         {"GAME DATA REQUIREMENT","REQUISITO PARA LOS DATOS DEL JUEGO"},
         {"Npcap is required for Energy Bar.","Npcap es necesario para la barra de energía."},
-        {"Npcap is required for Energy Bar and DPS Meter.","Npcap es necesario para la barra de energía y el medidor de DPS."},
-        {"Npcap could not be loaded. Reinstall Npcap for Energy Bar and DPS Meter.","No se ha podido cargar Npcap. Reinstálalo para la barra de energía y el medidor de DPS."},
-        {"Install Npcap for Energy Bar and DPS Meter, then restart Aion 2 Helper. FPS Counter works without it.","Instala Npcap para la barra de energía y el medidor de DPS y reinicia Aion 2 Helper. El contador de FPS funciona sin él."},
+        {"Npcap is required for Energy Bar, DPS Meter and Notifications.","Npcap es necesario para la barra de energía, el medidor de DPS y las notificaciones."},
+        {"Npcap could not be loaded. Reinstall Npcap for Energy Bar, DPS Meter and Notifications.","No se ha podido cargar Npcap. Reinstálalo para la barra de energía, el medidor de DPS y las notificaciones."},
+        {"Install Npcap for Energy Bar, DPS Meter and Notifications, then restart Aion 2 Helper. FPS Counter works without it.","Instala Npcap para la barra de energía, el medidor de DPS y las notificaciones y reinicia Aion 2 Helper. El contador de FPS funciona sin él."},
         {"Npcap could not be loaded. Reinstall Npcap for Energy Bar.","No se ha podido cargar Npcap. Reinstálalo para la barra de energía."},
         {"Install Npcap, then restart Aion 2 Helper. FPS Counter works without it.","Instala Npcap y reinicia Aion 2 Helper. El contador de FPS funciona sin él."},
         {"Download Npcap","Descargar Npcap"},

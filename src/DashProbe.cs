@@ -254,6 +254,7 @@ internal static class Entry {
     [STAThread] static int Main(string[] args) {
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
+        if(args.Length>0&&args[0]=="--notifications-test"){try{NotificationVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"notifications-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--dps-test"){try{DpsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"dps-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>1&&args[0]=="--dps-replay-test"){try{DpsVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"dps-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--fps-refresh-test")return FpsVerification.VerifyRefresh(root);
@@ -271,6 +272,7 @@ internal static class Entry {
         }
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
         if(args.Length>0&&args[0]=="--ui-preview"){Application.Run(new EnergyOverlay(root,true));return 0;}
+        if(args.Length>0&&args[0]=="--notifications-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenNotificationSettings));};Application.Run(helper);return 0;}
         if(args.Length>0&&args[0]=="--fps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenFpsSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--dps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--dps-history"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsHistory));};Application.Run(overlay);return 0;}

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 // File/native checks run on capture maintenance, not on the rendering timer.
 internal sealed class NpcapSupport {
     internal const string DownloadUrl="https://npcap.com/#download";
-    internal const string MissingMessage="Npcap is required for Energy Bar and DPS Meter.";
-    internal const string LoadMessage="Npcap could not be loaded. Reinstall Npcap for Energy Bar and DPS Meter.";
+    internal const string MissingMessage="Npcap is required for Energy Bar, DPS Meter and Notifications.";
+    internal const string LoadMessage="Npcap could not be loaded. Reinstall Npcap for Energy Bar, DPS Meter and Notifications.";
     internal static readonly NpcapSupport Current=new NpcapSupport(LibraryPresent,LoadLibrary);
     readonly Func<bool> present;readonly Action load;readonly object gate=new object();
     volatile int state; // 0 unchecked, 1 available, 2 missing, 3 load failure

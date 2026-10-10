@@ -1,4 +1,4 @@
-# References and attribution
+﻿# References and attribution
 
 The FPS module uses Intel's unmodified PresentMon 2.6.0 x64 console:
 
@@ -42,3 +42,6 @@ Additional research reference:
 - https://github.com/cyberbadger6969/aion2-dps-meter,
   revision `453c1634f325c4e87eec475a6b03844617564d5f` (GPL-3.0).
   Code is not copied or linked into the executables or offline tools.
+
+Notification audio: **assets/sounds/party-invite.mp3** was supplied by the project
+author for the party invitation notification and is included with the release.
