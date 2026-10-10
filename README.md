@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.5.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.5.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.5.0/Aion-2-Helper-v1.5.0-windows-x64.zip).
+The [v1.6.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.6.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.6.0/Aion-2-Helper-v1.6.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy Bar, DPS Meter and Notifications;
@@ -23,6 +23,15 @@ Aion 2 Helper is a community project designed to keep useful information visible
 while you play, with movable widgets, a clean interface, and a focus on low overhead.
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
+
+## New in v1.6.0 Alpha
+
+DPS history adds hit tags, each player's highest hit, a minimum archive duration,
+and separate fight/player deletion. **Settings → General** shows the update
+summary and the unresolved open-world boss limitation in English or Spanish.
+Supported directional hits against already-visible targets can also recover
+after a helper restart when fresh target HP drops corroborate them. This remains
+a conservative, partial fallback and does not fix the open-world boss issue.
 
 ## Available now: Energy Bar
 
@@ -113,10 +122,15 @@ critical, **not your character's theoretical critical chance**. Additional
 impacts and periodic ticks stay outside these denominators. A dash means there
 are no eligible events. Positive critical-healing results still need live validation.
 
+**Known issue under investigation:** party members' damage can stop updating
+during open-world bosses even while they continue attacking nearby. This is
+unresolved; totals and rankings may be incomplete. Successful normal-enemy tests
+do not establish that this boss scenario is fixed.
+
 **Known limits:** only supported damage/healing and identified periodic families
 are counted. Healing is the announced restoration amount; effective healing and
 overhealing are not available. Complete buff/debuff tracking, damage/healing
-attribution to buffs, front/back classifications, boss identification, stagger
+attribution to buffs, complete positional metadata, boss identification, stagger
 contributions/gauges, damage during stagger, aggro and zone names are pending.
 Item-versus-skill restoration separation is also pending. Settings previews are
 sample data. Protocol changes can require updates; tested cases do not establish
@@ -131,7 +145,20 @@ summary totals, detail rows and TXT exports, or choose **All players**. Scroll
 the detail table horizontally for all statistics.
 
 - Export the selected fight to TXT at a location you choose.
-- Delete one fight using its row button or selection; clear all history at once.
+- Each fight row has its own **Delete fight** button, fixed at the start of the
+  table. It removes the whole fight even when a player filter is active.
+- **Delete player** removes only that player from the displayed fight; removing
+  its last player removes the empty fight. Other fights remain unchanged.
+- Clear all history at once.
+- **Minimum fight duration** defaults to **60 seconds**; set **0** to save every
+  fight. Duration runs from the first to last accepted impact, excluding the
+  inactivity wait. Short fights still appear live; existing history is retained.
+- Per-player **highest hit**, plus supported **Front / Back / Double / Perfect**
+  counts and Front/Back Critical, Double Critical and Perfect combinations.
+  Counts can overlap on one primary direct impact; unknown metadata and older
+  histories show unavailable values. Highest hit is the largest primary damage
+  impact or individual supported periodic tick, excluding extra-impact amounts.
+  These fields are included in TXT exports.
 - Set a maximum from **1 to 1000 fights**; default **100**. New records remove
   the oldest when the limit is reached.
 - Optionally remove records older than a chosen number of hours or days.

@@ -45,3 +45,9 @@ Additional research reference:
 
 Notification audio: **assets/sounds/party-invite.mp3** was supplied by the project
 author for the party invitation notification and is included with the release.
+
+Direct-impact tag research also consulted the protocol field descriptions in the
+A2Tools reference above and the locally installed NotMeter reader. The observed
+plotter byte, restoration integer and angle byte were checked against our own
+recorded frames. Front/Back, Perfect and Double counters are implemented in our
+own bounded reader; no external implementation is copied or linked.

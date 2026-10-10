@@ -1,3 +1,62 @@
+# Aion 2 Helper v1.6.0 Alpha — DPS Hit Details & History Controls
+
+**The DPS Meter is still incomplete and experimental. We have identified an
+unresolved issue where party members' damage can stop updating during open-world
+bosses, even while they continue attacking nearby. Totals and rankings may be
+incomplete. This release does not claim to fix that issue.**
+
+## New per-player history details
+
+- Front, Back, Double and Perfect tags for supported primary direct impacts.
+- Front/Back Critical, Front/Back Double Critical and Front/Back Perfect counts.
+  Counts overlap when the same impact has several tags; do not add them as hits.
+- Highest hit for each player: largest primary direct damage impact or supported
+  individual periodic tick, excluding added extra-impact amounts.
+- Tagged direct impacts indicates how many events supplied recognized metadata.
+  Missing metadata and older records show unavailable values instead of invented
+  zeroes. New fields are also included in TXT exports.
+
+## History controls
+
+- Minimum fight duration defaults to **60 seconds**. Set **0** to save every
+  encounter. It measures first-to-last accepted impact and excludes the inactivity
+  wait. Short fights still appear in the live meter; existing history is retained.
+- Each fight row has a fixed **Delete fight** button scoped to that exact fight,
+  including when a player filter is active.
+- **Delete player** remains separate and removes only that player in that fight.
+  Removing its last player removes the empty fight. Other fights are preserved.
+- English/Spanish settings, automatic saving and preference undo/redo remain
+  supported. Deleting history cannot be undone.
+
+## Reader improvement and in-app update notice
+
+After opening the helper while an enemy/dummy is already visible, supported
+direction-tagged direct hits can recover if fresh target HP drops corroborate
+them. The reader records the announced damage amount, without applying an HP
+multiplier or guessing boss identity. Untagged or unsupported events may still
+be missing; this does not establish complete damage coverage.
+
+**Settings → General** now shows these changes and the known open-world boss
+issue in the selected language. Energy glow, fades and FPS presentation remain
+unchanged.
+
+## Updating
+
+Close the helper and extract **Aion-2-Helper-v1.6.0-windows-x64.zip** into your
+installation folder. Keep **overlay-settings.json** and **combat-history.json**
+to preserve preferences and records. Personal data and research captures are
+excluded from the package. Npcap is installed separately; run as administrator
+if capture or FPS permissions require it.
+
+Regression checks cover hit tags/combinations, largest hits, legacy records,
+duration boundaries, persistence and scoped deletion. Production replay retained
+previously accepted party totals in the tested dungeon corpus, and the dummy
+recovery was confirmed in game. These checks do not resolve the world-boss issue.
+
+Report issues through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+
+---
+
 # Aion 2 Helper v1.5.0 Alpha — Shugo Festival Alerts & Automatic Energy Capacity
 
 This update adds two Shugo Festival reminders and makes maximum energy automatic.

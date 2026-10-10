@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Automation;
@@ -9,6 +9,23 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
+        {"WHAT'S NEW · v1.6.0 Alpha","NOVEDADES · v1.6.0 Alpha"},
+        {"DPS history: Front/Back, Double/Perfect and critical combinations, highest hit per player, a minimum fight duration (60 s by default), and separate Delete fight / Delete player buttons.","Registro de DPS: Front/Back, Double/Perfect y combinaciones críticas, golpe más alto por jugador, duración mínima del combate (60 s por defecto) y botones separados para borrar combate o jugador."},
+        {"Known issue: party members' damage may stop updating during open-world bosses. This remains unresolved; DPS totals and rankings can be incomplete.","Fallo conocido: el daño de compañeros del grupo puede dejar de actualizarse en jefes de mundo abierto. Sigue pendiente de solución; los totales y la clasificación de DPS pueden estar incompletos."},
+        {"Minimum fight duration","Duración mínima del combate"},
+        {"Highest hit","Golpe más alto"},
+        {"Tagged direct impacts","Impactos directos con etiquetas"},
+        {"Back","Espalda"},
+        {"Front","Frente"},
+        {"Double","Doble"},
+        {"Perfect","Perfecto"},
+        {"Back Critical","Espalda crítico"},
+        {"Front Critical","Frente crítico"},
+        {"Back Double Critical","Espalda doble crítico"},
+        {"Front Double Critical","Frente doble crítico"},
+        {"Back Perfect","Espalda perfecto"},
+        {"Front Perfect","Frente perfecto"},
+        {"Highest hit uses the largest primary damage impact or individual periodic tick recorded for that player; added extra-impact amounts are excluded. Tags describe primary direct impacts, can overlap and are unavailable for older records or missing metadata.","El golpe más alto es el mayor impacto principal de daño o tick periódico registrado para ese jugador; no suma los impactos adicionales. Las etiquetas describen impactos directos principales, pueden coincidir y no están disponibles en registros antiguos ni si faltan esos datos."},
         {"Player {0}","Jugador {0}"},
         {"◉   Notifications","◉   Notificaciones"},{"Notifications","Notificaciones"},{"Useful alerts while you play","Avisos útiles mientras juegas"},{"Enable notifications","Activar notificaciones"},
         {"PARTY INVITATIONS","INVITACIONES DE GRUPO"},{"Show party invitations","Mostrar invitaciones de grupo"},{"Play notification sound","Reproducir sonido"},{"Sound volume","Volumen del sonido"},{"Text size","Tamaño del texto"},{"Notification duration","Duración del aviso"},{"Test notification","Probar notificación"},
@@ -37,7 +54,7 @@ internal static class UiLanguage {
         {"One row per player. Scroll the table horizontally to see all statistics.","Una fila por jugador. Desliza la tabla horizontalmente para ver todas las estadísticas."},{"Player filter","Filtro de jugador"},
         {"Configuration","Configuración"},{"History","Registro"},{"Combat history","Registro de combates"},{"STORAGE","ALMACENAMIENTO"},
         {"Automatically delete old records","Borrar registros antiguos automáticamente"},{"Delete records older than","Borrar registros con más de"},{"Maximum records","Máximo de registros"},{"Hours","Horas"},{"Days","Días"},
-        {"Export TXT","Exportar TXT"},{"Export combat record","Exportar registro de combate"},{"Delete record","Borrar registro"},{"Clear all history","Borrar todos los registros"},{"Saved fights","Combates guardados"},{"History storage error","Error al guardar el registro"},{"Record exported.","Registro exportado."},{"Export failed","Error de exportación"},
+        {"Export TXT","Exportar TXT"},{"Export combat record","Exportar registro de combate"},{"Delete record","Borrar registro"},{"Delete fight","Borrar combate"},{"Delete player","Borrar jugador"},{"Actions","Acciones"},{"Remove this player from this fight","Borrar este jugador de este combate"},{"Delete fight removes that whole fight, even with a player filter. Delete player removes only that player from that fight; removing its last player deletes the empty fight.","Borrar combate elimina esa pelea completa, aunque haya un filtro de jugador. Borrar jugador elimina solo ese jugador de esa pelea; si era el último, también elimina el combate vacío."},{"Clear all history","Borrar todos los registros"},{"Saved fights","Combates guardados"},{"History storage error","Error al guardar el registro"},{"Record exported.","Registro exportado."},{"Export failed","Error de exportación"},
         {"Started","Inicio"},{"Ended","Fin"},{"Duration","Duración"},{"Players","Jugadores"},{"End reason","Motivo del cierre"},{"Map ID","ID del mapa"},{"Self ID","Tu ID"},{"Party IDs","IDs del grupo"},{"Actor ID","ID del jugador"},{"Role","Rol"},{"Party known","Grupo identificado"},{"Recovered party","Grupo recuperado"},{"Widget filter","Filtro del widget"},{"Tank","Tanque"},{"Healer / support","Sanador / apoyo"},{"Unknown","Desconocido"},
         {"Inactivity","Inactividad"},{"Manual reset","Reinicio manual"},{"Connection or area change","Cambio de conexión o zona"},{"Meter disabled","Medidor desactivado"},{"Helper closed","Helper cerrado"},
         {"Periodic damage","Daño periódico"},{"Impacts","Impactos"},{"Critical damage impacts","Impactos críticos de daño"},{"Eligible damage impacts","Impactos de daño evaluados"},{"Primary damage","Daño principal"},{"Critical primary damage","Daño principal crítico"},
@@ -45,9 +62,9 @@ internal static class UiLanguage {
         {"Eligible healing impacts","Curas evaluadas"},{"Critical healing impacts","Curas críticas"},{"Primary healing","Curación principal"},{"Critical primary healing","Curación principal crítica"},{"Eligible received impacts","Curas recibidas evaluadas"},{"Critical received impacts","Curas recibidas críticas"},{"Primary received healing","Curación recibida principal"},{"Critical primary received healing","Curación recibida principal crítica"},
         {"History includes all identified players received by your game, independently of the widget filter.","El registro incluye todos los jugadores identificados cuyos datos recibe tu juego, independientemente del filtro del widget."},
         {"Diagnostic counters are cumulative for the reader session.","Los contadores de diagnóstico son acumulados de la sesión del lector."},
-        {"No saved fights yet. Fight while the DPS meter is enabled, then wait for its combat timeout.","Todavía no hay combates guardados. Combate con el medidor activado y espera el tiempo de inactividad configurado."},
+        {"No saved fights yet. Reach the minimum fight duration with the DPS meter enabled, then wait for its combat timeout.","Aún no hay combates guardados. Alcanza la duración mínima con el medidor de DPS activado y espera a que termine por inactividad."},
         {"Partial metrics. Critical percentages use eligible primary direct impacts; healing is raw restoration. Unknown effects, effective healing, overhealing and unvalidated boss mechanics are not included.","Métricas parciales. Los porcentajes críticos usan impactos directos principales evaluados; la curación es la cantidad anunciada. No incluye efectos desconocidos, curación efectiva, exceso de curación ni mecánicas de jefe sin validar."},
-        {"Each fight is saved after the configured combat inactivity timeout. Resets, area changes and closing the helper save the unfinished fight with its end reason. Records survive restarts and include all identified players, regardless of the widget filter. At the storage limit, the oldest record is removed. Optional age cleanup runs at startup and once a minute. Deleting records cannot be undone.","Cada combate se guarda al superar el tiempo de inactividad configurado. Los reinicios, cambios de zona y el cierre del helper guardan el combate pendiente indicando el motivo. Los registros se conservan al reiniciar e incluyen a todos los jugadores identificados, sin depender del filtro del widget. Al alcanzar el límite se elimina el más antiguo. El borrado opcional por antigüedad se comprueba al iniciar y cada minuto. Borrar registros no se puede deshacer."},
+        {"Only fights reaching the minimum duration are saved, measured from the first to the last recorded impact; waiting for the inactivity timeout does not add combat time. Set 0 seconds to save every fight. The filter also applies on resets, area changes and closing the helper, and does not delete existing records. Records survive restarts and include all identified players, regardless of the widget filter. At the storage limit, the oldest record is removed. Optional age cleanup runs at startup and once a minute. Deleting records cannot be undone.","Solo se guardan los combates que alcanzan la duración mínima, desde el primer hasta el último impacto registrado; la espera de inactividad no suma tiempo de combate. Pon 0 segundos para guardar todos. El filtro también se aplica al reiniciar, cambiar de zona y cerrar el helper, y no borra registros existentes. Los registros se conservan al reiniciar e incluyen a todos los jugadores identificados, sin depender del filtro del widget. Al alcanzar el límite se elimina el más antiguo. El borrado opcional por antigüedad se comprueba al iniciar y cada minuto. Borrar registros no se puede deshacer."},
         {"Heals","Curas"},{"Received","Recibidas"},
         {"Crit. %","Crít. %"},{"Crit. rate","Frec. crít."},
         {"Partial damage · identified DoT included","Daño parcial · daño periódico identificado incluido"},{"Raw healing · supported skills only","Curación anunciada · habilidades compatibles"},
