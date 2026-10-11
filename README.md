@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.6.1 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.6.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.6.1/Aion-2-Helper-v1.6.1-windows-x64.zip).
+The [v1.7.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.7.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.7.0/Aion-2-Helper-v1.7.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy Bar, DPS Meter and Notifications;
@@ -24,21 +24,18 @@ while you play, with movable widgets, a clean interface, and a focus on low over
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
 
-## New in v1.6.1 Alpha
+## New in v1.7.0 Alpha
 
-The validated weapon-poison effect now counts towards total DPS and periodic
-damage, with existing per-player highest-hit, history and TXT export support.
-Amounts come from game events; there is no fixed damage estimate or new toggle.
-Paralysis is excluded from damage. Other weapon effects and variants still need
-validation. Existing history is retained and is not recalculated.
-The open-world boss party-damage issue remains unresolved.
+Notifications now distinguish normal party invitations from dungeon-group
+invitations, including the re-invitation when converting a party for a dungeon.
+Dungeon notices show the sender's name and a specific message in English or Spanish.
+**Settings → Notifications** provides an independent switch for each invitation
+type; sound, fades, appearance and position remain shared. Choices save automatically
+and support undo/redo. Settings → General shows the update summary.
 
-DPS history adds hit tags, each player's highest hit, a minimum archive duration,
-and separate fight/player deletion. **Settings → General** shows the update
-summary and the unresolved open-world boss limitation in English or Spanish.
-Supported directional hits against already-visible targets can also recover
-after a helper restart when fresh target HP drops corroborate them. This remains
-a conservative, partial fallback and does not fix the open-world boss issue.
+The validated weapon-poison effect, per-player hit tags, highest hits and history
+controls remain available. **DPS coverage is partial; the open-world boss
+party-damage issue remains unresolved.**
 
 ## Available now: Energy Bar
 
@@ -186,8 +183,8 @@ in the background on changes, with atomic replacement; no per-hit disk writes.
 
 ## Available now: Notifications
 
-Notifications include incoming **party invitations** and two independently
-switchable **Shugo Festival** alerts:
+Notifications include incoming **normal party invitations**, **dungeon-party
+invitations** and two **Shugo Festival** alerts, each with its own switch:
 
 - **:55 each hour:** "Shugo Festival starts in 5 minutes."
 - **:00:** "You can now sign up for Shugo Festival."
@@ -204,8 +201,10 @@ Open **Settings → Notifications** to configure it:
 
 - **Enable all notifications:** turn the entire module on/off without losing
   your individual choices.
-- **Notification types → Party invitations:** independently enable/disable
-  incoming party invitation alerts. Shugo advance/opening alerts have separate switches.
+- **Notification types → Party invitations / Dungeon party invitations:**
+  enable or disable each type independently. Dungeon notices say
+  **“{Player} is inviting you to a dungeon party.”** Shugo advance/opening
+  alerts also have separate switches.
 - **Common settings:** optional sound, volume, display duration, fade toggle
   and fade duration.
 - Shared text color and size, background opacity, position, width and height
@@ -223,8 +222,9 @@ sound volume. The sound file is included in **assets/sounds/party-invite.mp3**;
 extract the complete ZIP so it remains available.
 
 Receiving an invitation triggers the notice; accepting/joining a party does not.
-Repeated copies of the same invitation are deduplicated. Turning off invitations
-also dismisses an active invitation notice and stops its sound. Global disable
+Repeated copies of the same invitation are deduplicated; a normal invitation does
+not suppress a subsequent dungeon invitation. Turning off one invitation type
+clears only that type's queued and active notices. Global disable
 preserves the individual type selections. A new invitation from the same player
 can show again. Notification rendering wakes on the event instead of waiting
 for the Energy Bar's refresh or visibility, and it needs no dash to identify the

@@ -9,8 +9,8 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
-        {"WHAT'S NEW · v1.6.1 Alpha","NOVEDADES · v1.6.1 Alpha"},
-        {"DPS now includes the validated weapon-poison effect in total and periodic damage, highest hits and per-player history. Paralysis is excluded from damage. Other weapon effects are still under investigation.","El DPS ya incluye el efecto de veneno del arma validado en el daño total y periódico, el golpe más alto y el registro por jugador. La parálisis no suma daño. Seguimos investigando otros efectos de armas."},
+        {"WHAT'S NEW · v1.7.0 Alpha","NOVEDADES · v1.7.0 Alpha"},
+        {"Notifications now distinguish normal party invitations from dungeon-group invitations, with the sender name and independent switches. Both share sound, fades, appearance and position. Existing settings are preserved.","Las notificaciones ya distinguen las invitaciones normales de las de grupo para dungeon, con el nombre del jugador y opciones independientes. Comparten sonido, fades, aspecto y posición. Se conservan los ajustes existentes."},
         {"Known issue: party members' damage may stop updating during open-world bosses. This remains unresolved; DPS totals and rankings can be incomplete.","Fallo conocido: el daño de compañeros del grupo puede dejar de actualizarse en jefes de mundo abierto. Sigue pendiente de solución; los totales y la clasificación de DPS pueden estar incompletos."},
         {"Minimum fight duration","Duración mínima del combate"},
         {"Highest hit","Golpe más alto"},
@@ -33,6 +33,7 @@ internal static class UiLanguage {
         {"Choose which notifications you want to receive. Turning all notifications off keeps your individual choices.","Elige qué notificaciones quieres recibir. Al desactivarlas todas se conservan tus selecciones."},
         {"Sound, duration, appearance and position apply to all notification types.","El sonido, la duración, el aspecto y la posición se comparten entre todas las notificaciones."},
         {"All notifications are disabled.","Todas las notificaciones están desactivadas."},{"Party invitations are disabled.","Las invitaciones al grupo están desactivadas."},
+        {"Dungeon party invitations","Invitaciones al grupo de dungeon"},{"Dungeon party invitation","Invitación al grupo de dungeon"},{"{0} is inviting you to a dungeon party.","{0} te está invitando a un grupo de dungeon."},
         {"Party invitation","Invitación al grupo"},{"{0} is inviting you to a party.","{0} te está invitando al grupo."},{"Sample player","Jugador de ejemplo"},{"Sample notification · not a game event","Notificación de ejemplo · no es un evento del juego"},
         {"Notification","Notificación"},{"This is a sample notification.","Esto es una notificación de ejemplo."},
         {"Shugo Festival","Festival de Shugo"},{"Shugo Festival starts in 5 minutes.","El festival de Shugo empieza en 5 minutos."},

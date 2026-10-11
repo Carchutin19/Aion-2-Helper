@@ -1,3 +1,51 @@
+# Aion 2 Helper v1.7.0 Alpha — Dungeon Party Notifications
+
+Notifications now recognize invitations to a dungeon group, including the new
+invitation sent when a normal party is converted into a dungeon group.
+
+## Changes
+
+- Dungeon invitations show the inviting player's name and a distinct message:
+  **“{Player} is inviting you to a dungeon party.”** English and Spanish are supported.
+- **Settings → Notifications → Notification Types** has separate switches for
+  normal party invitations and dungeon-party invitations. Each can be enabled or
+  disabled independently; dungeon invitations start enabled.
+- Both invitation types use the shared notification sound, volume, duration,
+  fade, appearance and position. Shugo's advance and opening notices remain independent.
+- Turning off one invitation category clears only its queued/active notices.
+  The other category keeps working, including when it is the only module that
+  needs game-traffic capture.
+- Normal and dungeon requests are deduplicated separately, so the dungeon
+  re-invitation is not suppressed by an earlier normal invitation.
+- Preferences save automatically and participate in undo/redo. Turning all
+  notifications off preserves individual choices. The preview remains generic.
+- **Settings → General** shows the update in the selected language.
+
+## Validation and limitations
+
+The new dungeon invitation was recorded, replayed through the production decoder
+and confirmed in game with the sender name and immediate sound. Automated checks
+cover malformed/truncated frames, UTF8 names, independent switches, duplicate
+suppression, queued/active notices, persistence, undo, rendering and capture demand.
+Notification, Settings and DPS checks passed. Supported formats are conservative;
+future game updates or other invitation variants may need additional validation.
+
+**This remains alpha software. The DPS Meter is incomplete, and the known issue
+where party members' damage can stop updating during open-world bosses remains
+unresolved.** Existing energy, FPS and combat features are retained.
+
+## Updating
+
+Close the helper and extract **Aion-2-Helper-v1.7.0-windows-x64.zip** into your
+installation folder. Keep **overlay-settings.json** and **combat-history.json**
+to preserve preferences and records. Personal data and raw research captures are
+excluded from the download. Npcap is installed separately; run as administrator
+if capture or FPS measurement permissions require it.
+
+Report issues through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+
+---
+
 # Aion 2 Helper v1.6.1 Alpha — Weapon Poison Damage
 
 The DPS Meter now counts the weapon-poison effect validated in our dungeon test.
