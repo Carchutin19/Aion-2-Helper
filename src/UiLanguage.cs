@@ -9,8 +9,8 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
-        {"WHAT'S NEW · v1.6.0 Alpha","NOVEDADES · v1.6.0 Alpha"},
-        {"DPS history: Front/Back, Double/Perfect and critical combinations, highest hit per player, a minimum fight duration (60 s by default), and separate Delete fight / Delete player buttons.","Registro de DPS: Front/Back, Double/Perfect y combinaciones críticas, golpe más alto por jugador, duración mínima del combate (60 s por defecto) y botones separados para borrar combate o jugador."},
+        {"WHAT'S NEW · v1.6.1 Alpha","NOVEDADES · v1.6.1 Alpha"},
+        {"DPS now includes the validated weapon-poison effect in total and periodic damage, highest hits and per-player history. Paralysis is excluded from damage. Other weapon effects are still under investigation.","El DPS ya incluye el efecto de veneno del arma validado en el daño total y periódico, el golpe más alto y el registro por jugador. La parálisis no suma daño. Seguimos investigando otros efectos de armas."},
         {"Known issue: party members' damage may stop updating during open-world bosses. This remains unresolved; DPS totals and rankings can be incomplete.","Fallo conocido: el daño de compañeros del grupo puede dejar de actualizarse en jefes de mundo abierto. Sigue pendiente de solución; los totales y la clasificación de DPS pueden estar incompletos."},
         {"Minimum fight duration","Duración mínima del combate"},
         {"Highest hit","Golpe más alto"},

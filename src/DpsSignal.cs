@@ -60,7 +60,10 @@ internal sealed class DpsSignal {
         // The same envelope also carries healing, potions and resources.
         bool damage=(skill==15390002&&(effect==1539000011||effect==1539000012))||
             skill==17070000&&effect==1707000011||skill==17080000&&effect==1708000011||
-            skill==16140000&&effect==1614000011||skill==17400000&&effect==1740000011||skill==13730007&&effect==1373000712;
+            skill==16140000&&effect==1614000011||skill==17400000&&effect==1740000011||skill==13730007&&effect==1373000712||
+            // Weapon poison: repeated announced ticks and exact NPC HP drops,
+            // with the weapon effect confirmed by the player. Not paralysis.
+            skill==3001015&&effect==300101511;
         if(flags!=10||!damage||amount==0||amount>100000000||source==0||target==0)return false;
         hit=new Hit{Source=source,Target=target,Skill=skill,Amount=amount,Periodic=true};return true;
     }
@@ -186,7 +189,8 @@ internal sealed class DpsSignal {
             // Incoming NPC attacks keep the selected player's widget visible,
             // even when that player is not attacking. Never add them to DPS.
             if(hit.Source!=hit.Target&&npcs.Contains(hit.Source)&&!parents.ContainsKey(hit.Source)&&(hit.Target==Self||names.ContainsKey(hit.Target))){Touch(hit.Target,timestamp);return;}
-            if(hit.Source==hit.Target||hit.Skill==11000100||hit.Skill/1000000<11||hit.Skill/1000000>19)return;
+            bool weaponPoison=periodic&&hit.Skill==3001015; // Periodic() already validated the exact effect and flags.
+            if(hit.Source==hit.Target||hit.Skill==11000100||!weaponPoison&&(hit.Skill/1000000<11||hit.Skill/1000000>19))return;
             Parent owner;if(!names.ContainsKey(hit.Source)&&parents.TryGetValue(hit.Source,out owner)&&timestamp>=owner.Spawned&&timestamp-owner.Spawned<=120)hit.Source=owner.Actor;
             if(!npcs.Contains(hit.Target)||names.ContainsKey(hit.Target)||parents.ContainsKey(hit.Target)||conflicted.Contains(hit.Source)||hit.Source==hit.Target){
                 unknownTargets++;

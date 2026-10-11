@@ -181,8 +181,8 @@ internal sealed class HelperSettings : Window {
         languagePicker.Items.Add(new ComboBoxItem{Content="English",Tag="en"});languagePicker.Items.Add(new ComboBoxItem{Content="Español",Tag="es"});
         languagePicker.SelectionChanged+=delegate{if(loading||IsDisposed)return;var item=languagePicker.SelectedItem as ComboBoxItem;if(item==null)return;var cfg=overlay.Configuration;cfg.Language=(string)item.Tag;overlay.ApplyConfiguration(cfg);};
         var note=SettingsVisual.Text("Changes apply immediately and are saved automatically.",11,"#8994A6");note.Margin=new Thickness(2,0,0,0);generalPage.Children.Add(note);
-        var news=new StackPanel();news.Children.Add(SettingsVisual.Text("WHAT'S NEW · v1.6.0 Alpha",11,"#84B8AB"));
-        var details=SettingsVisual.Text("DPS history: Front/Back, Double/Perfect and critical combinations, highest hit per player, a minimum fight duration (60 s by default), and separate Delete fight / Delete player buttons.",12,"#A7ADBA");details.Margin=new Thickness(0,10,0,0);news.Children.Add(details);
+        var news=new StackPanel();news.Children.Add(SettingsVisual.Text("WHAT'S NEW · v1.6.1 Alpha",11,"#84B8AB"));
+        var details=SettingsVisual.Text("DPS now includes the validated weapon-poison effect in total and periodic damage, highest hits and per-player history. Paralysis is excluded from damage. Other weapon effects are still under investigation.",12,"#A7ADBA");details.Margin=new Thickness(0,10,0,0);news.Children.Add(details);
         var warning=SettingsVisual.Text("Known issue: party members' damage may stop updating during open-world bosses. This remains unresolved; DPS totals and rankings can be incomplete.",12,"#E4B986");warning.Margin=new Thickness(0,10,0,0);news.Children.Add(warning);
         var newsCard=SettingsVisual.Card(news,new Thickness(18,16,18,16));newsCard.Margin=new Thickness(0,20,0,0);generalPage.Children.Add(newsCard);
         var requirement=new StackPanel();requirement.Children.Add(SettingsVisual.Text("GAME DATA REQUIREMENT",10,"#929CAD"));npcMessage.Margin=new Thickness(0,10,0,0);requirement.Children.Add(npcMessage);

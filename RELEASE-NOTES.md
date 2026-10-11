@@ -1,3 +1,49 @@
+# Aion 2 Helper v1.6.1 Alpha — Weapon Poison Damage
+
+The DPS Meter now counts the weapon-poison effect validated in our dungeon test.
+**DPS coverage remains partial and experimental. The known issue where party
+members' damage can stop updating during open-world bosses is still unresolved.**
+
+## Changes
+
+- Supported weapon-poison ticks contribute to total damage, DPS and periodic
+  damage, with existing highest-hit, per-player history and TXT export support.
+- Values are read from the game's announced impacts; damage and tick frequency
+  are not hardcoded. No new setting is needed when the DPS module is enabled.
+- Only the exact validated periodic format is accepted. Identified-source and
+  known-NPC-target checks remain required; unknown weapon effects and variants
+  are excluded until validated.
+- Paralysis is a status effect and is excluded from damage. This update does
+  not add a general debuff tracker or infer damage from status duration.
+- Periodic poison does not invent critical or Front/Back metadata and stays
+  outside the primary direct-impact critical percentages.
+- Settings → General shows the update and the unresolved world-boss warning
+  in English or Spanish. Existing records are retained and are not recalculated.
+
+## Validation
+
+The recorded-session production replay added exactly **73 poison impacts** of
+**300**, totaling **21,900 damage** for the affected player. Other player totals,
+primary critical/tag counters and healing remained unchanged. These numbers are
+test observations, not fixed gameplay values or a complete-damage guarantee.
+
+Checks cover the captured format, truncation, unknown variants, paralysis,
+amount-less/wrong flags, invalid amounts, source/target exclusions and history
+snapshots. Other damage-over-time and weapon-proc families remain under study.
+Successful dungeon tests do not resolve the open-world boss issue.
+
+## Updating
+
+Close the helper and extract **Aion-2-Helper-v1.6.1-windows-x64.zip** into your
+installation folder. Keep **overlay-settings.json** and **combat-history.json**
+to preserve preferences and records. Personal data and raw research captures
+are excluded from the package. Npcap is installed separately; run as administrator
+if capture or FPS measurement permissions require it.
+
+Report issues through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+
+---
+
 # Aion 2 Helper v1.6.0 Alpha — DPS Hit Details & History Controls
 
 **The DPS Meter is still incomplete and experimental. We have identified an

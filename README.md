@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.6.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.6.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.6.0/Aion-2-Helper-v1.6.0-windows-x64.zip).
+The [v1.6.1 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.6.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.6.1/Aion-2-Helper-v1.6.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy Bar, DPS Meter and Notifications;
@@ -24,7 +24,14 @@ while you play, with movable widgets, a clean interface, and a focus on low over
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
 
-## New in v1.6.0 Alpha
+## New in v1.6.1 Alpha
+
+The validated weapon-poison effect now counts towards total DPS and periodic
+damage, with existing per-player highest-hit, history and TXT export support.
+Amounts come from game events; there is no fixed damage estimate or new toggle.
+Paralysis is excluded from damage. Other weapon effects and variants still need
+validation. Existing history is retained and is not recalculated.
+The open-world boss party-damage issue remains unresolved.
 
 DPS history adds hit tags, each player's highest hit, a minimum archive duration,
 and separate fight/player deletion. **Settings → General** shows the update
