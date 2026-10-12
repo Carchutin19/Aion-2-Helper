@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -367,6 +367,7 @@ internal sealed class EnergyOverlay:Form {
         settingsWindow.Show();if(settingsWindow.WindowState==System.Windows.WindowState.Minimized)settingsWindow.WindowState=System.Windows.WindowState.Normal;settingsWindow.Activate();
     }
     internal void OpenFpsSettings(){OpenSettings();settingsWindow.ShowFps();}
+    internal void OpenGameTweaksSettings(){OpenSettings();settingsWindow.ShowGameTweaks();}
     internal void OpenDpsSettings(){OpenSettings();settingsWindow.ShowDps();}
     internal void OpenDpsHistory(){OpenSettings();settingsWindow.ShowDpsHistory();}
     internal void OpenNotificationSettings(){OpenSettings();settingsWindow.ShowNotifications();}

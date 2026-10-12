@@ -46,3 +46,7 @@ __pycache__/
 *.pyc
 *.user
 *.suo
+
+# Private game-tweak preferences and imported mod research
+/game-tweaks.json
+/assets/startup/black.bmp

@@ -3,7 +3,7 @@
 **Customizable utility overlays for Aion 2.**
 
 **Alpha software — actively in development.** Energy Bar, FPS Counter and an
-experimental DPS Meter and Notifications are available now. **The DPS Meter is incomplete: combat
+experimental DPS Meter, Notifications and an optional intro skip are available now. **The DPS Meter is incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
 updates. Please report
@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.7.1 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.7.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.7.1/Aion-2-Helper-v1.7.1-windows-x64.zip).
+The [v1.8.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.8.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.8.0/Aion-2-Helper-v1.8.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy Bar, DPS Meter and Notifications;
@@ -24,7 +24,16 @@ while you play, with movable widgets, a clean interface, and a focus on low over
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
 
-## New in v1.7.1 Alpha
+## New in v1.8.0 Alpha
+
+**Settings → Game Tweaks → Startup** adds a reversible NCSOFT intro skip using
+our own generated black video. The game folder is detected automatically when
+needed, including additional Steam libraries. If detection fails, choose it
+manually. Apply and restore are explicit actions with the game closed and a
+verified backup. The intro skip and normal mouse input were tested locally.
+No files or scripts from another mod are required.
+
+### Retained from v1.7.1
 
 **Settings → FPS Counter** now shows a visible explanation when measurement fails,
 including permission denials, a missing PresentMon executable, Windows errors,
@@ -52,6 +61,39 @@ and support undo/redo. Settings → General shows the update summary.
 The validated weapon-poison effect, per-player hit tags, highest hits and history
 controls remain available. **DPS coverage is partial; the open-world boss
 party-damage issue remains unresolved.**
+
+## Available now: Game Tweaks
+
+**Settings → Game Tweaks → Startup** provides our own reversible **Skip the
+NCSOFT intro** function. The helper first detects the game installation from the
+running game, Windows installation records, Steam libraries/manifests and common
+NCSOFT locations. A valid saved folder is reused. If the folder was moved or
+cannot be detected, use **Browse folder**. **Detect game folder** retries the
+search. Detection runs once on opening this section when needed, or on request;
+it does not scan entire drives or poll while you play.
+No external mod ZIP, download or batch script is required. The helper embeds its
+own independently generated one-frame black video, without audio.
+
+Close Aion 2, switch **Skip intro** on and click **Apply change**. The helper
+verifies a backup of the installed original, then atomically replaces
+**Aion2/Content/Movies/CI_Type_A.bk2** with its own short video. The expected
+filename remains present so playback can complete. **Restore original** puts
+back the exact saved original. The earlier rename prototype has been replaced;
+restoration remains available for existing installations of that prototype.
+Startup with intro skipping and normal mouse input have been verified locally.
+This is a startup
+convenience, not a gameplay FPS optimization.
+
+Backups are retained outside the game folder under Local AppData/Aion2Helper/
+IntroBackups. The tweak stays applied when the helper closes; Settings undo/redo
+does not modify game files. Game updates can recreate the video: refresh status
+before applying again. Refresh status only checks files; it never applies or
+restores a tweak. Backups are verified and versioned, unrelated or changed
+files are preserved, and no continuous game-file monitoring is added. Local
+folder choices are stored in **game-tweaks.json**, excluded from releases.
+Private file-fixture tests cover application, restoration, legacy recovery and
+preservation of updated files. Asset provenance and generation instructions are
+in [assets/startup](assets/startup/README.md).
 
 ## Available now: Energy Bar
 
@@ -405,6 +447,10 @@ identity, party, incoming invitation and combat updates.
 It does not read or write game memory, inject code, send game packets, or automate
 character actions.
 
+The optional **Game Tweaks → Skip intro** feature changes only the startup video
+when explicitly applied, with the game closed. It keeps a verified original
+backup for restoration and remains applied after the helper closes.
+
 The normal overlay processes readings in memory and saves completed combat
 summaries locally. It does not save packet captures,
 upload data, or check for updates online. **live-status.json** contains the latest
@@ -449,6 +495,7 @@ Existing checks:
 .\DashProbe.exe --fps-test
 .\DashProbe.exe --dps-test
 .\DashProbe.exe --notifications-test
+.\DashProbe.exe --game-tweaks-test
 .\DashProbe.exe --settings-test
 .\DashProbe.exe --ui-test
 .\DashProbe.exe --selftest

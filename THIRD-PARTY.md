@@ -1,4 +1,9 @@
-﻿# References and attribution
+# References and attribution
+
+The intro placeholder in `assets/startup/blank-intro.bk2` was generated from our
+own black image using the existing Unreal Engine Bink encoder. No external mod
+asset or script is included; the encoder is not redistributed. Provenance and
+generation instructions are in `assets/startup/README.md`.
 
 The FPS module uses Intel's unmodified PresentMon 2.6.0 x64 console:
 

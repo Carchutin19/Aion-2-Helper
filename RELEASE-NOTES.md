@@ -1,3 +1,64 @@
+# Aion 2 Helper v1.8.0 Alpha — Game Tweaks & Automatic Game Detection
+
+**Settings → Game Tweaks → Startup** adds an optional, reversible way to skip
+the NCSOFT intro. It uses our own independently generated one-frame black video,
+embedded in the helper. No ZIP, scripts or video assets from another mod are
+needed, and no encoder needs to be installed by users.
+
+## What changed
+
+- **Automatic game-folder detection:** when opening Game Tweaks without a valid
+  saved folder, the helper checks the running game, Windows installation records,
+  Steam's libraries and manifests (including additional drives), and common
+  NCSOFT installation locations. It validates the actual game layout before
+  using a candidate. If no valid installation is found, choose **Browse folder**;
+  **Detect game folder** retries the search. A valid saved folder is reused.
+- Discovery runs in a background task only when needed or explicitly requested.
+  It does not scan entire drives, continuously poll game files, or add work to
+  the overlay's rendering loop. Metadata reads and Steam manifest scans are bounded.
+- **Skip intro** is off by default. With Aion closed, enable it and click
+  **Apply change**. The helper verifies and saves a copy of the original intro,
+  then atomically installs its own short video while keeping the expected
+  filename present. This changes the startup video, not game memory or gameplay.
+- **Restore original** restores the exact verified original. Backups are retained
+  outside the game folder and versioned if a game update changes the video.
+  Unexpected or changed files are preserved instead of overwritten by restoration.
+- **Refresh status** only checks the installed video and backup; it does not
+  apply or restore anything. Game updates can restore the intro, so check the
+  status before applying again. The tweak remains applied after the helper closes.
+- English and Spanish menus explain automatic detection, manual fallback,
+  application, restoration and status checks. Settings undo/redo does not alter
+  game files. Earlier development rename installations can be restored.
+
+## Validation and current limits
+
+Local tests covered Steam library formats, paths with spaces, stale and missing
+folders, manual fallback, invalid metadata, backup verification, exact restore,
+updates and concurrent file changes. FPS, Notifications, Settings and DPS
+regression checks passed. A real Aion launch confirmed intro skipping and normal
+mouse input on the development PC. This is a startup convenience, not an FPS boost.
+
+**This remains an alpha. The DPS Meter is incomplete, and party-member damage
+may stop updating during open-world bosses. That known issue is unresolved.**
+FPS diagnostics and recovery from v1.7.1 remain included; a failure on another PC
+still requires that PC's diagnostic report rather than assuming its cause.
+
+## Updating and using the feature
+
+Close the helper and extract **Aion-2-Helper-v1.8.0-windows-x64.zip**, including
+all subfolders, into your helper folder. Keep **overlay-settings.json**,
+**combat-history.json** and **game-tweaks.json** to retain preferences, history
+and the selected installation. Personal files, backups and raw captures are
+not included in the download. Npcap remains separate; it is not needed for FPS
+or Game Tweaks.
+
+Open **Settings → Game Tweaks**, let detection finish, close Aion before applying
+or restoring, and click the appropriate action. File changes need write access
+to the game folder; Windows may require running the helper as administrator.
+Report problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+
+---
+
 # Aion 2 Helper v1.7.1 Alpha — FPS Diagnostics & Recovery
 
 The FPS Counter now explains why readings are unavailable when a specific error
