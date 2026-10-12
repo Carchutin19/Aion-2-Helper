@@ -9,8 +9,20 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
-        {"WHAT'S NEW · v1.7.0 Alpha","NOVEDADES · v1.7.0 Alpha"},
-        {"Notifications now distinguish normal party invitations from dungeon-group invitations, with the sender name and independent switches. Both share sound, fades, appearance and position. Existing settings are preserved.","Las notificaciones ya distinguen las invitaciones normales de las de grupo para dungeon, con el nombre del jugador y opciones independientes. Comparten sonido, fades, aspecto y posición. Se conservan los ajustes existentes."},
+        {"Windows denied access to FPS measurement. If you already accepted administrator permissions, copy the diagnostics so we can investigate.","Windows denegó el acceso a la medición de FPS. Si ya aceptaste los permisos de administrador, copia el diagnóstico para que podamos investigarlo."},
+        {"PresentMon.exe is missing. Extract the complete release ZIP, including tools/presentmon, and check whether antivirus quarantined the file.","Falta PresentMon.exe. Extrae el ZIP completo, incluida la carpeta tools/presentmon, y comprueba si el antivirus puso el archivo en cuarentena."},
+        {"Windows could not collect DXGI events (error {0}). Copy the diagnostics to report this failure.","Windows no pudo recoger eventos DXGI (error {0}). Copia el diagnóstico para informar del fallo."},
+        {"PresentMon could not start (Windows error {0}). Copy the diagnostics to report this failure.","PresentMon no pudo iniciarse (error de Windows {0}). Copia el diagnóstico para informar del fallo."},
+        {"No game FPS samples arrived during the 15-second PresentMon trial. The cause is not yet known; retries use a delay. Copy the diagnostics for feedback.","No llegaron lecturas de FPS del juego durante la prueba de PresentMon de 15 segundos. La causa aún se desconoce; los reintentos tienen una espera. Copia el diagnóstico para enviarnos información."},
+        {"Open Aion 2 to start measuring. No FPS trace runs while the game is closed.","Abre Aion 2 para empezar a medir. No se capturan eventos de FPS mientras el juego está cerrado."},
+        {"Aion 2 is detected, but no current FPS samples have arrived. Keep the game in the foreground; if this persists, copy the diagnostics.","Aion 2 está detectado, pero aún no llegan lecturas de FPS. Mantén el juego en primer plano; si continúa así, copia el diagnóstico."},
+        {"The elevated FPS reader disconnected or did not connect. Turn the FPS counter off and on to retry, then copy the diagnostics if it fails again.","El lector de FPS con permisos elevados se desconectó o no llegó a conectar. Desactiva y activa el contador para reintentar; si vuelve a fallar, copia el diagnóstico."},
+        {"The FPS reader disconnected or did not connect. It will retry with a delay; copy the diagnostics if this continues.","El lector de FPS se desconectó o no llegó a conectar. Reintentará tras una espera; copia el diagnóstico si el problema continúa."},
+        {"The Windows administrator request was cancelled. You can try again using the administrator button.","Se canceló la solicitud de administrador de Windows. Puedes reintentarlo con el botón de administrador."},
+        {"The FPS reader could not start (Windows error {0}). Copy the diagnostics to report this failure.","El lector de FPS no pudo iniciarse (error de Windows {0}). Copia el diagnóstico para informar del fallo."},
+
+        {"WHAT'S NEW · v1.7.1 Alpha","NOVEDADES · v1.7.1 Alpha"},
+        {"FPS Counter now explains measurement failures and lets you copy a diagnostic report for feedback. The administrator button hides after successful elevation. Reader recovery and fallback detection have been improved; existing settings and widget appearance are preserved.","El contador de FPS ahora explica los fallos de medición y permite copiar un diagnóstico para enviarnos información. El botón de administrador se oculta tras iniciar el lector con permisos elevados. Mejoran la recuperación del lector y la detección alternativa; se conservan los ajustes y el aspecto de los widgets."},
         {"Known issue: party members' damage may stop updating during open-world bosses. This remains unresolved; DPS totals and rankings can be incomplete.","Fallo conocido: el daño de compañeros del grupo puede dejar de actualizarse en jefes de mundo abierto. Sigue pendiente de solución; los totales y la clasificación de DPS pueden estar incompletos."},
         {"Minimum fight duration","Duración mínima del combate"},
         {"Highest hit","Golpe más alto"},
@@ -106,7 +118,8 @@ internal static class UiLanguage {
         {"Start measurement as administrator","Iniciar medición como administrador"},
         {"FPS disabled","FPS desactivados"},
         {"Waiting for Aion 2","Esperando a Aion 2"},
-        {"PresentMon is missing","Falta PresentMon"},
+        {"PresentMon stopped without game FPS samples. Copy the diagnostics, including its exit code, to help us investigate.","PresentMon se detuvo sin lecturas de FPS del juego. Copia el diagnóstico, incluido su código de salida, para ayudarnos a investigarlo."},
+        {"PresentMon is missing","Falta PresentMon"},{"Copy FPS diagnostics","Copiar diagnóstico de FPS"},
         {"Starting FPS measurement","Iniciando medición de FPS"},
         {"Measuring game FPS","Midiendo los FPS del juego"},
         {"Waiting for game frames","Esperando fotogramas del juego"},

@@ -1,3 +1,61 @@
+# Aion 2 Helper v1.7.1 Alpha — FPS Diagnostics & Recovery
+
+The FPS Counter now explains why readings are unavailable when a specific error
+is detected, and provides a diagnostic report for failures on other PCs.
+**Accepting an administrator prompt does not guarantee that game FPS events arrive.**
+
+## Changes
+
+- **Settings → FPS Counter**, below the preview, shows localized explanations
+  for denied permissions, a missing PresentMon file, Windows/native trace or
+  process-start errors, a timed-out fallback trial, unexpected PresentMon exits
+  and measurement-reader connection failures. If no samples arrive and the cause
+  is unknown, the message says so rather than assuming administrator rights fix it.
+- **Measurement → Copy FPS diagnostics** copies app/Windows/process information,
+  helper and worker permission information, measurement state, dependency presence,
+  connection state and available error/exit codes. It excludes IPC authentication
+  tokens/session identifiers, packet captures and personal configuration/history.
+- The administrator action hides when the helper is already elevated or an
+  explicitly elevated reader is running; it no longer remains solely because
+  the counter still has no reading. UAC cancellation is distinguished from a
+  reader launch failure.
+- A running game whose main-window handle is unavailable can now reach the
+  bounded PresentMon fallback after warmup instead of waiting indefinitely.
+- Unexpected reader loss releases its pipe/process references and retries with
+  a bounded delay. Elevation is only requested by the user, never by automatic retries.
+- Native startup failures retain their Windows error codes. Diagnostics retain
+  the last collector details when the reader disconnects.
+- No FPS logs are written continuously; detail messages are sent only when
+  changed. Reader trials, retry delays and resource use remain bounded.
+- **Settings → General** shows this update in English and Spanish. Existing
+  preferences, the FPS font/rendering and all other widget visuals are retained.
+
+## Validation and limitations
+
+FPS classification, permission-button behavior, English/Spanish explanations,
+render/resource caching, settings persistence and undo/redo passed local checks.
+Standby enable/disable and forced reader-loss recovery were tested without a
+running game; Settings, Notifications and DPS regression checks also passed.
+**This does not yet confirm that Edeln's FPS issue is fixed.** The new report is
+intended to identify his PC's actual failure; live confirmation there is pending.
+
+**Alpha software. DPS remains incomplete, and party-member damage may still stop
+updating during open-world bosses. That known issue is unresolved.**
+
+## Updating and reporting an FPS problem
+
+Close the helper and extract **Aion-2-Helper-v1.7.1-windows-x64.zip**, including all
+subfolders, into the installation folder. Keep **overlay-settings.json** and
+**combat-history.json** to retain preferences and history. Npcap is separate and
+is not required for FPS measurement.
+
+Enable FPS, keep Aion in the foreground, then open **Settings → FPS Counter**.
+If it still shows **— FPS**, read the visible explanation and choose
+**Measurement → Copy FPS diagnostics**. Paste the report into
+[GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
+
+---
+
 # Aion 2 Helper v1.7.0 Alpha — Dungeon Party Notifications
 
 Notifications now recognize invitations to a dungeon group, including the new

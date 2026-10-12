@@ -62,6 +62,17 @@ internal sealed class FpsSamples {
 // The worker is the only process which may request elevation. Parent and worker
 // communicate through a user-restricted pipe; no CSV files or frame logs on disk.
 internal static class FpsWorker {
+    internal static bool ShouldStartFallback(bool game,bool frames,bool running,double now,double lastFrames,double retryAt,bool tool){return game&&!frames&&!running&&tool&&now-lastFrames>=4&&now>=retryAt;}
+    internal static string ReadingState(int? fps,uint nativeError,uint traceError,bool tool,bool failed,string error){
+        if(fps.HasValue)return "FPS "+fps.Value;
+        if(nativeError==5||traceError==5)return "ADMIN";
+        if(!tool)return "ERROR MISSING";
+        if(nativeError!=0||traceError!=0)return "ERROR NATIVE "+(traceError!=0?traceError:nativeError);
+        if(failed){if(error.IndexOf("denied",StringComparison.OrdinalIgnoreCase)>=0)return "ADMIN";
+            if(error.StartsWith("PresentMon start error ",StringComparison.Ordinal))return "ERROR TOOLSTART "+error.Substring(23);
+            return error=="No FPS samples after 15 seconds"?"ERROR NOFRAMES":"ERROR TOOLFAILED";}
+        return "WAIT";
+    }
     static void StopCapture(Process capture,string tool,string session,string root){
         if(capture==null)return;
         try{if(!capture.HasExited){using(var stop=Process.Start(new ProcessStartInfo(tool,"--session_name "+session+" --terminate_existing_session"){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root})){if(!stop.WaitForExit(2000))stop.Kill();}if(!capture.WaitForExit(2000))capture.Kill();}}catch{}finally{capture.Dispose();}
@@ -74,10 +85,10 @@ internal static class FpsWorker {
                 var commandReader=new StreamReader(pipe,System.Text.Encoding.UTF8,false,1024,true);int stop=0;
                 var watcher=new Thread(delegate(){try{string line;while((line=commandReader.ReadLine())!=null&&line!="STOP"){int value;if(line.StartsWith("INTERVAL ",StringComparison.Ordinal)&&int.TryParse(line.Substring(9),out value)){Interlocked.Exchange(ref refresh,FpsOptions.NormalizeInterval(value));wake.Set();}}}catch{}Interlocked.Exchange(ref stop,1);try{wake.Set();}catch(ObjectDisposedException){}});watcher.IsBackground=true;watcher.Start();
                 uint nativeError=0;var games=new FpsGameDiscovery();bool nativeAttempted=false;
-                string error="";bool fallbackFailed=false;var errorGate=new object();var samples=new FpsSamples(0);
+                bool toolPresent=File.Exists(tool);double nextToolCheck=0;string error="",lastDetail=null;int fallbackExit=0;bool fallbackFailed=false;var errorGate=new object();var samples=new FpsSamples(0);
                 var watch=Stopwatch.StartNew();double noFramesSince=0,captureStarted=0,retryAt=0,retryDelay=30;
                 using(var parent=Process.GetProcessById(parentId))while(Interlocked.CompareExchange(ref stop,0,0)==0&&!parent.HasExited){
-                    games.Update();double now=watch.Elapsed.TotalSeconds;int? fps=null;string status="WAITGAME";
+                    games.Update();double now=watch.Elapsed.TotalSeconds;if(now>=nextToolCheck){toolPresent=File.Exists(tool);nextToolCheck=now+2;}int? fps=null;string status="WAITGAME";
                     if(games.Ids.Count==0){
                         if(native!=null){native.Dispose();native=null;}
                         if(capture!=null){StopCapture(capture,tool,session,root);capture=null;}
@@ -85,20 +96,27 @@ internal static class FpsWorker {
                         nativeAttempted=false;nativeError=0;fallbackFailed=false;retryAt=0;retryDelay=30;noFramesSince=now;
                     }else{
                         if(!nativeAttempted){nativeAttempted=true;try{native=new FpsEtw(session+"-DXGI",games.Ids);}catch(System.ComponentModel.Win32Exception e){nativeError=(uint)e.NativeErrorCode;}}
-                        if(native!=null)native.SetProcesses(games.Ids);
+                        if(native!=null)try{native.SetProcesses(games.Ids);}catch(System.ComponentModel.Win32Exception e){nativeError=(uint)e.NativeErrorCode;native.Dispose();native=null;}
                         int? direct=native==null?null:native.Value;fps=direct??samples.Read();
                         if(direct.HasValue&&capture!=null){StopCapture(capture,tool,session,root);capture=null;}
-                        if(fps.HasValue){noFramesSince=now;retryDelay=30;fallbackFailed=false;}else if(!games.HasWindow)noFramesSince=now;
+                        if(fps.HasValue){noFramesSince=now;retryDelay=30;fallbackFailed=false;}
                         // A short pause or a closed game must not start a second
                         // system trace. Failed fallbacks have a bounded trial and backoff.
-                        if(!fps.HasValue&&capture==null&&now-noFramesSince>=4&&now>=retryAt&&File.Exists(tool)){
+                        // MainWindowHandle may be zero for a running/protected game.
+                        // Do not let that suppress the bounded fallback forever.
+                        if(ShouldStartFallback(true,fps.HasValue,capture!=null,now,noFramesSince,retryAt,toolPresent)){
                             samples=new FpsSamples(0);var collector=samples;
+                            lock(errorGate){error="";}fallbackExit=0;
                             capture=new Process{StartInfo=new ProcessStartInfo(tool,"--process_name Aion2.exe --session_name "+session+" --output_stdout --no_console_stats --v1_metrics --no_track_gpu --no_track_input --no_track_display"){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=root}};
-                            capture.OutputDataReceived+=delegate(object sender,DataReceivedEventArgs e){if(e.Data!=null)collector.Consume(e.Data);};capture.ErrorDataReceived+=delegate(object sender,DataReceivedEventArgs e){if(e.Data!=null){lock(errorGate){error=e.Data.Length<=512?e.Data:e.Data.Substring(0,512);}}};capture.Start();capture.BeginOutputReadLine();capture.BeginErrorReadLine();captureStarted=now;
+                            capture.OutputDataReceived+=delegate(object sender,DataReceivedEventArgs e){if(e.Data!=null)collector.Consume(e.Data);};capture.ErrorDataReceived+=delegate(object sender,DataReceivedEventArgs e){if(e.Data!=null){lock(errorGate){error=e.Data.Length<=512?e.Data:e.Data.Substring(0,512);}}};
+                            try{capture.Start();capture.BeginOutputReadLine();capture.BeginErrorReadLine();captureStarted=now;}
+                            catch(System.ComponentModel.Win32Exception e){capture.Dispose();capture=null;lock(errorGate){error="PresentMon start error "+e.NativeErrorCode;}fallbackExit=e.NativeErrorCode;retryAt=now+retryDelay;retryDelay=Math.Min(120,retryDelay*2);fallbackFailed=true;}
                         }
-                        if(capture!=null&&(capture.HasExited||(!fps.HasValue&&now-captureStarted>=15))){StopCapture(capture,tool,session,root);capture=null;retryAt=now+retryDelay;retryDelay=Math.Min(120,retryDelay*2);fallbackFailed=true;}
-                        status="WAIT";if(fps.HasValue)status="FPS "+fps.Value;else if(nativeError==5)status="ADMIN";else if(native!=null&&native.Error!=0)status="ERROR Native trace "+native.Error;else if(fallbackFailed){lock(errorGate){status=error.IndexOf("denied",StringComparison.OrdinalIgnoreCase)>=0?"ADMIN":"ERROR FPS events unavailable";}}
+                        if(capture!=null&&(capture.HasExited||(!fps.HasValue&&now-captureStarted>=15))){if(capture.HasExited)fallbackExit=capture.ExitCode;else lock(errorGate){error="No FPS samples after 15 seconds";}StopCapture(capture,tool,session,root);capture=null;retryAt=now+retryDelay;retryDelay=Math.Min(120,retryDelay*2);fallbackFailed=true;}
+                        lock(errorGate){status=ReadingState(fps,nativeError,native==null?0:native.Error,toolPresent,fallbackFailed,error);}
                     }
+                    string detail;lock(errorGate){detail="Game processes="+games.Ids.Count+"; worker administrator="+FpsMonitor.ProcessIsElevated+"; main window="+games.HasWindow+"; DXGI start error="+nativeError+"; DXGI trace error="+(native==null?0:native.Error)+"; PresentMon present="+toolPresent+"; fallback running="+(capture!=null)+"; fallback exit="+fallbackExit+(error.Length==0?"":"; "+error);}
+                    detail=detail.Replace('\r',' ').Replace('\n',' ').Replace(session,"[FPS session]").Replace(args[4],"[redacted]");if(detail!=lastDetail){writer.WriteLine("DETAIL "+detail);lastDetail=detail;}
                     writer.WriteLine(status);wake.WaitOne(games.Ids.Count==0?1000:Interlocked.CompareExchange(ref refresh,0,0));
                 }
 
@@ -108,26 +126,50 @@ internal static class FpsWorker {
 }
 
 internal sealed class FpsMonitor:IDisposable {
-    readonly string root;readonly object gate=new object();NamedPipeServerStream pipe;StreamWriter commands;Process worker;Thread listener;int refreshInterval=250;long lastMessage;int? fps;bool enabled,closed,blocked;
-    internal string Status="FPS disabled";
+    readonly string root;readonly object gate=new object();NamedPipeServerStream pipe;StreamWriter commands;Process worker;Thread listener;int refreshInterval=250;long lastMessage;int? fps;bool enabled,closed,blocked,workerElevated;long retryAt;int retryDelay=30;string diagnostic="";
+    internal string Status="FPS disabled";string reason="",reasonCode="";
     internal FpsMonitor(string folder){root=folder;}
-    internal bool NeedsAdministrator {get{lock(gate)return enabled&&Status!="Waiting for Aion 2"&&Status!="Starting FPS measurement"&&!Value.HasValue;}}
+    static readonly bool IsElevated=ReadElevation();internal static bool ProcessIsElevated {get{return IsElevated;}}
+    static bool ReadElevation(){try{using(var identity=WindowsIdentity.GetCurrent())return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);}catch{return false;}}
+    internal string Diagnostics {get{lock(gate){int? value=Value;return "Aion 2 Helper "+typeof(FpsMonitor).Assembly.GetName().Version+Environment.NewLine+
+        "Windows: "+Environment.OSVersion.VersionString+"; process: "+(IntPtr.Size*8)+"-bit; administrator: "+IsElevated+Environment.NewLine+
+        "FPS enabled: "+enabled+"; status: "+Status+"; refresh: "+refreshInterval+" ms"+Environment.NewLine+
+        "FPS value: "+(value.HasValue?value.Value.ToString():"unavailable")+Environment.NewLine+"Reason: "+Explanation("en")+Environment.NewLine+
+        "PresentMon file present: "+File.Exists(Path.Combine(root,"tools","presentmon","PresentMon.exe"))+Environment.NewLine+
+        "Worker connected: "+(commands!=null)+"; elevated worker requested: "+workerElevated+Environment.NewLine+diagnostic;}}}
+    internal static bool CanOfferAdministrator(bool active,bool rootElevated,bool elevatedWorkerRunning,string status,bool hasValue){return active&&!rootElevated&&!elevatedWorkerRunning&&status!="Waiting for Aion 2"&&status!="Starting FPS measurement"&&!hasValue;}
+    internal bool NeedsAdministrator {get{lock(gate)return CanOfferAdministrator(enabled,IsElevated,worker!=null&&workerElevated,Status,Value.HasValue);}}
+    internal string Explanation(string language){lock(gate){return reason.Length==0?"":string.Format(CultureInfo.InvariantCulture,UiLanguage.Text(reason,language),reasonCode);}}
+    void AcceptReading(string line){
+        int value;if(line.StartsWith("FPS ",StringComparison.Ordinal)&&int.TryParse(line.Substring(4),out value)){
+            fps=value;lastMessage=Stopwatch.GetTimestamp();Status="Measuring game FPS";retryDelay=30;reason=reasonCode="";return;
+        }
+        fps=null;reasonCode="";
+        if(line=="ADMIN"){Status="FPS measurement needs permission";reason="Windows denied access to FPS measurement. If you already accepted administrator permissions, copy the diagnostics so we can investigate.";}
+        else if(line=="ERROR MISSING"){Status="PresentMon is missing";reason="PresentMon.exe is missing. Extract the complete release ZIP, including tools/presentmon, and check whether antivirus quarantined the file.";}
+        else if(line.StartsWith("ERROR NATIVE ",StringComparison.Ordinal)){Status="FPS measurement unavailable";reason="Windows could not collect DXGI events (error {0}). Copy the diagnostics to report this failure.";reasonCode=line.Substring(13);}
+        else if(line.StartsWith("ERROR TOOLSTART ",StringComparison.Ordinal)){Status="FPS measurement unavailable";reason="PresentMon could not start (Windows error {0}). Copy the diagnostics to report this failure.";reasonCode=line.Substring(16);}
+        else if(line=="ERROR TOOLFAILED"){Status="FPS measurement unavailable";reason="PresentMon stopped without game FPS samples. Copy the diagnostics, including its exit code, to help us investigate.";}
+        else if(line.StartsWith("ERROR",StringComparison.Ordinal)){Status="FPS measurement unavailable";reason="No game FPS samples arrived during the 15-second PresentMon trial. The cause is not yet known; retries use a delay. Copy the diagnostics for feedback.";}
+        else if(line=="WAITGAME"){Status="Waiting for Aion 2";reason="Open Aion 2 to start measuring. No FPS trace runs while the game is closed.";}
+        else{Status="Waiting for game frames";reason="Aion 2 is detected, but no current FPS samples have arrived. Keep the game in the foreground; if this persists, copy the diagnostics.";}
+    }
     internal int? Value {get{lock(gate)return (Stopwatch.GetTimestamp()-lastMessage)/(double)Stopwatch.Frequency>Math.Max(2,refreshInterval*3/1000.0)?null:fps;}}
-    internal void Configure(bool active,int interval=250){interval=FpsOptions.NormalizeInterval(interval);lock(gate){if(refreshInterval!=interval){refreshInterval=interval;try{if(commands!=null)commands.WriteLine("INTERVAL "+interval);}catch(IOException){}}}if(enabled==active)return;enabled=active;if(!active){Stop();Status="FPS disabled";}else{blocked=false;Status="Waiting for Aion 2";}}
-    internal void Tick(){if(!enabled||closed||worker!=null||blocked)return;Start(false);}
-    internal void AllowAdministrator(){if(!enabled||closed)return;Stop();blocked=false;Start(true);}
+    internal void Configure(bool active,int interval=250){interval=FpsOptions.NormalizeInterval(interval);lock(gate){if(refreshInterval!=interval){refreshInterval=interval;try{if(commands!=null)commands.WriteLine("INTERVAL "+interval);}catch(IOException){}}}if(enabled==active)return;enabled=active;if(!active){Stop();Status="FPS disabled";reason=reasonCode="";}else{blocked=false;workerElevated=false;retryAt=0;retryDelay=30;diagnostic="";AcceptReading("WAITGAME");}}
+    internal void Tick(){if(!enabled||closed||worker!=null||blocked||Stopwatch.GetTimestamp()<retryAt)return;Start(false);}
+    internal void AllowAdministrator(){if(!enabled||closed)return;Stop();blocked=false;retryAt=0;Start(true);}
     void Start(bool elevated){
 
         string name="Aion2Helper-FPS-"+Guid.NewGuid().ToString("N"),token=Guid.NewGuid().ToString("N");
-        var acl=new PipeSecurity();acl.AddAccessRule(new PipeAccessRule(WindowsIdentity.GetCurrent().User,PipeAccessRights.FullControl,AccessControlType.Allow));acl.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null),PipeAccessRights.FullControl,AccessControlType.Allow));
+        var acl=new PipeSecurity();using(var identity=WindowsIdentity.GetCurrent())acl.AddAccessRule(new PipeAccessRule(identity.User,PipeAccessRights.FullControl,AccessControlType.Allow));acl.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null),PipeAccessRights.FullControl,AccessControlType.Allow));
         var connection=new NamedPipeServerStream(name,PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous,4096,4096,acl);pipe=connection;
         int ownId;using(var own=Process.GetCurrentProcess())ownId=own.Id;
         var start=new ProcessStartInfo(Application.ExecutablePath,"--fps-worker "+ownId+" 0 "+name+" "+token+" "+refreshInterval){WorkingDirectory=root,UseShellExecute=elevated,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden};if(elevated)start.Verb="runas";
-        try{worker=Process.Start(start);Status="Starting FPS measurement";blocked=true;
-            listener=new Thread(delegate(){try{var pending=connection.BeginWaitForConnection(null,null);using(var ready=pending.AsyncWaitHandle){if(!ready.WaitOne(20000))return;connection.EndWaitForConnection(pending);}var reader=new StreamReader(connection);string handshake=reader.ReadLine();if(handshake!=token)throw new IOException("FPS handshake mismatch (received "+(handshake==null?-1:handshake.Length)+" characters)");lock(gate){if(pipe!=connection)return;commands=new StreamWriter(connection){AutoFlush=true};commands.WriteLine("INTERVAL "+refreshInterval);}
-                string line;while((line=reader.ReadLine())!=null){lock(gate){if(pipe!=connection)return;int value;if(line.StartsWith("FPS ",StringComparison.Ordinal)&&int.TryParse(line.Substring(4),out value)){fps=value;lastMessage=Stopwatch.GetTimestamp();Status="Measuring game FPS";}else{fps=null;if(line=="ADMIN")Status="FPS measurement needs permission";else if(line.StartsWith("ERROR",StringComparison.Ordinal))Status="FPS measurement unavailable";else Status=line=="WAITGAME"?"Waiting for Aion 2":"Waiting for game frames";}}}
-            }catch{}finally{lock(gate){if(pipe==connection){blocked=true;Stop();Status="FPS measurement unavailable";}}}});listener.IsBackground=true;listener.Start();
-        }catch(System.ComponentModel.Win32Exception){connection.Dispose();pipe=null;Status=elevated?"FPS permission request cancelled":"FPS measurement unavailable";blocked=true;}
+        try{worker=Process.Start(start);workerElevated=elevated;Status="Starting FPS measurement";reason=reasonCode="";blocked=true;
+            listener=new Thread(delegate(){try{var pending=connection.BeginWaitForConnection(null,null);using(var ready=pending.AsyncWaitHandle){if(!ready.WaitOne(20000))throw new TimeoutException("FPS worker connection timed out");connection.EndWaitForConnection(pending);}var reader=new StreamReader(connection);string handshake=reader.ReadLine();if(handshake!=token)throw new IOException("FPS handshake mismatch (received "+(handshake==null?-1:handshake.Length)+" characters)");lock(gate){if(pipe!=connection)return;commands=new StreamWriter(connection){AutoFlush=true};commands.WriteLine("INTERVAL "+refreshInterval);}
+                string line;while((line=reader.ReadLine())!=null){lock(gate){if(pipe!=connection)return;if(line.StartsWith("DETAIL ",StringComparison.Ordinal)){diagnostic=line.Substring(7);if(diagnostic.Length>1024)diagnostic=diagnostic.Substring(0,1024);continue;}AcceptReading(line);}}
+            }catch(Exception ex){lock(gate){if(pipe==connection){diagnostic+="; FPS connection: "+ex.GetType().Name;if(diagnostic.Length>1400)diagnostic=diagnostic.Substring(diagnostic.Length-1400);}}}finally{lock(gate){if(pipe==connection){bool elevatedWorker=workerElevated;try{if(worker!=null&&worker.HasExited)diagnostic+="; FPS worker exit="+worker.ExitCode;}catch(InvalidOperationException){}Stop();blocked=elevatedWorker;retryAt=Stopwatch.GetTimestamp()+(long)(retryDelay*(double)Stopwatch.Frequency);retryDelay=Math.Min(120,retryDelay*2);Status="FPS measurement unavailable";reason=elevatedWorker?"The elevated FPS reader disconnected or did not connect. Turn the FPS counter off and on to retry, then copy the diagnostics if it fails again.":"The FPS reader disconnected or did not connect. It will retry with a delay; copy the diagnostics if this continues.";reasonCode="";if(diagnostic.Length==0)diagnostic="FPS worker exited or did not connect; retry is delayed.";}}}});listener.IsBackground=true;listener.Start();
+        }catch(System.ComponentModel.Win32Exception ex){diagnostic="FPS worker start error "+ex.NativeErrorCode;connection.Dispose();pipe=null;Status=ex.NativeErrorCode==1223?"FPS permission request cancelled":"FPS measurement unavailable";reason=ex.NativeErrorCode==1223?"The Windows administrator request was cancelled. You can try again using the administrator button.":"The FPS reader could not start (Windows error {0}). Copy the diagnostics to report this failure.";reasonCode=ex.NativeErrorCode.ToString(CultureInfo.InvariantCulture);blocked=true;}
     }
     void Stop(){NamedPipeServerStream old;Process process;lock(gate){old=pipe;pipe=null;process=worker;worker=null;try{if(commands!=null)commands.WriteLine("STOP");}catch{}commands=null;fps=null;}if(old!=null)old.Dispose();if(process!=null){ThreadPool.QueueUserWorkItem(delegate{try{process.WaitForExit(6000);}catch{}finally{process.Dispose();}});}}
     public void Dispose(){closed=true;Stop();}
@@ -178,6 +220,8 @@ internal sealed class FpsOverlay:Form {
         timer.Interval=250;timer.Tick+=delegate{UpdateWidget();};FormClosing+=delegate{closing=true;};}
     internal int? Value {get{return monitor.Value;}}
     internal string ReadingStatus {get{return monitor.Status;}}
+    internal string Diagnostics {get{return monitor.Diagnostics;}}
+    internal string Explanation(string language){return monitor.Explanation(language);}
     internal bool NeedsAdministrator {get{return monitor.NeedsAdministrator;}}
     internal void AllowAdministrator(){monitor.AllowAdministrator();}
     internal void Configure(FpsOptions value,bool locked,bool preview){

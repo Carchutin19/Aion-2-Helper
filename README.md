@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.7.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.7.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.7.0/Aion-2-Helper-v1.7.0-windows-x64.zip).
+The [v1.7.1 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.7.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.7.1/Aion-2-Helper-v1.7.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy Bar, DPS Meter and Notifications;
@@ -24,7 +24,23 @@ while you play, with movable widgets, a clean interface, and a focus on low over
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
 
-## New in v1.7.0 Alpha
+## New in v1.7.1 Alpha
+
+**Settings → FPS Counter** now shows a visible explanation when measurement fails,
+including permission denials, a missing PresentMon executable, Windows errors,
+missing game events and reader disconnections. **Copy FPS diagnostics** copies
+the app version, Windows/process information, actual permission state, reader
+connection, dependency presence and available error codes for a bug report.
+No packet captures, personal settings, credentials or FPS session tokens are included.
+
+The administrator action hides when the helper is already elevated or a requested
+elevated reader is running. A running game without a reported main window can
+now reach the bounded PresentMon fallback. Unexpected reader disconnections
+release their resources and recover with a delay; there are no automatic UAC prompts.
+These fixes passed local checks, but the cause of a failure on another PC still
+requires that PC's diagnostics. Widget appearance and saved preferences are retained.
+
+### Retained from v1.7.0
 
 Notifications now distinguish normal party invitations from dungeon-group
 invitations, including the re-invitation when converting a party for a dungeon.
@@ -90,7 +106,19 @@ driver-generated frames. If Windows does not provide readings,
 close the helper, then right-click **Aion2Helper.exe → Run as administrator**
 to try measurement with elevated permissions. Settings also has a conditional
 **Start measurement as administrator** button for the measurement worker only;
-it is hidden while waiting for the game or receiving FPS. An em dash means no
+it is hidden while waiting for the game, receiving FPS, when the helper is
+already elevated, or while its requested elevated reader is running. Accepting
+UAC confirms permissions, not that Windows is delivering game FPS events.
+
+If you see **— FPS**, open **Settings → FPS Counter** and read the explanation
+directly below the preview. Keep Aion in the foreground, then use
+**Measurement → Copy FPS diagnostics** and paste the report into a GitHub issue
+with a short description. For an elevated-reader connection failure, toggle the
+FPS module off and on before retrying. A missing PresentMon file requires
+extracting the full ZIP (including **tools/presentmon**); check antivirus quarantine
+if the file disappears.
+
+An em dash means no
 current reading; it is never
 replaced with an invented FPS value.
 

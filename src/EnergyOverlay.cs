@@ -344,6 +344,8 @@ internal sealed class EnergyOverlay:Form {
     internal void ResetDpsEncounter(){combat.ResetEncounter();}
     internal string FpsStatus {get{return UiLanguage.Text(fpsWidget.ReadingStatus,language);}}
     internal bool FpsNeedsAdministrator {get{return fpsWidget.NeedsAdministrator;}}
+    internal string FpsDiagnostics {get{return fpsWidget.Diagnostics;}}
+    internal string FpsExplanation {get{return fpsWidget.Explanation(language);}}
     internal void AllowFpsAdministrator(){fpsWidget.AllowAdministrator();}
     protected override void Dispose(bool disposing){if(disposing&&notificationWidget!=null){notificationWidget.Dispose();notificationWidget=null;}if(disposing&&fpsWidget!=null){fpsWidget.Dispose();fpsWidget=null;}if(disposing&&dpsWidget!=null){dpsWidget.Dispose();dpsWidget=null;}if(disposing&&combatHistory!=null)combatHistory.Dispose();base.Dispose(disposing);}
     internal bool CanUndoConfiguration {get{return configurationHistory.CanUndo;}}
