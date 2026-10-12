@@ -2,7 +2,7 @@
 
 **Customizable utility overlays for Aion 2.**
 
-**Alpha software — actively in development.** Energy Bar, FPS/Ping widgets and an
+**Alpha software — actively in development.** Energy/Stagger progress bars, FPS/Ping widgets and an
 experimental DPS Meter, Notifications and an optional intro skip are available now. **The DPS Meter is incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
@@ -12,11 +12,11 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.9.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.9.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.9.0/Aion-2-Helper-v1.9.0-windows-x64.zip).
+The [v1.10.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.10.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.10.0/Aion-2-Helper-v1.10.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
-for Energy Bar, DPS Meter and Notifications;
+for Energy/Stagger bars, DPS Meter and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
@@ -31,13 +31,12 @@ while you play, with movable widgets, a clean interface, and a focus on low over
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
 
-## Latest source update: Progress bar (not yet in a release ZIP)
+## New in v1.10.0 Alpha: Progress bar
 
-The latest code on **main** adds **Settings → Progress bar**, with separate
-**Energy bar** and **Stagger** tabs. These changes are available in source builds;
-the downloadable **v1.9.0 ZIP already includes Ping**, but does not include the
-new Progress bar section. See [release notes](RELEASE-NOTES.md) for the update history.
-The source-build Stagger reader requires Npcap, sharing the existing game capture.
+**Settings → Progress bar** has separate **Energy bar** and **Stagger** tabs.
+The **v1.10.0 ZIP includes all the features below**, plus the independent FPS/Ping
+widgets introduced in v1.9.0. See [release notes](RELEASE-NOTES.md) for the update
+history. The Stagger reader requires Npcap and shares the existing game capture.
 
 - **Independent Stagger widget:** reads the supported enemy's current and maximum
   stagger gauge, with its own enable switch, colors, glow, dark track, smoothing,
@@ -421,8 +420,8 @@ or measured. They are not included in the current build.
 
 ## Getting started
 
-This is a Windows desktop application. **Npcap** is required for Energy Bar,
-DPS Meter and Notifications; FPS uses Windows presentation events and Ping uses
+This is a Windows desktop application. **Npcap** is required for Energy/Stagger
+bars, DPS Meter and invitation notifications; FPS uses Windows presentation events and Ping uses
 per-connection Windows TCP statistics. The application was
 developed and tested with Aion 2 Global.
 
@@ -486,7 +485,7 @@ DPS Meter and Notifications.
 
 ### Settings
 
-**General**, above Energy Bar, includes an **English /
+**General**, above Progress bar, includes an **English /
 Español** language selector. Changes apply immediately to Settings, the tray menu,
 the color picker, and normal energy status messages, and persist across restarts.
 English is the default for new installations and preferences from earlier versions.
@@ -495,7 +494,7 @@ Low-level diagnostic tools and native error messages remain in English.
 Energy Bar has **Behavior**, **Appearance**, and **Position & size** tabs,
 with a persistent preview above them.
 
-In the latest source build, **Progress bar** replaces the Energy Bar section.
+**Progress bar** replaces the Energy Bar section.
 Choose **Energy bar** or **Stagger** before adjusting their independent settings;
 the Stagger tab also includes its separate countdown controls.
 
@@ -543,7 +542,7 @@ re-enter with your character to receive a fresh maximum. Until then, the saved
 reference is provisional; it is not a guess based on partial energy. This also
 matters after changing characters.
 
-If auto-hide does not work, open **Settings → Energy Bar → Behavior**, enable
+If auto-hide does not work, open **Settings → Progress bar → Energy bar → Behavior**, enable
 **Auto-hide**, and **Lock** the widgets from the tray menu. Unlocked widgets stay
 visible for editing. Wait for full energy and the configured **Delay at 100%**
 plus fade. If the status says **waiting for maximum energy stats**, return to

@@ -1,8 +1,8 @@
-# Unreleased — Progress Bars and Stagger Phase Handling
+# Aion 2 Helper v1.10.0 Alpha — Progress Bars and Stagger Phase Handling
 
-These changes are in the latest source on main and local development builds.
-The published v1.9.0 ZIP already includes independent FPS/Ping widgets; it does
-not yet include the changes below.
+The v1.10.0 Windows ZIP includes these changes and retains the independent
+FPS/Ping widgets introduced in v1.9.0. Start the helper before launching Aion 2;
+Npcap remains a separate requirement for the progress bars and packet-based modules.
 
 - Replaced the Energy Bar settings section with **Progress bar**, containing
   independent Energy bar and Stagger tabs. Energy's existing auto-hide is retained.
