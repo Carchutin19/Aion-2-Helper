@@ -20,8 +20,9 @@ internal sealed class FpsOptions {
     public Rectangle Bounds=new Rectangle(30,30,112,44);
     internal FpsOptions Copy(){return (FpsOptions)MemberwiseClone();}
     internal static int NormalizeInterval(int value){return Math.Max(100,Math.Min(2000,value));}
-    internal void Normalize(){RefreshIntervalMs=NormalizeInterval(RefreshIntervalMs);if(!EnergyBarOptions.ValidColor(Color))Color="#00FF63";BackgroundOpacity=Math.Max(0,Math.Min(255,BackgroundOpacity));Softness=Math.Max(0,Math.Min(24,Softness));Bounds=new Rectangle(Math.Max(-100000,Math.Min(100000,Bounds.X)),Math.Max(-100000,Math.Min(100000,Bounds.Y)),Math.Max(48,Math.Min(1600,Bounds.Width)),Math.Max(20,Math.Min(400,Bounds.Height)));}
-    internal static FpsOptions Read(Dictionary<string,object> cfg){object data;var o=new FpsOptions();if(cfg.TryGetValue("fps",out data))try{o=new JavaScriptSerializer().ConvertToType<FpsOptions>(data)??o;}catch{}o.Normalize();return o;}
+    internal static FpsOptions PingDefaults(){return new FpsOptions{RefreshIntervalMs=1000,Bounds=new Rectangle(30,80,112,44)};}
+    internal void Normalize(bool ping=false){RefreshIntervalMs=ping?Math.Max(250,Math.Min(5000,RefreshIntervalMs)):NormalizeInterval(RefreshIntervalMs);if(!EnergyBarOptions.ValidColor(Color))Color="#00FF63";BackgroundOpacity=Math.Max(0,Math.Min(255,BackgroundOpacity));Softness=Math.Max(0,Math.Min(24,Softness));Bounds=new Rectangle(Math.Max(-100000,Math.Min(100000,Bounds.X)),Math.Max(-100000,Math.Min(100000,Bounds.Y)),Math.Max(48,Math.Min(1600,Bounds.Width)),Math.Max(20,Math.Min(400,Bounds.Height)));}
+    internal static FpsOptions Read(Dictionary<string,object> cfg,string key="fps"){object data;var o=key=="ping"?PingDefaults():new FpsOptions();if(cfg.TryGetValue(key,out data))try{o=new JavaScriptSerializer().ConvertToType<FpsOptions>(data)??o;}catch{}o.Normalize(key=="ping");return o;}
     internal static bool Same(FpsOptions a,FpsOptions b){return a.Enabled==b.Enabled&&a.Background==b.Background&&a.Bounds==b.Bounds&&a.BackgroundOpacity==b.BackgroundOpacity&&a.Softness==b.Softness&&a.RefreshIntervalMs==b.RefreshIntervalMs&&string.Equals(a.Color,b.Color,StringComparison.OrdinalIgnoreCase);}
 }
 
@@ -215,30 +216,30 @@ internal static class FpsDesign {
 }
 
 internal sealed class FpsOverlay:Form {
-    readonly EnergyOverlay owner;readonly FpsMonitor monitor;readonly LayeredImage image=new LayeredImage();readonly FpsDesign.Workspace workspace=new FpsDesign.Workspace();readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();FpsOptions options=new FpsOptions();bool editing,rendering,closing,dragging,disposed;readonly bool previewMode;Rectangle dragStart;Point mouseStart;int hit;bool validImage;int imageWidth,imageHeight,imageX=int.MinValue,imageY;int? imageValue;bool imageEditing;long lastRaise;
-    internal FpsOverlay(EnergyOverlay helper,string root,bool preview){owner=helper;previewMode=preview;monitor=new FpsMonitor(root);Text="Aion 2 Helper - FPS";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;
+    readonly EnergyOverlay owner;readonly FpsMonitor monitor;readonly PingMonitor pingMonitor;readonly bool ping;readonly LayeredImage image=new LayeredImage();readonly FpsDesign.Workspace workspace=new FpsDesign.Workspace();readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();FpsOptions options=new FpsOptions();bool editing,rendering,closing,dragging,disposed;readonly bool previewMode;Rectangle dragStart;Point mouseStart;int hit;bool validImage;int imageWidth,imageHeight,imageX=int.MinValue,imageY;int? imageValue;bool imageEditing;long lastRaise;
+    internal FpsOverlay(EnergyOverlay helper,string root,bool preview,bool forPing=false){owner=helper;previewMode=preview;ping=forPing;if(ping){pingMonitor=new PingMonitor();options=FpsOptions.PingDefaults();}else monitor=new FpsMonitor(root);Text=ping?"Aion 2 Helper - Ping":"Aion 2 Helper - FPS";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;
         timer.Interval=250;timer.Tick+=delegate{UpdateWidget();};FormClosing+=delegate{closing=true;};}
-    internal int? Value {get{return monitor.Value;}}
-    internal string ReadingStatus {get{return monitor.Status;}}
-    internal string Diagnostics {get{return monitor.Diagnostics+Environment.NewLine+"Widget visible: "+Visible+"; bounds: "+Bounds;}}
-    internal string Explanation(string language){return monitor.Explanation(language);}
-    internal bool NeedsAdministrator {get{return monitor.NeedsAdministrator;}}
-    internal void AllowAdministrator(){monitor.AllowAdministrator();}
+    internal int? Value {get{return ping?pingMonitor.Value:monitor.Value;}}
+    internal string ReadingStatus {get{return ping?pingMonitor.Status:monitor.Status;}}
+    internal string Diagnostics {get{return (ping?pingMonitor.Diagnostics:monitor.Diagnostics)+Environment.NewLine+"Widget visible: "+Visible+"; bounds: "+Bounds;}}
+    internal string Explanation(string language){return ping?pingMonitor.Explanation(language):monitor.Explanation(language);}
+    internal bool NeedsAdministrator {get{return !ping&&monitor.NeedsAdministrator;}}
+    internal void AllowAdministrator(){if(!ping)monitor.AllowAdministrator();}
     internal void Configure(FpsOptions value,bool locked,bool preview){
-        var next=value.Copy();next.Normalize();
+        var next=value.Copy();next.Normalize(ping);
         if(options.Background!=next.Background||options.BackgroundOpacity!=next.BackgroundOpacity||options.Softness!=next.Softness||!string.Equals(options.Color,next.Color,StringComparison.OrdinalIgnoreCase))validImage=false;
         bool lockChanged=editing==locked;options=next;editing=!locked;Bounds=options.Bounds;
-        if(!preview)monitor.Configure(options.Enabled,options.RefreshIntervalMs);if(preview)return;
+        if(!preview){if(ping)pingMonitor.Configure(options.Enabled,options.RefreshIntervalMs);else monitor.Configure(options.Enabled,options.RefreshIntervalMs);}if(preview)return;
         timer.Interval=options.RefreshIntervalMs;if(!options.Enabled){timer.Stop();Hide();return;}
         timer.Start();if(lockChanged||!IsHandleCreated){int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);}UpdateWidget();
     }
-    void UpdateWidget(){if(closing||!options.Enabled)return;monitor.Tick();int? value=monitor.Value;
-        int interval=monitor.Status=="Waiting for Aion 2"?Math.Max(1000,options.RefreshIntervalMs):options.RefreshIntervalMs;if(timer.Interval!=interval)timer.Interval=interval;
+    void UpdateWidget(){if(closing||!options.Enabled)return;if(!ping)monitor.Tick();int? value=Value;
+        int interval=ReadingStatus=="Waiting for Aion 2"?Math.Max(1000,options.RefreshIntervalMs):options.RefreshIntervalMs;if(timer.Interval!=interval)timer.Interval=interval;
         DrawValue(value);
     }
     void DrawValue(int? value){if(rendering)return;rendering=true;
         try{bool changed=!validImage||Width!=imageWidth||Height!=imageHeight||value!=imageValue||editing!=imageEditing;
-            if(changed){string text=value.HasValue?value.Value.ToString(CultureInfo.InvariantCulture)+" FPS":"\u2014 FPS";using(var bitmap=FpsDesign.Render(Width,Height,text,options,editing,workspace))image.Upload(bitmap);validImage=true;imageWidth=Width;imageHeight=Height;imageValue=value;imageEditing=editing;}
+            if(changed){string text=(value.HasValue?value.Value.ToString(CultureInfo.InvariantCulture):"\u2014")+(ping?" ms":" FPS");using(var bitmap=FpsDesign.Render(Width,Height,text,options,editing,workspace))image.Upload(bitmap);validImage=true;imageWidth=Width;imageHeight=Height;imageValue=value;imageEditing=editing;}
             if(changed||Left!=imageX||Top!=imageY||(!previewMode&&!Visible)){image.Present(Handle,Left,Top,255);imageX=Left;imageY=Top;}
             if(!previewMode&&!Visible)Show();long now=Stopwatch.GetTimestamp();if(!previewMode&&(now-lastRaise)/(double)Stopwatch.Frequency>=1){OverlayNative.RaiseWithoutFocus(Handle);lastRaise=now;}
         }finally{rendering=false;}
@@ -249,8 +250,8 @@ internal sealed class FpsOverlay:Form {
         Width++;DrawValue(120);if(image.Uploads!=uploads+1)throw new Exception("Resizing FPS must redraw once");DrawValue(121);if(image.Uploads!=uploads+2)throw new Exception("A changed reading must redraw once");
         using(var own=Process.GetCurrentProcess()){uint handles=OverlayNative.GetGuiResources(own.Handle,0);for(int i=0;i<1500;i++)DrawValue(100+i%250);uint after=OverlayNative.GetGuiResources(own.Handle,0);if(after>handles+3)throw new Exception("FPS bitmap/font resources must remain bounded");}
     }
-    protected override void Dispose(bool disposing){if(disposing&&!disposed){disposed=true;closing=true;timer.Stop();timer.Dispose();monitor.Dispose();image.Dispose();workspace.Dispose();}base.Dispose(disposing);}
-    void SaveGeometry(){var cfg=owner.Configuration;cfg.Fps.Bounds=Bounds;owner.ApplyConfiguration(cfg);}
+    protected override void Dispose(bool disposing){if(disposing&&!disposed){disposed=true;closing=true;timer.Stop();timer.Dispose();if(ping)pingMonitor.Dispose();else monitor.Dispose();image.Dispose();workspace.Dispose();}base.Dispose(disposing);}
+    void SaveGeometry(){var cfg=owner.Configuration;if(ping)cfg.Ping.Bounds=Bounds;else cfg.Fps.Bounds=Bounds;owner.ApplyConfiguration(cfg);}
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80)&~0x40000;return cp;}}
     protected override bool ShowWithoutActivation {get{return true;}}
     protected override void WndProc(ref Message m){

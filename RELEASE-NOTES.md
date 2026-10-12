@@ -1,3 +1,23 @@
+# Aion 2 Helper v1.9.0 Alpha — Independent FPS/Ping Widgets
+
+- Renamed the settings section to FPS/Ping, with separate FPS and Ping tabs.
+- Added an independent ping widget with the same appearance and geometry
+  controls, shared lock, undo/redo and display adaptation as FPS.
+- Ping reads smoothed Windows TCP RTT for the game's current server connection,
+  without extra probes or Npcap. Defaults to 1000 ms refresh, configurable from
+  250 to 5000 ms. Disabled by default; fresh readings require connection traffic.
+- Added EN/ES status, permission/error explanations and Copy Ping diagnostics.
+  If Windows denies collection access, restart the helper as administrator.
+- Added bounded background sampling, connection recovery, stale-sample expiry
+  and cleanup that preserves statistics enabled by other applications.
+- Local live IPv4 validation received real RTT samples. This is a network RTT
+  estimate, not a claim to reproduce the game's internal ping.
+- Known issue recorded: Energy Bar may not receive readings during PvP. Cause
+  and scope remain unconfirmed; investigation is pending.
+
+Existing DPS coverage limitations and the open-world boss party-damage issue
+remain unresolved. No Energy Bar PvP fix is claimed.
+
 # Aion 2 Helper v1.8.1 Alpha — Adaptive Widget Layout & Auto-hide Guidance
 
 Widgets now keep a proportional layout when your Windows display resolution or

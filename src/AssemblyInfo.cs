@@ -2,6 +2,6 @@ using System.Reflection;
 
 [assembly: AssemblyTitle("Aion 2 Helper")]
 [assembly: AssemblyProduct("Aion 2 Helper")]
-[assembly: AssemblyDescription("Customizable utility overlays for Aion 2: energy, FPS, notifications and an experimental combat meter.")]
-[assembly: AssemblyVersion("1.8.1.0")]
-[assembly: AssemblyFileVersion("1.8.1.0")]
+[assembly: AssemblyDescription("Customizable utility overlays for Aion 2: energy, FPS/ping, notifications and an experimental combat meter. Alpha software.")]
+[assembly: AssemblyVersion("1.9.0.0")]
+[assembly: AssemblyFileVersion("1.9.0.0")]

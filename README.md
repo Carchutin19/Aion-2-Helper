@@ -2,7 +2,7 @@
 
 **Customizable utility overlays for Aion 2.**
 
-**Alpha software — actively in development.** Energy Bar, FPS Counter and an
+**Alpha software — actively in development.** Energy Bar, FPS/Ping widgets and an
 experimental DPS Meter, Notifications and an optional intro skip are available now. **The DPS Meter is incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.8.1 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.8.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.8.1/Aion-2-Helper-v1.8.1-windows-x64.zip).
+The [v1.9.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.9.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.9.0/Aion-2-Helper-v1.9.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy Bar, DPS Meter and Notifications;
@@ -30,6 +30,35 @@ Aion 2 Helper is a community project designed to keep useful information visible
 while you play, with movable widgets, a clean interface, and a focus on low overhead.
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
+
+## New in v1.9.0 Alpha: FPS/Ping
+
+**Settings → FPS/Ping** now has separate **FPS** and **Ping** tabs and independent
+widgets. Existing FPS preferences are preserved.
+
+Ping shows Windows' smoothed TCP round-trip time in milliseconds for an
+established AION2 game-server connection on port 13328. It measures the network
+connection, not server processing time or the game's internal latency counter.
+It sends no extra ping packets and does not require Npcap. Windows normally
+requires an elevated helper to enable these per-connection statistics; if access
+is denied, the Ping tab explains how to restart the helper as administrator and
+offers **Copy Ping diagnostics**. No automatic elevation prompts are added.
+
+Enable either widget independently. Each retains its own text color, optional
+soft black background, opacity, softness, size, position and refresh interval.
+Move/resize it directly while unlocked; lock it for click-through operation.
+Ping defaults to a 1000 ms refresh (configurable from 250 to 5000 ms), starts
+disabled for existing installations, supports undo/redo, and follows the same
+monitor/resolution adaptation as the other widgets. Connection discovery and
+sampling run in the background with bounded storage. Old readings expire, game
+connection changes are rediscovered, and disabling Ping stops sampling and
+releases collection enabled by this helper. Statistics already enabled by
+another application are preserved. IPv4 and IPv6 discovery are supported;
+live validation on the development PC used IPv4.
+
+**New known issue — Energy Bar in PvP:** energy readings were reported not to
+work during PvP. This is recorded for investigation; the cause and scope are
+not yet confirmed, and this development change does not fix it.
 
 ## New in v1.8.1 Alpha
 
@@ -154,7 +183,7 @@ stats were missed. Glow, smoothing and fades are preserved.
 
 ## Available now: FPS Counter
 
-Enable the FPS widget in **Settings → FPS Counter**. It is off by default on
+Enable the FPS widget in **Settings → FPS/Ping → FPS**. It is off by default on
 new installations and updates, so you can choose whether to use it.
 
 - A simple number in green by default, with an integrated text color picker.
@@ -181,7 +210,7 @@ it is hidden while waiting for the game, receiving FPS, when the helper is
 already elevated, or while its requested elevated reader is running. Accepting
 UAC confirms permissions, not that Windows is delivering game FPS events.
 
-If you see **— FPS**, open **Settings → FPS Counter** and read the explanation
+If you see **— FPS**, open **Settings → FPS/Ping → FPS** and read the explanation
 directly below the preview. Keep Aion in the foreground, then use
 **Measurement → Copy FPS diagnostics** and paste the report into a GitHub issue
 with a short description. For an elevated-reader connection failure, toggle the
@@ -353,7 +382,8 @@ or measured. They are not included in the current build.
 ## Getting started
 
 This is a Windows desktop application. **Npcap** is required for Energy Bar,
-DPS Meter and Notifications; FPS measurement uses Windows presentation events. The application was
+DPS Meter and Notifications; FPS uses Windows presentation events and Ping uses
+per-connection Windows TCP statistics. The application was
 developed and tested with Aion 2 Global.
 
 ### Install Npcap for Energy Bar, DPS Meter and Notifications
@@ -380,7 +410,8 @@ without Npcap**.
    stamina; a dash alone does not guarantee that maximum is resent.
 3. Right-click the icon next to the clock and choose **Settings**. Double-clicking
    the icon also opens Settings.
-4. Open **Settings → FPS Counter** and enable it if you want an FPS widget.
+4. Open **Settings → FPS/Ping** and enable FPS and/or Ping independently.
+   For Ping, run the helper as administrator if Windows denies TCP-statistics access.
 5. Choose **Unlock**, then drag the widget's center to move it. Drag an edge or
    corner to resize it. Exact dimensions can also be entered in Settings.
 6. Open **Settings → DPS Meter** and enable the experimental combat meter if wanted.
@@ -403,7 +434,7 @@ without elevation, while others need it.
   Run as administrator** and accept the Windows prompt to launch the helper
   with administrator permissions. This is a Windows action, not an always-visible
   button in the FPS settings.
-- **Settings → FPS Counter** also contains **Start measurement as administrator**,
+- **Settings → FPS/Ping → FPS** also contains **Start measurement as administrator**,
   which only appears when FPS is enabled and no reading is available, after the
   initial start/wait-for-game states. If it appears, it elevates only the FPS worker.
 
