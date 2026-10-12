@@ -31,6 +31,46 @@ while you play, with movable widgets, a clean interface, and a focus on low over
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
 
+## Latest source update: Progress bar (not yet in a release ZIP)
+
+The latest code on **main** adds **Settings → Progress bar**, with separate
+**Energy bar** and **Stagger** tabs. These changes are available in source builds;
+the downloadable **v1.9.0 ZIP already includes Ping**, but does not include the
+new Progress bar section. See [release notes](RELEASE-NOTES.md) for the update history.
+The source-build Stagger reader requires Npcap, sharing the existing game capture.
+
+- **Independent Stagger widget:** reads the supported enemy's current and maximum
+  stagger gauge, with its own enable switch, colors, glow, dark track, smoothing,
+  fades, position and size. Move and resize it with the shared widget lock.
+- **Values on both bars:** optionally show the current value, maximum and
+  percentage. Give each label its own above/below, left/center/right placement
+  and vertical offset; adjust text size and color.
+- **Separate stagger countdown:** optional estimated remaining seconds after
+  the observed stagger trigger, with independent position, vertical offset,
+  size, color, glow and shrinking effect. The default estimate is five seconds;
+  it never invents a gauge refill or overrides actual game data.
+- **Phase-aware visibility:** supported inactive-phase updates replace old values
+  and hide the Stagger widget. Actual active-phase data makes it visible again.
+  A gauge left at zero hides after five seconds until new eligible positive data
+  arrives. The Stagger bar has no full-gauge auto-hide; **Energy auto-hide stays
+  unchanged**. Unlocked widgets remain accessible for positioning.
+- **Stability and preferences:** tolerate small capture/UI timestamp differences
+  that could hide a valid gauge; retain the tracked enemy through unrelated
+  area hits. New settings support English/Spanish, saving, undo/redo and display
+  adaptation. Editing progress settings preserves independent Ping preferences.
+
+**Stagger is experimental.** Local comparisons and a replay of the reported
+multi-phase boss encounter validate the supported updates, but wider live testing
+is still needed. Selection follows the last directly attacked enemy with known
+stagger data; it does not read the game's UI target selector. An initial attack
+may be needed before the bar appears. Unknown enemies and unsupported phases
+are not assigned invented values. Per-player stagger contribution is not yet
+available in the DPS Meter.
+
+**DPS remains incomplete:** new periodic damage/healing patterns are being
+investigated, but unverified effects have not been added to totals. The known
+open-world boss party-damage issue and Energy Bar PvP issue remain pending.
+
 ## New in v1.9.0 Alpha: FPS/Ping
 
 **Settings → FPS/Ping** now has separate **FPS** and **Ping** tabs and independent
@@ -455,6 +495,10 @@ Low-level diagnostic tools and native error messages remain in English.
 Energy Bar has **Behavior**, **Appearance**, and **Position & size** tabs,
 with a persistent preview above them.
 
+In the latest source build, **Progress bar** replaces the Energy Bar section.
+Choose **Energy bar** or **Stagger** before adjusting their independent settings;
+the Stagger tab also includes its separate countdown controls.
+
 **Enable Energy Bar** controls the whole module. Disabling it hides the widget,
 dims and disables its controls and preview. Capture stays active if DPS Meter
 or enabled party notifications still need it. With all capture-dependent modules
@@ -569,6 +613,7 @@ Existing checks:
 .\DashProbe.exe --notifications-test
 .\DashProbe.exe --game-tweaks-test
 .\DashProbe.exe --settings-test
+.\DashProbe.exe --progress-test
 .\DashProbe.exe --ui-test
 .\DashProbe.exe --selftest
 .\DashProbe.exe --replay-test captures/20261008-194328-734326/segments.jsonl
@@ -583,6 +628,11 @@ local replay fixture. The fixture
 yielded 79 energy readings with zero decoder errors and matched an independent
 Python analysis. Self-test requires Npcap; replay requires the local capture
 fixture, which is not needed for normal use.
+
+Progress checks also cover active/inactive stagger phases, actual refill updates,
+the five-second zero fallback, timestamp tolerance, independent value placement,
+countdown controls and settings migration. Captured phase transitions were
+replayed privately; those captures are not part of the repository or download.
 
 Settings tests render reference images into **designs/** over a fixed backdrop.
 The live window uses a slightly transparent dark surface, rounded corners, and

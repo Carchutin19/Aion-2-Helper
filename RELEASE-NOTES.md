@@ -1,3 +1,45 @@
+# Unreleased — Progress Bars and Stagger Phase Handling
+
+These changes are in the latest source on main and local development builds.
+The published v1.9.0 ZIP already includes independent FPS/Ping widgets; it does
+not yet include the changes below.
+
+- Replaced the Energy Bar settings section with **Progress bar**, containing
+  independent Energy bar and Stagger tabs. Energy's existing auto-hide is retained.
+- Added a configurable enemy Stagger widget: enable/disable, colors, glow, track
+  opacity, fade, smoothing, size and position, including direct movement/resizing
+  through the shared lock. Settings save and support undo/redo and English/Spanish.
+- Added optional current, maximum and percentage labels on both bars, with
+  independent above/below left/center/right anchors and vertical offsets.
+- Added an optional stagger countdown with independent appearance/placement,
+  glow and shrinking text. Its default five seconds is an estimate; actual
+  network updates determine the gauge, with no simulated refill.
+- Removed full-gauge auto-hide only for Stagger. Supported inactive-phase
+  updates now replace stale values and hide the bar; actual active-phase updates
+  restore it. Zero left continuously for five seconds hides until eligible
+  positive data returns. Editing remains accessible while unlocked.
+- Fixed a freshness check that could briefly hide valid data when a capture
+  timestamp was slightly ahead of the UI clock. Unrelated area hits without a
+  known gauge no longer replace the tracked enemy.
+- Preserved Ping preferences when editing progress settings, included Stagger
+  in display adaptation and configuration history, and removed a duplicate
+  translation key that could cause a settings initialization exception.
+- Shared capture, bounded flow/entity storage, cached native rendering and
+  adaptive timers keep this module from adding another packet-capture session.
+
+Local Progress, Settings and native bar checks passed. A private replay of the
+reported multi-phase encounter accepted its actual active/inactive updates and
+replaced the retained old value. Further live phase validation remains pending.
+Selection follows the last directly attacked enemy with known gauge data, not
+the game's UI target pointer. Unknown phase semantics and per-player stagger
+contribution remain unverified.
+
+New periodic damage/healing candidates remain research only. DPS coverage is
+partial, the open-world boss party-damage issue remains unresolved, and no PvP
+energy fix is claimed. Private capture/report data is not published.
+
+---
+
 # Aion 2 Helper v1.9.0 Alpha — Independent FPS/Ping Widgets
 
 - Renamed the settings section to FPS/Ping, with separate FPS and Ping tabs.

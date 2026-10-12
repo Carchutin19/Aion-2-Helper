@@ -254,6 +254,7 @@ internal static class Entry {
     [STAThread] static int Main(string[] args) {
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
+        if(args.Length>0&&args[0]=="--progress-test"){try{ProgressVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"progress-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-test"){try{PingVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-live-test"){try{return PingVerification.Live(root);}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-live-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--notifications-test"){try{NotificationVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"notifications-test.txt"),"FAIL: "+ex);return 1;}}
@@ -279,6 +280,7 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--game-tweaks-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenGameTweaksSettings));};Application.Run(helper);return 0;}
         if(args.Length>0&&args[0]=="--fps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenFpsSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--ping-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenPingSettings));};Application.Run(overlay);return 0;}
+        if(args.Length>0&&args[0]=="--stagger-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenStaggerSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--dps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--dps-history"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsHistory));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenSettings));};Application.Run(overlay);return 0;}

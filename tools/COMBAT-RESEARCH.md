@@ -1,5 +1,30 @@
 # Experimental offline combat analysis
 
+## Stagger source module
+
+The latest source includes an experimental independent Stagger progress bar.
+The supported full gauge envelopes carry explicit current, maximum and state;
+phase changes must replace the previous sample even when the new value is full.
+Only the visually validated active state is displayed while locked. Other
+observed states are retained as data but hidden pending an active update.
+This conservatively handles the reported multi-phase stale-gauge bug without
+claiming a universal immunity flag for all enemies.
+
+The five-second continuous-zero fallback hides a stale zero; it does not refill
+the gauge. The optional countdown is a configurable estimate, not a decoded
+remaining-duration field. Timestamp tolerance prevents small packet/UI clock
+differences from hiding newly delivered samples. Selection follows the last
+directly attacked known-gauge enemy, with a provisional latest-gauge fallback
+before local-character identification; no UI target pointer is decoded.
+
+Synthetic regression checks and a private replay cover observed phase changes,
+zero/refill, malformed/out-of-order updates and flow/reset isolation. Further live
+phase checks are needed. No per-player stagger amount, universal boss classifier,
+aggro or causal buff bonus has been established. Newly observed periodic
+damage/healing candidates are kept out of production totals until validated.
+
+## Offline tool
+
 `analyze_combat.py` is a development tool, not a released DPS widget. It reads
 `frames.jsonl` produced by our existing capture analysis and writes an explicitly
 incomplete report. It does not start a capture or touch the running game.
