@@ -53,7 +53,7 @@ internal static class SettingsVisual {
         saturation=value==0?0:delta/value;hue=delta==0?0:value==r?60*((g-b)/delta%6):value==g?60*((b-r)/delta+2):60*((r-g)/delta+4);if(hue<0)hue+=360;
     }
     internal static void Verify(string root){
-        ConfigurationHistory.Verify();NpcapSupport.Verify();
+        ConfigurationHistory.Verify();WidgetDisplayLayout.Verify();WidgetDisplayLayout.VerifyPersistence(root);NpcapSupport.Verify();
         foreach(string hex in new[]{"#000000","#FFFFFF","#A02D2D","#B85416","#287044","#00FFFF","#FF00FF","#FFFF00","#123456"}){
             var c=(Color)ColorConverter.ConvertFromString(hex);double h,s,v;ToHsv(c,out h,out s,out v);if(Hex(Hsv(h,s,v))!=hex)throw new Exception("HSV round-trip: "+hex);
         }
@@ -173,7 +173,7 @@ internal sealed class HelperSettings : Window {
         var saved=SettingsVisual.Text("✓  Changes saved automatically",11,"#84B8AB");saved.Margin=new Thickness(0,10,0,0);saved.LineHeight=16;general.Children.Add(saved);
         status.Margin=new Thickness(0,12,0,0);status.LineHeight=16;general.Children.Add(status);
         widgetStatus.Margin=new Thickness(0,10,0,0);widgetStatus.LineHeight=16;general.Children.Add(widgetStatus);
-        var widgets=SettingsVisual.Text("Move and resize widgets directly on screen.",11,"#8994A6");widgets.Margin=new Thickness(0,16,0,0);widgets.LineHeight=16;general.Children.Add(widgets);
+        var widgets=SettingsVisual.Text("Move and resize widgets directly on screen. Position and size adapt automatically when your display changes.",11,"#8994A6");widgets.Margin=new Thickness(0,16,0,0);widgets.LineHeight=16;general.Children.Add(widgets);
         nav.MouseLeftButtonDown+=delegate(object sender,MouseButtonEventArgs e){if(e.OriginalSource==nav&&e.ButtonState==MouseButtonState.Pressed)DragMove();};
     }
     void BuildGeneral(Grid body){
@@ -182,8 +182,8 @@ internal sealed class HelperSettings : Window {
         languagePicker.Items.Add(new ComboBoxItem{Content="English",Tag="en"});languagePicker.Items.Add(new ComboBoxItem{Content="Español",Tag="es"});
         languagePicker.SelectionChanged+=delegate{if(loading||IsDisposed)return;var item=languagePicker.SelectedItem as ComboBoxItem;if(item==null)return;var cfg=overlay.Configuration;cfg.Language=(string)item.Tag;overlay.ApplyConfiguration(cfg);};
         var note=SettingsVisual.Text("Changes apply immediately and are saved automatically.",11,"#8994A6");note.Margin=new Thickness(2,0,0,0);generalPage.Children.Add(note);
-        var news=new StackPanel();news.Children.Add(SettingsVisual.Text("WHAT'S NEW · v1.8.0 Alpha",11,"#84B8AB"));
-        var details=SettingsVisual.Text("Game Tweaks adds our own reversible NCSOFT intro skip using a generated one-frame black video and a verified original backup. No external mod files are needed. Startup and mouse input have been tested locally. Previous FPS diagnostics remain available.",12,"#A7ADBA");details.Margin=new Thickness(0,10,0,0);news.Children.Add(details);
+        var news=new StackPanel();news.Children.Add(SettingsVisual.Text("WHAT'S NEW · v1.8.1 Alpha",11,"#84B8AB"));
+        var details=SettingsVisual.Text("Widgets now adapt their position and size to display changes. FPS has a separate position reset. Energy Bar explains missing maximum-energy stats and why unlocked widgets do not auto-hide. Game Tweaks and FPS diagnostics remain available.",12,"#A7ADBA");details.Margin=new Thickness(0,10,0,0);news.Children.Add(details);
         var warning=SettingsVisual.Text("Known issue: party members' damage may stop updating during open-world bosses. This remains unresolved; DPS totals and rankings can be incomplete.",12,"#E4B986");warning.Margin=new Thickness(0,10,0,0);news.Children.Add(warning);
         var newsCard=SettingsVisual.Card(news,new Thickness(18,16,18,16));newsCard.Margin=new Thickness(0,20,0,0);generalPage.Children.Add(newsCard);
         var requirement=new StackPanel();requirement.Children.Add(SettingsVisual.Text("GAME DATA REQUIREMENT",10,"#929CAD"));npcMessage.Margin=new Thickness(0,10,0,0);requirement.Children.Add(npcMessage);
@@ -217,7 +217,8 @@ internal sealed class HelperSettings : Window {
     }
     Button ActionRow(StackPanel group,string label,Action action){var button=SettingsVisual.Button(label,action);button.HorizontalAlignment=HorizontalAlignment.Left;button.Margin=new Thickness(0,8,0,12);group.Children.Add(button);return button;}
     void BuildBehavior(){
-        var group=Group(pages[0],"VISIBILITY");Toggle(group,"AutoHide","Auto-hide","Waits, then hides when energy is full.");Number(group,"HoldSeconds","Delay at 100%","s",0,30,2,.1M);
+        var group=Group(pages[0],"VISIBILITY");Toggle(group,"AutoHide","Auto-hide","Hides at full energy after the delay. Unlocked widgets stay visible.");Number(group,"HoldSeconds","Delay at 100%","s",0,30,2,.1M);
+        var detection=SettingsVisual.Text("Maximum energy is detected from game stats. If the status says it is waiting for the maximum, start the helper before entering your character or return to character selection and enter again. Until then, a saved or default reference may be inaccurate.",11,"#8994A6");detection.Margin=new Thickness(0,8,0,12);group.Children.Add(detection);
         group=Group(pages[0],"ANIMATION");Toggle(group,"Fade","Fade in and out","Smooth transitions when appearing and hiding.");Number(group,"FadeMs","Fade duration","ms",0,2000,0,10);Toggle(group,"Smooth","Smooth energy changes","Smooths energy use and recovery.");Number(group,"SmoothMs","Smoothing time","ms",0,1000,0,5);
     }
     void BuildAppearance(){
@@ -300,7 +301,7 @@ internal sealed class HelperSettings : Window {
         if(!ConfigurationHistory.Same(spanish,overlay.Configuration)||!ConfigurationHistory.Same(spanish,ReadConfiguration())||!generalSelected||Title!="Aion 2 Helper · Ajustes"||(string)sections[1].Content!="◉   Barra de energía")throw new Exception("Live Spanish selection must preserve energy preferences and the current section");
         SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-general-es.png"));SelectSection(false);SelectTab(1);
         if(sectionTitle.Text!="Barra de energía"||(string)tabs[1].Content!="Apariencia")throw new Exception("Energy section translations");
-        SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-energy-es.png"));
+        SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-energy-es.png"));SelectTab(0);SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-energy-behavior-es.png"));
         var menu=new HelperTrayMenu(overlay);try{menu.Verify();if(!menu.VerifyLanguage("Ajustes"))throw new Exception("Spanish tray menu");SettingsVisual.RenderPreview(menu,Path.Combine(designs,"tray-menu-es.png"));}finally{menu.Close();}
         var picker=new HelperColorPicker("#B85416","Medium energy","es");try{if(!picker.VerifyLanguage("Elegir color"))throw new Exception("Spanish color picker");SettingsVisual.RenderPreview(picker,Path.Combine(designs,"color-picker-es.png"));}finally{picker.Close();}
         SelectSection(true);var disabled=spanish.Copy();disabled.Options.Enabled=false;overlay.ApplyConfiguration(disabled);if(!languagePicker.IsEnabled||generalPage.Opacity!=1)throw new Exception("Language must remain editable with the energy module disabled");

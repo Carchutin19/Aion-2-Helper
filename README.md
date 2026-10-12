@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.8.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.8.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.8.0/Aion-2-Helper-v1.8.0-windows-x64.zip).
+The [v1.8.1 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.8.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.8.1/Aion-2-Helper-v1.8.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy Bar, DPS Meter and Notifications;
@@ -24,7 +24,29 @@ while you play, with movable widgets, a clean interface, and a focus on low over
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
 
-## New in v1.8.0 Alpha
+## New in v1.8.1 Alpha
+
+Energy Bar, FPS Counter, DPS Meter and Notifications automatically adapt their
+position and size to Windows display resolution and monitor changes. The saved
+reference preserves the last user-edited layout, including across restarts.
+Returning to the original display restores that reference. Matching monitors
+keep their widgets when rearranged; removed monitors fall back to the primary
+screen. Widget size limits and the taskbar area remain respected. Older settings
+have no screen reference, so inaccessible widgets are safely brought back into
+view; the old resolution is not guessed. Adaptation uses display events rather
+than per-frame polling.
+
+**Settings → FPS Counter → Geometry → Reset FPS position** restores a visible
+position without resetting appearance or refresh speed. Diagnostics include
+widget visibility and bounds to distinguish an off-screen counter from missing
+measurement data.
+
+**Energy Bar → Behavior** now explains auto-hide, the shared widget lock and how
+to receive a missing maximum-energy stat. A waiting-for-maximum message appears
+even below or at 100% of a provisional saved reference. See the troubleshooting
+steps under **Automatic energy capacity** below.
+
+### Retained from v1.8.0
 
 **Settings → Game Tweaks → Startup** adds a reversible NCSOFT intro skip using
 our own generated black video. The game folder is detected automatically when
@@ -435,6 +457,15 @@ entering the game to receive initial stats. If it was opened after you entered,
 re-enter with your character to receive a fresh maximum. Until then, the saved
 reference is provisional; it is not a guess based on partial energy. This also
 matters after changing characters.
+
+If auto-hide does not work, open **Settings → Energy Bar → Behavior**, enable
+**Auto-hide**, and **Lock** the widgets from the tray menu. Unlocked widgets stay
+visible for editing. Wait for full energy and the configured **Delay at 100%**
+plus fade. If the status says **waiting for maximum energy stats**, return to
+character selection and enter again while the helper is running, or start it
+before character entry next time. A dash identifies current energy but does not
+guarantee the missing maximum is resent. This is guidance for a known missing-stat
+case; other causes still need a report with the version, status and lock state.
 
 With no current game data, the bar shows a grey dashed line and Settings reports
 the missing signal. Missing data is never treated as full energy.

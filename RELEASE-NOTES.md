@@ -1,3 +1,74 @@
+# Aion 2 Helper v1.8.1 Alpha — Adaptive Widget Layout & Auto-hide Guidance
+
+Widgets now keep a proportional layout when your Windows display resolution or
+monitor arrangement changes. This update also makes missing maximum-energy
+stats visible and explains what to check when the Energy Bar does not auto-hide.
+
+## What changed
+
+- **Automatic layout adaptation for all four widgets:** Energy Bar, FPS Counter,
+  DPS Meter and Notifications scale their position and size relative to the
+  display they were placed on. Matching monitors retain their widgets when
+  rearranged; if a monitor is removed, its widgets move to the primary display.
+  Widget limits and the taskbar working area keep controls accessible.
+- The last user-edited layout and its display reference are saved separately.
+  Returning to the original display restores that reference without repeatedly
+  rounding the layout. Undo/redo entries are adapted to the current displays.
+  This works while the helper is open and across restarts. Older settings have
+  no display reference, so inaccessible widgets are recovered safely; their old
+  resolution is not guessed. Future changes use the new saved reference.
+- Layout work runs on Windows display-change events and settings changes,
+  not every frame. Existing FPS measurement, glow, fades and smoothing are retained.
+- **Settings → FPS Counter → Geometry → Reset FPS position** moves the counter
+  to a visible position without resetting its colors or measurement interval.
+  FPS diagnostics now include widget visibility and bounds. A counter that was
+  receiving FPS could previously remain outside the screen after a monitor swap.
+- **Energy Bar → Behavior** explains auto-hide and missing maximum-energy stats
+  in English and Spanish. A waiting-for-maximum message now appears even when
+  the saved reference displays 100% or less, instead of only above 100%.
+
+## If your Energy Bar does not auto-hide
+
+1. Enable **Auto-hide** in **Settings → Energy Bar → Behavior**.
+2. **Lock** the widgets from the tray menu. Unlocked widgets intentionally stay
+   visible so they can be moved and resized.
+3. Wait until energy is actually full, then allow the configured **Delay at 100%**
+   and fade duration to finish.
+4. If the status says **waiting for maximum energy stats**, the helper has not
+   received your character's current capacity. Start the helper before entering
+   your character, or return to character selection and enter again with the
+   helper running. Until that stat arrives, a saved/default reference can be wrong,
+   particularly after changing characters or energy capacity. A dash starts current
+   energy readings but does not guarantee the missing maximum will be resent.
+
+This improves diagnosis and explains an existing detection limit; it does not
+invent maximum energy from partial readings or promise that every auto-hide report
+has the same cause. If it persists, report the version, status and lock state.
+
+## Validation and limits
+
+Local checks covered proportional geometry for all widgets, negative monitor
+coordinates, monitor rearrangement/removal, original-layout restoration,
+reference persistence through actual startup/shutdown, invalid reference fallback,
+and undo/redo on a changed display. Settings, energy rendering/auto-hide, protocol,
+FPS, DPS and Notifications regression checks passed. The FPS visibility report on
+the development PC was traced to an off-screen saved X coordinate while live FPS
+readings were arriving. Other PCs' measurement failures still need their diagnostics.
+
+**This remains an alpha. The DPS Meter is incomplete, and party-member damage
+may stop updating during open-world bosses. That issue remains unresolved.**
+The reversible own intro skip and automatic game-folder detection remain included.
+
+## Updating
+
+Close the helper and extract **Aion-2-Helper-v1.8.1-windows-x64.zip** with all its
+subfolders into the same helper folder. Keep **overlay-settings.json**,
+**combat-history.json** and **game-tweaks.json**. Personal settings, display layouts,
+backups, logs and captures are excluded from release packages. Npcap remains a
+separate requirement for energy, combat and incoming party notifications.
+
+---
+
 # Aion 2 Helper v1.8.0 Alpha — Game Tweaks & Automatic Game Detection
 
 **Settings → Game Tweaks → Startup** adds an optional, reversible way to skip

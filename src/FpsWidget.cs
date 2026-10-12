@@ -220,7 +220,7 @@ internal sealed class FpsOverlay:Form {
         timer.Interval=250;timer.Tick+=delegate{UpdateWidget();};FormClosing+=delegate{closing=true;};}
     internal int? Value {get{return monitor.Value;}}
     internal string ReadingStatus {get{return monitor.Status;}}
-    internal string Diagnostics {get{return monitor.Diagnostics;}}
+    internal string Diagnostics {get{return monitor.Diagnostics+Environment.NewLine+"Widget visible: "+Visible+"; bounds: "+Bounds;}}
     internal string Explanation(string language){return monitor.Explanation(language);}
     internal bool NeedsAdministrator {get{return monitor.NeedsAdministrator;}}
     internal void AllowAdministrator(){monitor.AllowAdministrator();}
