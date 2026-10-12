@@ -87,8 +87,11 @@ measurement waits without an active FPS trace or PresentMon process. Failed
 fallbacks stop after a bounded trial and retry with a delay.
 The reader can be activated before starting the game. It does not add
 driver-generated frames. If Windows does not provide readings,
-**FPS Counter → Start measurement as administrator** requests permission for the
-measurement worker only. An em dash means no current reading; it is never
+close the helper, then right-click **Aion2Helper.exe → Run as administrator**
+to try measurement with elevated permissions. Settings also has a conditional
+**Start measurement as administrator** button for the measurement worker only;
+it is hidden while waiting for the game or receiving FPS. An em dash means no
+current reading; it is never
 replaced with an invented FPS value.
 
 The black background has soft transparent edges; it does not capture or blur
@@ -294,12 +297,13 @@ hidden-icons menu.
 PC.** Windows permissions can differ between systems; some PCs receive FPS
 without elevation, while others need it.
 
-- In **Settings → FPS Counter**, enable the counter and click **Start measurement
-  as administrator** when the button appears. Accept the Windows permission
-  prompt. This elevates only the FPS measurement worker.
-- Alternatively, close the helper from its tray menu, then right-click
-  **Aion2Helper.exe → Run as administrator** and accept the Windows prompt to
-  launch the whole helper with administrator permissions.
+- Close the helper from its tray menu, then right-click **Aion2Helper.exe →
+  Run as administrator** and accept the Windows prompt to launch the helper
+  with administrator permissions. This is a Windows action, not an always-visible
+  button in the FPS settings.
+- **Settings → FPS Counter** also contains **Start measurement as administrator**,
+  which only appears when FPS is enabled and no reading is available, after the
+  initial start/wait-for-game states. If it appears, it elevates only the FPS worker.
 
 The button appears when measurement has no current FPS reading; it does not
 necessarily mean access was denied. If elevation does not help, check that Aion 2
