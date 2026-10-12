@@ -4,6 +4,13 @@ Widgets now keep a proportional layout when your Windows display resolution or
 monitor arrangement changes. This update also makes missing maximum-energy
 stats visible and explains what to check when the Energy Bar does not auto-hide.
 
+**Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
+This helps the helper receive your character's initial maximum-stamina stat when
+you enter the world. Opening it after character entry can miss that stat and leave
+a saved/default reference that may affect auto-hide. If this happens, return to
+character selection and enter again with the helper running. Maximum-stamina
+changes during play are still updated automatically when the game sends them.
+
 ## What changed
 
 - **Automatic layout adaptation for all four widgets:** Energy Bar, FPS Counter,

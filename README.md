@@ -19,6 +19,13 @@ files into one folder and run **Aion2Helper.exe**. Npcap must be installed separ
 for Energy Bar, DPS Meter and Notifications;
 the game must be running with your character in the world to receive energy updates.
 
+**Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
+This helps the helper receive your character's initial maximum-stamina stat when
+you enter the world. Opening it after character entry can miss that stat and leave
+a saved/default reference that may affect auto-hide. If this happens, return to
+character selection and enter again with the helper running. Maximum-stamina
+changes during play are still updated automatically when the game sends them.
+
 Aion 2 Helper is a community project designed to keep useful information visible
 while you play, with movable widgets, a clean interface, and a focus on low overhead.
 It starts with an independent dash and sprint energy bar and is intended to grow
@@ -365,9 +372,12 @@ without Npcap**.
 
 ### Run the helper
 
-1. Run **Aion2Helper.exe** or **Aion-2-Helper.cmd**. If FPS measurement needs
-   permission on your PC, use the administrator options below.
-2. Enter the game with your character and dash once to receive an energy update.
+1. **Open Aion 2 Helper before launching the game:** run **Aion2Helper.exe** or
+   **Aion-2-Helper.cmd**. If FPS measurement needs permission on your PC, use the
+   administrator options below.
+2. Launch Aion 2, enter with your character, and dash once to receive a current
+   energy update. Opening the helper first lets it listen for initial maximum
+   stamina; a dash alone does not guarantee that maximum is resent.
 3. Right-click the icon next to the clock and choose **Settings**. Double-clicking
    the icon also opens Settings.
 4. Open **Settings → FPS Counter** and enable it if you want an FPS widget.
