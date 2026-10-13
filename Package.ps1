@@ -1,4 +1,4 @@
-param([string]$Version = '1.10.0', [switch]$SkipBuild)
+param([string]$Version = '1.11.0', [switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release version.' }
 $projectRoot = $PSScriptRoot
@@ -13,6 +13,9 @@ if (Test-Path -LiteralPath $packageRoot) {
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'protocol') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\sounds') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\skills') -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\skills\LICENSE-MIT.txt') -Destination (Join-Path $packageRoot 'assets\skills\LICENSE-MIT.txt')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\skills\README.md') -Destination (Join-Path $packageRoot 'assets\skills\README.md')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\sounds\party-invite.mp3') -Destination (Join-Path $packageRoot 'assets\sounds\party-invite.mp3')
 foreach ($name in @('Aion2Helper.exe','Aion-2-Helper.cmd','README.md','THIRD-PARTY.md','RELEASE-NOTES.md')) {
     Copy-Item -LiteralPath (Join-Path $projectRoot $name) -Destination (Join-Path $packageRoot $name)

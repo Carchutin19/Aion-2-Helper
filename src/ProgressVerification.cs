@@ -11,7 +11,28 @@ internal static class ProgressVerification {
     static byte[] Energy(uint actor){var b=new List<byte>(new byte[]{0,0x8d});V(b,actor);b.AddRange(new byte[]{1,1,3});b.AddRange(BitConverter.GetBytes(1000));return b.ToArray();}
     static byte[] Hit(uint source,uint target){var b=new List<byte>(new byte[]{4,0x38});V(b,target);V(b,6);V(b,0);V(b,source);b.AddRange(BitConverter.GetBytes(15210000));b.Add(1);V(b,2);b.AddRange(new byte[]{128,0,1,85,102,119,136,1,0,0,0});V(b,10817);V(b,400);b.AddRange(new byte[]{1,0});return b.ToArray();}
     static void Send(StaggerSignal s,byte[] b,double time,string flow="game"){s.Consume(b,0,b.Length,time,flow);}
+    static void VerifyVisualRefill(){
+        var signal=new StaggerSignal();signal.Configure(true);Send(signal,Gauge(99,150,150),10);Send(signal,Gauge(99,0,0,true),11);
+        var sample=signal.Read();foreach(double elapsed in new[]{0.0,1.25,2.5,4.999,5.0}){
+            var progress=StaggerDisplayProgress.Read(sample,11+elapsed,5);
+            Check(progress.Refilling&&Math.Abs(progress.Ratio-elapsed/5)<.000001&&Math.Abs(progress.Remaining-(5-elapsed))<.000001,"Visual refill follows countdown exactly");
+            Check(sample.Current==0&&signal.Read().Current==0&&sample.Maximum==150,"Visual animation cannot change actual gauge/labels");
+        }
+        Check(StaggerDisplayProgress.Read(sample,10.999,5).Ratio==0,"Capture/UI skew cannot produce negative fill");
+        Send(signal,Gauge(99,0,150),13);Check(signal.Read().Groggy&&signal.Read().GroggyStarted==11&&StaggerDisplayProgress.Read(signal.Read(),13.5,5).Ratio==.5,"Full-shaped repeated zero must preserve the existing animation origin");
+        Send(signal,Gauge(99,0,0,true),14);Check(StaggerDisplayProgress.Read(signal.Read(),14,5).Ratio==.6,"Repeated zero cannot restart animation");
+        var motion=new BarMotion();var options=new EnergyBarOptions{Enabled=true,AutoHide=false};motion.Step(0,true,true,0,0,150,options);motion.SnapValue(.75);motion.Step(.01,false,true,0,0,150,options);motion.SnapValue(1);Send(signal,Gauge(99,150,150),16);
+        var real=StaggerDisplayProgress.Read(signal.Read(),16,5);motion.Step(.02,false,true,real.Ratio,150,150,options);Check(!real.Refilling&&real.Ratio==1&&motion.Value==1,"Actual refill takes over without jumping back or smoothing lag");
+        Send(signal,Gauge(99,0,0,true),17);Send(signal,Gauge(99,100,150),18);real=StaggerDisplayProgress.Read(signal.Read(),18,5);Check(!real.Refilling&&real.Ratio==100.0/150,"Early actual positive update overrides estimate");
+        Send(signal,Gauge(99,0,0,true),19);Send(signal,Gauge(99,150,150,false,0),20);Check(!StaggerDisplayProgress.Read(signal.Read(),20,5).Refilling&&!StaggerSignal.DisplayAvailable(signal.Read(),20),"Inactive phase stops animation and hides");
+        Check(!StaggerDisplayProgress.Read(null,20,5).Refilling,"Unknown target cannot animate");
+        Check(!StaggerDisplayProgress.Read(sample,22,5).Refilling,"Stale capture cannot animate");
+        Check(StaggerDisplayProgress.Read(sample,13.5,double.NaN).Ratio==.5,"Invalid reference duration safely uses five seconds");
+        Check(StaggerDisplayProgress.Read(sample,12,2).Ratio==.5,"Visual fill follows configured countdown reference");
+        Check(!StaggerSignal.DisplayAvailable(sample,16),"Estimated full bar cannot bypass five-second zero guard");
+    }
     internal static void Run(string root){
+        VerifyVisualRefill();
         var s=new StaggerSignal();int wakes=0;s.Changed=delegate{wakes++;};Send(s,Gauge(99,150,150),1);Check(s.Read()==null&&wakes==0,"Disabled reader must do no work");s.Configure(true);
         Send(s,Gauge(99,150,150),10);Check(s.Read().Current==150,"Initial full gauge");Send(s,Gauge(99,27,150),11);Send(s,Gauge(99,0,0,true),12);Check(s.Read().Current==0&&s.Read().Groggy&&s.Read().GroggyStarted==12,"Zero state");Send(s,Gauge(99,0,0,true),13);Check(s.Read().GroggyStarted==12,"Repeated state must not extend countdown");Check(s.Read().Current==0,"No timer-based fake refill");Send(s,Gauge(99,150,150),17.1);Check(s.Read().Current==150&&!s.Read().Groggy,"Actual refill ends state");Send(s,Gauge(99,20,150),11);Check(s.Read().Current==150,"Ignore old gauge");
         Check(StaggerSignal.Fresh(s.Read(),17.099),"New packet slightly ahead of UI clock must not hide gauge");Check(StaggerSignal.Fresh(s.Read(),27.1),"Retain gauge through capture grace");Check(!StaggerSignal.Fresh(s.Read(),27.2),"Inactive capture must still expire");Check(!StaggerSignal.Fresh(null,18),"No gauge must stay unknown");
@@ -36,6 +57,6 @@ internal static class ProgressVerification {
         o.MaximumOffsetY=10;var labels=ProgressBarText.Labels(o,true,75,150);Check(labels.Count==3&&labels[0].Offset==0&&labels[1].Offset==10,"Same anchor supports independent heights");var moved=o.Copy();moved.CurrentOffsetY=12;Check(!ProgressBarText.Same(o,moved),"Offsets participate in history");
         var cfg=new StaggerOptions();cfg.Bar.Enabled=true;cfg.Countdown.Color="#112233";cfg.Countdown.OffsetY=17;cfg.Bar.MaximumOffsetY=-9;var copy=cfg.Copy();copy.Countdown.FontSize=40;copy.Bar.CurrentText=false;Check(cfg.Countdown.FontSize==24&&cfg.Bar.CurrentText,"Independent snapshots");var saved=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>("{\"stagger\":"+new JavaScriptSerializer().Serialize(cfg)+"}");Check(StaggerOptions.Same(cfg,StaggerOptions.Read(saved)),"Stagger persistence");
         using(var owner=new EnergyOverlay(root,true)){var settings=new HelperSettings(owner);try{settings.VerifyProgress(root);}finally{settings.Close();}}
-        File.WriteAllText(Path.Combine(root,"progress-test.txt"),"PASS: full phase states0/1/2/3; stale128 and zero refills; explicit inactive visibility and actual active resume; repeated-state countdown; no simulated refill; old/malformed/truncated envelopes; flow isolation; target change/no-gauge/despawn/map reset; disable; bounded parser fuzz; independently positioned/unknown labels; deep copies, persistence and independent EN/ES progress tabs, undo and disabled controls.");
+        File.WriteAllText(Path.Combine(root,"progress-test.txt"),"PASS: full phase states0/1/2/3; stale128 and zero refills; explicit inactive visibility and actual active resume; repeated-state countdown; linear visual refill isolated from actual gauge/labels; phase/early refill overrides; no timer-based data mutation; old/malformed/truncated envelopes; flow isolation; target change/no-gauge/despawn/map reset; disable; bounded parser fuzz; independently positioned/unknown labels; deep copies, persistence and independent EN/ES progress tabs, undo and disabled controls.");
     }
 }

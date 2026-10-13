@@ -82,6 +82,7 @@ internal sealed class Recorder:IDisposable {
     StreamWriter writer,marks; volatile bool active; DateTime started; string session;
     long bytes,packets;int openAdapters;string error=""; string processes="Game not detected";
     internal bool Active {get {return active;}}
+    internal bool HasGameConnection {get {lock(sync){return flows.Count>0;}}}
     internal string Session {get {return session;}}
     internal Recorder(string folder,bool record=true){root=folder;writePackets=record;}
     internal string Status {get {lock(sync){return processes+" | "+flows.Count/2+" connections | "+openAdapters+" adapters\r\n"+packets+" segments / "+(bytes/1024)+" KB"+(error.Length>0?"\r\n"+error:"");}}}

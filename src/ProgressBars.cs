@@ -65,11 +65,24 @@ internal sealed class StaggerSignal {
             else if(op==0x05e0&&DpsSignal.Var(b,ref p,end,out actor)&&actor>0){int length=end-p;bool full=length==11&&b[p]==3&&b[p+1]==1&&b[p+10]<=3,zero=length==3&&b[p]==0&&b[p+1]==3&&b[p+2]==2;uint maximum=0,current=0;Sample value;
                 if(full){maximum=BitConverter.ToUInt32(b,p+2);current=BitConverter.ToUInt32(b,p+6);if(maximum==0||maximum>10000000||current>maximum)return;}else if(!zero)return;
                 if(!flow.Gauges.TryGetValue(actor,out value)){if(!full)return;if(flow.Gauges.Count>=128){uint remove=0;double oldest=double.MaxValue;foreach(var pair in flow.Gauges)if(!(key==selectedFlow&&pair.Key==target)&&pair.Value.Time<oldest){oldest=pair.Value.Time;remove=pair.Key;}if(remove==0)return;flow.Gauges.Remove(remove);}value=new Sample{Actor=actor,Flow=key};flow.Gauges[actor]=value;}
-                if(time<value.Time)return;value.Time=time;value.State=full?b[p+10]:(byte)2;if(full){value.Current=current;value.Maximum=maximum;value.Groggy=false;value.GroggyStarted=0;}else{if(!value.Groggy)value.GroggyStarted=time;value.Groggy=true;value.Current=0;}
+                if(time<value.Time)return;value.Time=time;value.State=full?b[p+10]:(byte)2;if(full){value.Current=current;value.Maximum=maximum;if(current>0||value.State!=2){value.Groggy=false;value.GroggyStarted=0;}}else{if(!value.Groggy)value.GroggyStarted=value.ZeroStarted.HasValue?value.ZeroStarted.Value:time;value.Groggy=true;value.Current=0;}
                 if(value.Current>0)value.ZeroStarted=null;else if(!value.ZeroStarted.HasValue)value.ZeroStarted=time;
                 if(selfFlow==null||selfFlow==key){fallback=value;changed=true;}
             }
         }if(changed){var wake=Changed;if(wake!=null)wake();}
+    }
+}
+
+// Presentation only: the server gauge and its numeric labels remain unchanged.
+internal struct StaggerDisplayProgress {
+    internal double Ratio,Remaining;internal bool Refilling,Animating;
+    internal static StaggerDisplayProgress Read(StaggerSignal.Sample sample,double utc,double seconds){
+        var result=new StaggerDisplayProgress{Ratio=sample==null||sample.Maximum==0?0:(double)sample.Current/sample.Maximum,Remaining=-1};
+        if(!StaggerSignal.Fresh(sample,utc)||!StaggerSignal.Available(sample)||!sample.Groggy||sample.Current!=0)return result;
+        if(double.IsNaN(seconds)||double.IsInfinity(seconds)||seconds<=0)seconds=5;
+        double elapsed=Math.Max(0,utc-sample.GroggyStarted);
+        result.Refilling=true;result.Ratio=Math.Max(0,Math.Min(1,elapsed/seconds));result.Remaining=Math.Max(0,seconds-elapsed);result.Animating=result.Remaining>0;
+        return result;
     }
 }
 
@@ -129,18 +142,22 @@ internal sealed class StaggerOverlay:Form {
     StaggerOptions options=new StaggerOptions();bool editing,disposed,dragging;int hit,wake;Point mouse;Rectangle original;string imageKey;byte alpha;Point location;double raise;
     internal StaggerOverlay(EnergyOverlay parent,StaggerSignal source,bool previewMode){owner=parent;signal=source;preview=previewMode;signal.Changed=Wake;Text="Aion 2 Helper - Stagger";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;timer.Interval=250;timer.Tick+=delegate{Pulse();};}
     internal string ReadingStatus {get{var s=signal.Read();return !options.Bar.Enabled?"Stagger bar disabled":s==null?"Waiting for enemy stagger data":s.Current+" / "+s.Maximum;}}
-    internal object Status {get{var s=signal.Read();double utc=DpsHistory.UtcNow();return new{enabled=options.Bar.Enabled,visible=Visible,actor=s==null?0:s.Actor,current=s==null?0:s.Current,maximum=s==null?0:s.Maximum,state=s==null?(byte?)null:s.State,available=StaggerSignal.Available(s),groggy=s!=null&&s.Groggy,sampleAgeSeconds=s==null?(double?)null:utc-s.Time,trafficAgeSeconds=s==null?(double?)null:utc-s.Traffic,zeroAgeSeconds=s==null||!s.ZeroStarted.HasValue?(double?)null:Math.Max(0,utc-s.ZeroStarted.Value),visibilityReason=!options.Bar.Enabled?"disabled":DpsDesign.ShellUiActive()?"Windows shell in foreground":editing?"editing":s==null?"no gauge":!StaggerSignal.Fresh(s,utc)?"capture inactive":!StaggerSignal.Available(s)?"stagger phase unavailable":StaggerSignal.ZeroExpired(s,utc)?"zero gauge for five seconds":motion.Opacity<=0?"initial fade":"gauge available",selection="Last directly attacked enemy; latest gauge fallback before identification",countdownEstimated=true};}}
+    internal object Status {get{var s=signal.Read();double utc=DpsHistory.UtcNow();return new{enabled=options.Bar.Enabled,visible=Visible,actor=s==null?0:s.Actor,current=s==null?0:s.Current,maximum=s==null?0:s.Maximum,state=s==null?(byte?)null:s.State,available=StaggerSignal.Available(s),groggy=s!=null&&s.Groggy,sampleAgeSeconds=s==null?(double?)null:utc-s.Time,trafficAgeSeconds=s==null?(double?)null:utc-s.Traffic,zeroAgeSeconds=s==null||!s.ZeroStarted.HasValue?(double?)null:Math.Max(0,utc-s.ZeroStarted.Value),visibilityReason=!options.Bar.Enabled?"disabled":DpsDesign.ShellUiActive()?"Windows shell in foreground":editing?"editing":s==null?"no gauge":!StaggerSignal.Fresh(s,utc)?"capture inactive":!StaggerSignal.Available(s)?"stagger phase unavailable":StaggerSignal.ZeroExpired(s,utc)?"zero gauge for five seconds":motion.Opacity<=0?"initial fade":"gauge available",selection="Last directly attacked enemy; latest gauge fallback before identification",countdownEstimated=true,visualFillEstimated=s!=null&&StaggerDisplayProgress.Read(s,utc,options.Countdown.ReferenceSeconds).Refilling,displayedPercentage=motion.Value*100};}}
     Rectangle Core {get{return new Rectangle(Left+5,Top+5,Width-10,Height-10);}set{Bounds=new Rectangle(value.X-5,value.Y-5,value.Width+10,value.Height+10);}}
     internal void Configure(StaggerOptions next,bool locked){options=next.Copy();options.Normalize();editing=!locked;signal.Configure(options.Bar.Enabled&&!preview);Core=options.Bounds;int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);imageKey=null;if(options.Bar.Enabled)timer.Start();else{timer.Stop();if(Visible)Hide();texts.Clear();}Pulse();}
     void Wake(){if(disposed||!IsHandleCreated||Interlocked.CompareExchange(ref wake,1,0)!=0)return;try{BeginInvoke((Action)delegate{Interlocked.Exchange(ref wake,0);Pulse();});}catch(InvalidOperationException){Interlocked.Exchange(ref wake,0);}}
     void Pulse(){if(disposed||!options.Bar.Enabled)return;var s=signal.Read();double now=clock.Elapsed.TotalSeconds,utc=DpsHistory.UtcNow();bool known=StaggerSignal.Fresh(s,utc)&&StaggerSignal.Available(s);
         uint current=preview?65:known?s.Current:0,maximum=preview?100:known?s.Maximum:0;bool fresh=preview||known;double ratio=maximum==0?0:(double)current/maximum;
+        var progress=StaggerDisplayProgress.Read(s,utc,options.Countdown.ReferenceSeconds);
         motion.Step(now,editing,fresh,ratio,current,maximum,options.Bar,known?Math.Max(0,utc-s.Time):-1);
+        // A linear countdown must reach its endpoint without smoothing lag.
+        // Keep the visual motion value in sync for a seamless actual refill.
+        if(!preview&&progress.Refilling)motion.SnapValue(progress.Ratio);
         bool visible=(editing||preview||StaggerSignal.DisplayAvailable(s,utc))&&motion.Opacity>0&&!DpsDesign.ShellUiActive();byte opacity=visible?(byte)Math.Round(motion.Opacity*255):(byte)0;
         if(opacity==0){if(Visible)Hide();texts.Clear();}else{string key=Core.Size+"/"+(int)Math.Round(motion.Value*Core.Width)+"/"+BarDesign.EnergyColor(motion.Value,options.Bar).ToArgb()+"/"+editing+"/"+fresh;if(imageKey!=key){imageKey=key;using(var bitmap=BarDesign.RenderEmissive(Core.Width,Core.Height,motion.Value,editing,fresh,1,options.Bar,glow))image.Upload(bitmap);alpha=0;}if(alpha!=opacity||location!=Location||!Visible){image.Present(Handle,Left,Top,opacity);alpha=opacity;location=Location;}if(!Visible)Show();if(now>=raise){raise=now+1;OverlayNative.RaiseWithoutFocus(Handle);}
-            double remaining=known&&s.Groggy?Math.Max(0,options.Countdown.ReferenceSeconds-(utc-s.GroggyStarted)):-1;texts.Update(Core,options.Bar,fresh,current,maximum,opacity,options.Countdown,remaining);
+            texts.Update(Core,options.Bar,fresh,current,maximum,opacity,options.Countdown,progress.Remaining);
         }
-        bool countdown=visible&&known&&s.Groggy&&utc-s.GroggyStarted<options.Countdown.ReferenceSeconds&&options.Countdown.Enabled;int interval=motion.Animating&&visible?16:countdown?33:250;if(timer.Interval!=interval)timer.Interval=interval;
+        bool countdown=visible&&progress.Animating;int interval=motion.Animating&&visible?16:countdown?33:250;if(timer.Interval!=interval)timer.Interval=interval;
     }
     void Save(){var cfg=owner.Configuration;cfg.Stagger.Bounds=Core;owner.ApplyConfiguration(cfg);}
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80|0x08000000)&~0x40000;return cp;}}

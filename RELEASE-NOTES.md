@@ -1,3 +1,86 @@
+# Aion 2 Helper v1.11.0 Alpha — DPS Meter Beta, Visibility and Stagger Animation
+
+The **DPS Meter is now in Beta**. We have made substantial progress on skill
+identification, combat coverage and per-skill breakdowns, and are continuing
+live tests. Beta does **not** mean that every damage or healing event is captured.
+The application as a whole remains alpha software.
+
+## DPS Meter Beta
+
+- Added an embedded catalogue of **16,899 skill definitions**, loaded before
+  combat, with English names and Spanish labels where available. No separate
+  catalogue download is needed. Unknown IDs remain visible as numeric fallbacks;
+  missing names do not discard otherwise validated impacts.
+- Separated character skill/level information from global skill definitions.
+  Supported login skill-list packets populate the character list before combat;
+  names and attribution do not depend on the last skill cast.
+- Added **Settings → DPS Meter → Skills** for live player/skill/target breakdowns:
+  damage, periodic damage, healing done/received, impacts, ticks, highest hits
+  and supported critical statistics. Completed histories retain immutable
+  skill/target details, show them for the selected player and include a skill
+  breakdown in TXT exports. Older records remain readable without invented detail.
+- Expanded supported damage-over-time and healing-over-time families using
+  validated event shapes and catalogue metadata. Periodic ticks keep their own
+  announced skill/source rather than being assigned to the last cast.
+- Added bounded recovery for valid impacts whose player identity arrives shortly
+  afterwards. Small capture/UI clock differences no longer discard pending hits.
+  Unconfirmed ownership or unknown periodic effects are not guessed into totals.
+- Retained existing filters, widget tabs, role colors, critical columns, positional
+  hit counters, highest hits and history controls. Skill detail storage is bounded;
+  player totals continue if the detail cap is reached.
+- Changed the combat widget label to **Beta** and removed the partial-damage/raw-
+  healing footer from all three views. Coverage explanations remain in Settings.
+
+## Character identification and visibility
+
+- Locked DPS hides while the local character is unidentified. Energy hides when
+  its data is unavailable, instead of leaving a stale bar or white dotted track
+  on screen during loading, instance transitions or cinematics.
+- Added a **separate small recovery notice** at the saved DPS position after
+  **60 continuous seconds** without the required character data while the game
+  is connected: change zones, dash once or log in again. It follows the selected
+  language, uses the dark overlay style and passes clicks through to the game.
+- The notice disappears automatically when identification recovers. It does not
+  appear while the game is closed; brief transitions reset the grace period.
+  Unlocked widgets remain accessible for positioning.
+- Actual area changes discard old energy samples; same-map boss teleports and
+  other connections do not unnecessarily reset them. New real readings restore
+  the bar. Automatic maximum-energy detection and full-energy auto-hide remain.
+
+## Stagger countdown animation
+
+- During the observed stagger countdown, the bar now **fills visually from empty
+  to full**, synchronized with the configured reference duration (**5 seconds by
+  default**). The fill animates even if the countdown text is disabled.
+- This is an estimated visual timer. Numeric current/max/percentage labels retain
+  the actual game gauge. Actual positive updates or inactive phase updates take
+  priority; the animation does not manufacture gauge data or bypass visibility.
+- Repeated zero updates preserve the countdown origin. An actual full gauge takes
+  over without a jump backwards. Existing phase hiding and the five-second stale-
+  zero guard remain in place; the Energy Bar does not use this animation.
+
+## Validation and remaining work
+
+Solo live tests confirmed skill names and increasing per-skill damage, character
+selection/recovery notices, automatic energy capacity and repeated zone changes.
+Offline comparisons covered **415,262 captured frames** and recovered additional
+supported damage/healing. Local parser, history/persistence, settings, display,
+notification, FPS/Ping, energy and stagger animation checks passed. This is not a
+claim of complete accuracy or a performance result for every PC.
+
+Group and healing live tests are continuing. The reported **party damage freezing
+at open-world bosses** remains under investigation, and **Energy Bar in PvP** is
+still pending. Complete buff/debuff effects, effective healing/overhealing,
+per-player stagger contribution, aggro and other unsupported combat data remain
+outside the validated meter. Please report issues with version, module status
+and the circumstances of the fight. Private captures and reports are not included.
+
+Skill metadata/adapted parsing attribution and the required MIT notice are
+included in THIRD-PARTY.md and assets/skills. Existing project licence status
+is unchanged.
+
+---
+
 # Aion 2 Helper v1.10.0 Alpha — Progress Bars and Stagger Phase Handling
 
 The v1.10.0 Windows ZIP includes these changes and retains the independent

@@ -22,6 +22,7 @@ internal sealed class DashSignal {
     Reading reading;double lastTraffic;int samples,errors;
     internal uint Maximum=113900; // Manual fallback; never inferred from partially full energy.
     readonly Dictionary<string,Dictionary<uint,uint>> energyMaxima=new Dictionary<string,Dictionary<uint,uint>>();string readingStream;
+    readonly Dictionary<string,uint> maps=new Dictionary<string,uint>();
     internal Action<Reading> OnReading;
     internal Action<byte[],int,int,double,string> OnFrame;
     internal Action OnReset;
@@ -32,7 +33,7 @@ internal sealed class DashSignal {
     }
     uint DetectedMaximum(){Dictionary<uint,uint> actors;uint value;return reading!=null&&readingStream!=null&&energyMaxima.TryGetValue(readingStream,out actors)&&actors.TryGetValue((uint)reading.Actor,out value)?value:0;}
     internal Snapshot ReadSnapshot(){lock(gate){return new Snapshot{Reading=reading,DetectedMaximum=DetectedMaximum(),LastTraffic=lastTraffic,Samples=samples,Errors=errors};}}
-    internal void Reset(){lock(gate){streams.Clear();energyMaxima.Clear();readingStream=null;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
+    internal void Reset(){lock(gate){streams.Clear();energyMaxima.Clear();maps.Clear();readingStream=null;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
     internal Reading Current {get{lock(gate){return reading;}}}
     internal double LastTraffic {get{lock(gate){return lastTraffic;}}}
     internal int Samples {get{lock(gate){return samples;}}}
@@ -41,7 +42,7 @@ internal sealed class DashSignal {
         if(s.SrcPort!=13328)return;
         lock(gate){lastTraffic=ts;Flow flow;
             if(!streams.TryGetValue(s.Key,out flow)){flow=new Flow();if(streams.Count>=32)streams.Clear();streams[s.Key]=flow;reading=null;}
-            uint seq=s.Seq;if((s.Flags&2)!=0){seq++;energyMaxima.Remove(s.Key);if(flow.Started){flow=new Flow();streams[s.Key]=flow;reading=null;}}
+            uint seq=s.Seq;if((s.Flags&2)!=0){seq++;energyMaxima.Remove(s.Key);maps.Remove(s.Key);if(flow.Started){flow=new Flow();streams[s.Key]=flow;reading=null;}}
             if(!flow.Started){flow.Next=seq;flow.Started=true;}
             int delta=unchecked((int)(seq-flow.Next));
             if(delta>0){byte[] previous;if(flow.Pending.TryGetValue(seq,out previous))flow.PendingBytes-=previous.Length;flow.Pending[seq]=s.Data;flow.PendingBytes+=s.Data.Length;
@@ -77,6 +78,15 @@ internal sealed class DashSignal {
             try{if(end-start<7)throw new InvalidDataException();int expected=BitConverter.ToInt32(data,start+2);if(expected<=0||expected>1000000)throw new InvalidDataException();byte[] raw=decompression[depth];if(raw==null||raw.Length<expected){raw=new byte[Math.Max(expected,Math.Min(1000000,raw==null?8192:raw.Length*2))];decompression[depth]=raw;}Lz4Into(data,start+6,expected,end,raw);int position=0;
                 while(position<expected){if(raw[position]==0){position++;continue;}int body,frameEnd;if(Frame(raw,position,expected,out body,out frameEnd)!=1)throw new InvalidDataException();Decode(raw,body,frameEnd,ts,depth+1,stream);position=frameEnd;}}
             catch(InvalidDataException){errors++;}return;
+        }
+        // A new area invalidates the previous local energy sample even while
+        // ordinary traffic continues. Same-map boss teleports keep valid data.
+        if(stream!=null&&data[start]==0x21&&data[start+1]==0x36&&end-start==48&&BitConverter.ToUInt32(data,start+2)<=10000){
+            uint map=BitConverter.ToUInt32(data,start+6),previous;
+            if(map>0&&map<10000000){
+                if(maps.TryGetValue(stream,out previous)&&previous!=map&&readingStream==stream){reading=null;readingStream=null;energyMaxima.Remove(stream);}
+                if(maps.Count>=32&&!maps.ContainsKey(stream))maps.Clear();maps[stream]=map;
+            }
         }
         if(OnFrame!=null)OnFrame(data,start,end,ts,stream);
         if(data[start]!=0||data[start+1]!=0x8d)return;
@@ -141,6 +151,17 @@ internal sealed class DashSignal {
         if(decoder.ReadSnapshot().DetectedMaximum!=114800)throw new Exception("Maximum decreases must also be honored");
         decoder.Reset();apply("008D01010103404B0100","a",7);
         if(decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("Restart must clear stale actor/flow maxima");
+        var map=new byte[48];map[0]=0x21;map[1]=0x36;Buffer.BlockCopy(BitConverter.GetBytes(1001u),0,map,6,4);
+        decoder.Decode(map,0,map.Length,8,0,"a");decoder.Decode(map,0,map.Length,8.1,0,"a");
+        if(decoder.Current==null)throw new Exception("Same-map phase teleport must retain energy");
+        Buffer.BlockCopy(BitConverter.GetBytes(1002u),0,map,6,4);decoder.Decode(map,0,map.Length,9,0,"b");
+        if(decoder.Current==null)throw new Exception("Unrelated flow map cannot clear energy");
+        decoder.Decode(map,0,map.Length,10,0,"a");
+        if(decoder.Current!=null)throw new Exception("Area transition must hide stale local energy until a new actual sample");
+        apply("008D0101010A70C00100","a",11);
+        if(decoder.Current!=null)throw new Exception("Maximum-only update must not reveal energy without a current sample");
+        apply("008D01010103404B0100","a",12);
+        if(decoder.Current==null||decoder.ReadSnapshot().DetectedMaximum!=114800)throw new Exception("New area actual sample must restore energy and automatic maximum");
     }
     static void VerifyContainers(string root){
         Func<uint,byte[]> frame=delegate(uint value){var bytes=new byte[]{14,0,0x8d,1,1,1,3,0,0,0,0};System.Buffer.BlockCopy(BitConverter.GetBytes(value),0,bytes,7,4);return bytes;};

@@ -51,10 +51,11 @@ internal sealed class DpsMotion {
     internal bool Step(double now,bool editing,DpsOptions options){
         double dt=Math.Max(0,now-previous);previous=now;bool pixels=false;Animating=false;
         HideDeadline=LastActivity+options.HideAfterSeconds;
-        bool show=needsIdentification||editing||!options.AutoHide||now<HideDeadline;
+        if(needsIdentification&&!editing){Opacity=0;targetVisible=false;Animating=false;return false;}
+        bool show=editing||!options.AutoHide||now<HideDeadline;
         if(show!=targetVisible){targetVisible=show;dt=0;}
         double old=Opacity,fade=options.Fade?options.FadeSeconds:0;
-        Opacity=needsIdentification||editing||fade<=0?(show?1:0):Math.Max(0,Math.Min(1,Opacity+(show?1:-1)*dt/fade));
+        Opacity=editing||fade<=0?(show?1:0):Math.Max(0,Math.Min(1,Opacity+(show?1:-1)*dt/fade));
         if(Opacity!=(show?1:0))Animating=true;
         foreach(var pair in tracks){var t=pair.Value;double value=t.Value,smooth=options.Smooth?options.SmoothingSeconds:0;
             t.Value=smooth<=0?t.Target:t.Value+(t.Target-t.Value)*(1-Math.Exp(-Math.Min(dt,Math.Max(0,now-t.Changed))/smooth));
@@ -92,7 +93,7 @@ internal static class DpsDesign {
     internal static string Percent(double? value){return value.HasValue?value.Value.ToString("0.0",CultureInfo.InvariantCulture)+"%":"—";}
     internal static Rectangle TabBounds(int width){float scale=Math.Max(.8f,Math.Min(3f,width/520f));int pad=(int)(12*Math.Max(.8f,Math.Min(3f,width/380f)));return new Rectangle(pad,(int)(28*scale),width-pad*2,Math.Max(24,(int)(23*scale)));}
     internal static int HeaderHeight(int width){return TabBounds(width).Bottom+4;}
-    internal static int FooterHeight(int width,int height){int room=height-HeaderHeight(width)-42;return room<18?0:Math.Min(room,(int)(25*Math.Max(.8f,Math.Min(3f,width/380f))));}
+    internal static int FooterHeight(int width,int height){return 0;}
     internal static string TabView(int width,Point point){Rectangle bounds=TabBounds(width);if(!bounds.Contains(point))return null;int index=Math.Min(2,(point.X-bounds.Left)*3/bounds.Width);return index==0?"damage":index==1?"healing":"received";}
     static void PaintTabs(Graphics g,Graphics mask,int width,DpsOptions options,string language,Font font){Rectangle bounds=TabBounds(width);g.SmoothingMode=SmoothingMode.AntiAlias;
         for(int i=0;i<3;i++){int left=bounds.Left+bounds.Width*i/3,right=bounds.Left+bounds.Width*(i+1)/3;string view=i==0?"damage":i==1?"healing":"received";bool selected=options.View==view;
@@ -112,7 +113,7 @@ internal static class DpsDesign {
             if(editing)using(var pen=new Pen(Color.FromArgb(160,103,199,176))){pen.DashStyle=DashStyle.Dot;g.DrawRectangle(pen,1,1,width-3,height-3);}
             var mg=workspace.Pixels.MaskGraphics;mg.Clear(Color.Black);
             string title=options.View=="damage"?"DPS":options.View=="healing"?"Healing done":"Healing received";
-            TextRenderer.DrawText(mg,UiLanguage.Text(title,language)+" · Alpha",workspace.Body,new Rectangle(pad,3,(int)(width*.5),titleHeight-3),Color.White,Left);
+            TextRenderer.DrawText(mg,UiLanguage.Text(title,language)+" · Beta",workspace.Body,new Rectangle(pad,3,(int)(width*.5),titleHeight-3),Color.White,Left);
             string scope=UiLanguage.Text(options.Scope=="self"?"Self":options.Scope=="party"?"Party":"Nearby players",language);
             TextRenderer.DrawText(mg,scope+" · "+snapshot.Duration.ToString("0.0",CultureInfo.InvariantCulture)+" s",workspace.Small,new Rectangle(pad,3,width-pad*2,titleHeight-3),Color.White,Right);
             PaintTabs(g,mg,width,options,language,workspace.Small);
@@ -123,8 +124,7 @@ internal static class DpsDesign {
             TextRenderer.DrawText(mg,options.View=="damage"?"DPS":"HPS",workspace.Small,new Rectangle(rateX,y,dpsWidth,line),Color.White,Right);
             TextRenderer.DrawText(mg,UiLanguage.Text("Crit. %",language),workspace.Small,new Rectangle(critX,y,critWidth,line),Color.White,Right);
             TextRenderer.DrawText(mg,UiLanguage.Text("Crit. rate",language),workspace.Small,new Rectangle(chanceX,y,rateWidth,line),Color.White,Right);y+=line;
-            if(snapshot.NeedsIdentification){TextRenderer.DrawText(mg,UiLanguage.Text("Dash once to identify your character",language),workspace.Small,new Rectangle(pad,y,width-pad*2,line-3),Color.White,Left);y+=line;}
-            int count=Math.Min(options.MaxRows-(snapshot.NeedsIdentification?1:0),snapshot.Rows.Count);
+            int count=Math.Min(options.MaxRows,snapshot.Rows.Count);
             for(int i=0;i<count&&y+line<=height-footer;i++,y+=line){var row=snapshot.Rows[i];
                 string name=(i+1)+". "+DisplayName(row,snapshot,options,language);TextRenderer.DrawText(mg,name,workspace.Body,new Rectangle(pad,y,nameWidth,line-3),Color.White,Left);
                 TextRenderer.DrawText(mg,Amount(DpsSignal.Total(row,options.View),damageWidth-4,workspace.Body),workspace.Body,new Rectangle(amountX,y,damageWidth,line-3),Color.White,Right);
@@ -134,16 +134,14 @@ internal static class DpsDesign {
                 int barWidth=width-pad*2,barY=y+line-3;using(var track=new SolidBrush(Color.FromArgb(100,0,0,0)))g.FillRectangle(track,pad,barY,barWidth,2);
             }
             if(count==0&&!snapshot.NeedsIdentification)TextRenderer.DrawText(mg,UiLanguage.Text(snapshot.Status,language),workspace.Small,new Rectangle(pad,y,width-pad*2,Math.Max(20,height-footer-y)),Color.White,Left);
-            string note=UiLanguage.Text(options.View=="damage"?"Partial damage · identified DoT included":"Raw healing · supported skills only",language);
-            if(footer>0)TextRenderer.DrawText(mg,note,workspace.Small,new Rectangle(pad,height-footer,width-pad*2,footer),Color.White,Left);
             // GDI glyph coverage converted to alpha, avoiding ClearType fringes
             // and resizing an existing image. Same crisp text path as FPS.
             var mask=workspace.Pixels.Mask;var data=mask.LockBits(new Rectangle(0,0,width,height),ImageLockMode.ReadWrite,PixelFormat.Format32bppArgb);
             try{var pixels=workspace.Pixels.Pixels;int length=data.Stride*height;Marshal.Copy(data.Scan0,pixels,0,length);for(int p=0;p<length;p+=4){byte alpha=Math.Max(pixels[p],Math.Max(pixels[p+1],pixels[p+2]));pixels[p]=pixels[p+1]=pixels[p+2]=238;pixels[p+3]=alpha;}Marshal.Copy(pixels,0,data.Scan0,length);}finally{mask.UnlockBits(data);}g.DrawImageUnscaled(mask,0,0);if(includeBars)PaintBars(g,width,height,snapshot,options,ratios);
         }return bitmap;
     }
-    static void PaintBars(Graphics g,int width,int height,DpsSignal.Snapshot snapshot,DpsOptions options,IDictionary<uint,double> ratios){g.SmoothingMode=SmoothingMode.None;float scale=Math.Max(.8f,Math.Min(3f,width/380f));int pad=(int)(12*scale),header=HeaderHeight(width),footer=FooterHeight(width,height),line=Math.Max(21,(height-header-footer)/(options.MaxRows+1));int y=header+line+(snapshot.NeedsIdentification?line:0);long maximum=MaximumTotal(snapshot,options.View);
-        for(int i=0;i<Math.Min(options.MaxRows-(snapshot.NeedsIdentification?1:0),snapshot.Rows.Count)&&y+line<=height-footer;i++,y+=line){var row=snapshot.Rows[i];double ratio=DpsSignal.Total(row,options.View)/(double)maximum,value;if(ratios!=null&&ratios.TryGetValue(row.Actor,out value))ratio=value;using(var color=new SolidBrush(RowColor(row,options)))g.FillRectangle(color,pad,y+line-3,(int)((width-pad*2)*Math.Max(0,Math.Min(1,ratio))),2);}
+    static void PaintBars(Graphics g,int width,int height,DpsSignal.Snapshot snapshot,DpsOptions options,IDictionary<uint,double> ratios){g.SmoothingMode=SmoothingMode.None;float scale=Math.Max(.8f,Math.Min(3f,width/380f));int pad=(int)(12*scale),header=HeaderHeight(width),footer=FooterHeight(width,height),line=Math.Max(21,(height-header-footer)/(options.MaxRows+1));int y=header+line;long maximum=MaximumTotal(snapshot,options.View);
+        for(int i=0;i<Math.Min(options.MaxRows,snapshot.Rows.Count)&&y+line<=height-footer;i++,y+=line){var row=snapshot.Rows[i];double ratio=DpsSignal.Total(row,options.View)/(double)maximum,value;if(ratios!=null&&ratios.TryGetValue(row.Actor,out value))ratio=value;using(var color=new SolidBrush(RowColor(row,options)))g.FillRectangle(color,pad,y+line-3,(int)((width-pad*2)*Math.Max(0,Math.Min(1,ratio))),2);}
     }
     internal static Bitmap Compose(DpsPaintWorkspace workspace,DpsSignal.Snapshot snapshot,DpsOptions options,IDictionary<uint,double> ratios){var bitmap=(Bitmap)workspace.Panel.Clone();using(var g=Graphics.FromImage(bitmap))PaintBars(g,bitmap.Width,bitmap.Height,snapshot,options,ratios);return bitmap;}
     internal static Rectangle Resize(Rectangle start,Point delta,int hit){bool left=hit==10||hit==13||hit==16,right=hit==11||hit==14||hit==17,top=hit==12||hit==13||hit==14,bottom=hit==15||hit==16||hit==17;int w=Math.Max(260,Math.Min(1600,start.Width+(left?-delta.X:right?delta.X:0))),h=Math.Max(110,Math.Min(900,start.Height+(top?-delta.Y:bottom?delta.Y:0)));return new Rectangle(left?start.Right-w:start.Left,top?start.Bottom-h:start.Top,w,h);}
@@ -181,6 +179,56 @@ internal sealed class DpsTabInput:Form {
     protected override void OnMouseCaptureChanged(EventArgs e){if(!Capture)pressed=false;base.OnMouseCaptureChanged(e);}
     protected override void WndProc(ref Message m){if(m.Msg==0x21){m.Result=new IntPtr(3);return;}base.WndProc(ref m);}
     protected override void Dispose(bool disposing){if(disposing&&!disposed){disposed=true;image.Dispose();}base.Dispose(disposing);}
+}
+
+// A transient map/load gap never reveals an empty combat panel. This separate
+// notice uses monotonic time and no per-frame bitmap work while unchanged.
+internal sealed class CharacterNoticeState {
+    internal const double DelaySeconds=60;
+    double? missingSince;
+    internal double MissingSeconds {get;private set;}
+    internal bool Update(double now,bool enabled,bool missing){
+        if(!enabled||!missing){missingSince=null;MissingSeconds=0;return false;}
+        if(!missingSince.HasValue)missingSince=now;
+        MissingSeconds=Math.Max(0,now-missingSince.Value);
+        return MissingSeconds>=DelaySeconds;
+    }
+}
+
+internal sealed class CharacterNoticeOverlay:Form {
+    readonly LayeredImage image=new LayeredImage();readonly FpsDesign.Workspace workspace=new FpsDesign.Workspace();
+    readonly CharacterNoticeState state=new CharacterNoticeState();Rectangle renderedBounds;string renderedLanguage;double lastRaise;bool disposed;
+    internal CharacterNoticeOverlay(){Text="Aion 2 Helper - Character status";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;}
+    internal object Status {get{return new{visible=Visible,missingSeconds=state.MissingSeconds,delaySeconds=CharacterNoticeState.DelaySeconds};}}
+    internal void UpdateNotice(double now,bool enabled,bool missing,bool editing,Rectangle anchor,string language,bool menuOpen){
+        bool show=state.Update(now,enabled,missing);
+        if(!show||editing||menuOpen||DpsDesign.ShellUiActive()){if(Visible)Hide();return;}
+        var bounds=DpsDesign.UsableBounds(new Rectangle(anchor.X,anchor.Y,Math.Max(260,Math.Min(520,anchor.Width)),104));
+        bool changed=renderedLanguage!=language||renderedBounds.Size!=bounds.Size;
+        if(Bounds!=bounds)Bounds=bounds;
+        if(changed){using(var bitmap=RenderNotice(bounds.Width,bounds.Height,language,workspace))image.Upload(bitmap);renderedBounds=bounds;renderedLanguage=language;}
+        if(changed||!Visible||renderedBounds.Location!=bounds.Location){image.Present(Handle,Left,Top,255);renderedBounds=bounds;}
+        if(!Visible)Show();if(now-lastRaise>=1){lastRaise=now;OverlayNative.RaiseWithoutFocus(Handle);}
+    }
+    internal static Bitmap RenderNotice(int width,int height,string language,FpsDesign.Workspace workspace){
+        workspace.Prepare(width,height);var result=new Bitmap(width,height,PixelFormat.Format32bppPArgb);var mg=workspace.MaskGraphics;mg.Clear(Color.Black);
+        using(var g=Graphics.FromImage(result)){
+            g.SmoothingMode=SmoothingMode.AntiAlias;
+            using(var path=FpsDesign.Round(.5f,.5f,width-1,height-1,10)){
+                using(var brush=new SolidBrush(Color.FromArgb(210,9,12,17)))g.FillPath(brush,path);
+                using(var pen=new Pen(Color.FromArgb(55,103,199,176)))g.DrawPath(pen,path);
+            }
+            var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.WordBreak;
+            TextRenderer.DrawText(mg,UiLanguage.Text("Character not identified",language),workspace.Font(13,true),new Rectangle(14,12,width-28,22),Color.White,flags);
+            TextRenderer.DrawText(mg,UiLanguage.Text("Change zones, dash once or log in again to detect your character.",language),workspace.Font(12,false),new Rectangle(14,38,width-28,height-46),Color.FromArgb(200,200,200),flags);
+            var mask=workspace.Mask;var data=mask.LockBits(new Rectangle(0,0,width,height),ImageLockMode.ReadWrite,PixelFormat.Format32bppArgb);
+            try{int length=data.Stride*height;var pixels=workspace.Pixels;Marshal.Copy(data.Scan0,pixels,0,length);for(int p=0;p<length;p+=4){byte alpha=Math.Max(pixels[p],Math.Max(pixels[p+1],pixels[p+2]));pixels[p]=pixels[p+1]=pixels[p+2]=238;pixels[p+3]=alpha;}Marshal.Copy(pixels,0,data.Scan0,length);}finally{mask.UnlockBits(data);}
+            g.DrawImageUnscaled(mask,0,0);
+        }return result;
+    }
+    protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80|0x20|0x08000000)&~0x40000;return cp;}}
+    protected override bool ShowWithoutActivation {get{return true;}}
+    protected override void Dispose(bool disposing){if(disposing&&!disposed){disposed=true;image.Dispose();workspace.Dispose();}base.Dispose(disposing);}
 }
 
 internal sealed class DpsOverlay:Form {

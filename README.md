@@ -2,8 +2,8 @@
 
 **Customizable utility overlays for Aion 2.**
 
-**Alpha software — actively in development.** Energy/Stagger progress bars, FPS/Ping widgets and an
-experimental DPS Meter, Notifications and an optional intro skip are available now. **The DPS Meter is incomplete: combat
+**Alpha software — actively in development.** Energy/Stagger progress bars, FPS/Ping widgets and a
+DPS Meter in **Beta**, Notifications and an optional intro skip are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
 updates. Please report
@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.10.0 alpha release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.10.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.10.0/Aion-2-Helper-v1.10.0-windows-x64.zip).
+The [v1.11.0 release — DPS Meter Beta](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.11.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.11.0/Aion-2-Helper-v1.11.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy/Stagger bars, DPS Meter and invitation notifications;
@@ -30,6 +30,41 @@ Aion 2 Helper is a community project designed to keep useful information visible
 while you play, with movable widgets, a clean interface, and a focus on low overhead.
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
+
+## New in v1.11.0: DPS Meter Beta, visibility and stagger animation
+
+**The v1.11.0 Windows ZIP includes all the changes below.** The DPS Meter is now
+in **Beta** after substantial progress; broader live group/healing tests continue.
+See [release notes](RELEASE-NOTES.md) for the full update and remaining limitations.
+
+- **Skill names ready before combat:** embedded catalogue of 16,899 definitions,
+  with English and available Spanish names. Local character skills/levels are
+  separate. Unknown names retain numeric IDs and validated totals.
+- **Live skill breakdown:** open **DPS Meter → Skills** to inspect damage,
+  periodic damage, healing done/received, hits/ticks, highest hits and supported
+  critical statistics by player, skill and target. Histories save the new details,
+  show the selected player's skills and include a breakdown in TXT exports.
+  Older histories remain readable.
+- **Broader supported combat coverage:** more compatible DoT/HoT and healing
+  families, explicit tick attribution and bounded recovery when player identity
+  arrives after a valid impact. Unverified effects are still excluded.
+- **Cleaner combat widget:** Beta label and no partial-damage/healing footer.
+  **DPS and Energy hide when character data is missing**. After 60 continuous
+  seconds, a separate click-through recovery message appears at the DPS position
+  while the game is connected. It disappears on recovery and remains absent with
+  the game closed. Real area changes clear stale energy samples; unlocked widgets
+  remain available for positioning.
+- **Stagger fills during the countdown:** a visual empty-to-full animation follows
+  the estimated duration (5 seconds by default). Numeric labels retain real gauge
+  values. New game values and phase changes override the animation; repeated zero
+  updates do not restart it. Stale-zero and unavailable-phase hiding are retained.
+
+Solo live names/damage and zone/identity recovery were checked; local tests and
+offline capture comparisons passed. **Beta is still incomplete:** group/healing
+live testing continues, open-world boss party damage may freeze, Energy PvP is
+pending, and effective healing, causal buff effects and per-player stagger remain
+unvalidated. Retained features include Progress bar settings, independent
+FPS/Ping, invitation/event notifications, display adaptation and intro skip.
 
 ## New in v1.10.0 Alpha: Progress bar
 
@@ -264,17 +299,20 @@ replaced with an invented FPS value.
 The black background has soft transparent edges; it does not capture or blur
 pixels from the game. The Energy Bar's glow and animations remain independent.
 
-## Available now: experimental DPS Meter
+## Available now: DPS Meter (Beta)
 
-**This is an early alpha combat meter, not a complete damage or healing log.**
+**The DPS Meter is in Beta and is still not a complete damage or healing log.**
 It counts the event formats currently identified and validated; unsupported or
 unidentified events can be missing. Totals and rankings can therefore be incomplete.
 We are actively working on additional data, reliability and protocol coverage.
 
 Enable it in **Settings → DPS Meter → Configuration**. It starts disabled on new
 installations and on updates without previous DPS settings. Enter with your
-character; if identification is pending, the widget asks you to dash once.
+character. Missing identity hides the widget; after 60 seconds a separate notice
+explains how to recover it by changing zones, dashing or logging in again.
 
+- Preloaded skill names and live per-player/per-skill/target details in **Skills**,
+  with bounded saved breakdowns in History and TXT exports.
 - Direct damage, DPS, supported damage over time, healing done, healing received
   and HPS, with **Damage / Heals / Received** tabs on the widget.
 - **Self**, **Party** and **Nearby players** filters. Nearby means information
@@ -305,7 +343,8 @@ do not establish that this boss scenario is fixed.
 are counted. Healing is the announced restoration amount; effective healing and
 overhealing are not available. Complete buff/debuff tracking, damage/healing
 attribution to buffs, complete positional metadata, boss identification, stagger
-contributions/gauges, damage during stagger, aggro and zone names are pending.
+contributions, damage during stagger, aggro and zone names are pending. The
+separate experimental Stagger widget is available under Progress bar.
 Item-versus-skill restoration separation is also pending. Settings previews are
 sample data. Protocol changes can require updates; tested cases do not establish
 complete damage accuracy.

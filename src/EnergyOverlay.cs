@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -79,10 +79,12 @@ internal sealed class BarMotion {
     internal bool Animating;double desiredOpacity,targetValue;
     bool started,hasValue;double lastTime;
     double lastTarget;bool hasTarget;
+    internal void SnapValue(double ratio){Value=lastTarget=targetValue=Math.Max(0,Math.Min(1,ratio));hasValue=hasTarget=true;}
     internal void Step(double now,bool editing,bool fresh,double target,uint energy,uint maximum,EnergyBarOptions options=null,double targetAgeSeconds=-1){
         options=options??new EnergyBarOptions();double hold=options.HoldSeconds,fade=options.Fade?options.FadeSeconds:0,smooth=options.Smooth?options.SmoothingSeconds:0;
         double dt=started?Math.Max(0,now-lastTime):0;lastTime=now;started=true;
         if(!options.Enabled){Opacity=0;FullSince=null;hasValue=false;Animating=false;return;}
+        if(!fresh&&!editing){Opacity=0;FullSince=null;hasValue=false;hasTarget=false;desiredOpacity=0;Animating=false;return;}
         target=Math.Max(0,Math.Min(1,target));
         double smoothDt=fresh&&hasTarget&&target!=lastTarget&&targetAgeSeconds>=0?Math.Min(dt,targetAgeSeconds):dt;
         if(fresh){lastTarget=target;hasTarget=true;if(!hasValue||smooth<=0){Value=target;hasValue=true;}else{Value+=(target-Value)*(1-Math.Exp(-smoothDt/smooth));if(Math.Abs(Value-target)<.0001)Value=target;}}
@@ -110,7 +112,8 @@ internal sealed class BarMotion {
         motion.Step(5.65,false,true,.5,50,100);if(motion.Opacity<=0||motion.Opacity>=1||motion.Value<=.5||motion.Value>=1)throw new Exception("Fade in and energy smoothing on spend");
         motion.Step(5.7,true,true,.5,50,100);if(motion.Opacity!=1)throw new Exception("Editing must be immediately accessible");
         motion.Step(6,false,true,1,100,100);motion.Step(8,false,true,1,100,100);motion.Step(8.05,false,false,1,100,100);
-        if(motion.Opacity<=0||motion.FullSince.HasValue)throw new Exception("Missing signal must show unknown state, rather than hide as full");
+        if(motion.Opacity!=0||motion.FullSince.HasValue||motion.Animating)throw new Exception("Missing energy data must hide without showing stale values or dots");
+        motion.Step(8.1,true,false,1,100,100);if(motion.Opacity!=1)throw new Exception("Missing energy remains accessible while editing");
         var first=new BarMotion();first.Step(0,false,false,0,0,100);first.Step(.1,false,true,.6,60,100);if(first.Value!=.6)throw new Exception("First real reading must not animate from invented zero");
         var slow=new BarMotion();var fast=new BarMotion();slow.Step(0,true,true,1,100,100);fast.Step(0,true,true,1,100,100);
         for(int i=1;i<=10;i++)slow.Step(i*.02,true,true,.3,30,100);
@@ -284,10 +287,13 @@ internal sealed class EnergyOverlay:Form {
     string language="en";
     internal string Language {get{return language;}}
     FpsOptions fpsOptions=new FpsOptions(),pingOptions=FpsOptions.PingDefaults();FpsOverlay fpsWidget,pingWidget;
-    DpsOptions dpsOptions=new DpsOptions();DpsOverlay dpsWidget;readonly DpsSignal combat=new DpsSignal();
+    DpsOptions dpsOptions=new DpsOptions();DpsOverlay dpsWidget;readonly CharacterNoticeOverlay characterNotice=new CharacterNoticeOverlay();readonly DpsSignal combat=new DpsSignal();
     readonly ProgressTextOverlay energyTexts=new ProgressTextOverlay();readonly StaggerSignal staggerSignal=new StaggerSignal();StaggerOptions staggerOptions=new StaggerOptions();StaggerOverlay staggerWidget;
     NotificationOptions notificationOptions=new NotificationOptions();NotificationOverlay notificationWidget;readonly NotificationSignal notifications=new NotificationSignal();
     readonly DpsHistory combatHistory;internal DpsHistory CombatHistory {get{return combatHistory;}}
+    internal string SkillCatalogueStatus {get{return combat.CatalogueStatus;}}
+    internal List<DpsSkillDisplay> CombatSkills {get{return combat.ReadSkills(language);}}
+    internal long CombatSkillRevision {get{return combat.SkillRevision;}}
     EnergyBarOptions options=new EnergyBarOptions();HelperSettings settingsWindow;HelperTrayMenu trayMenu;
     internal event Action SettingsChanged;
     bool closing,ready,rendering;double lastSaved;string status="No data · dash once to start";string startError="";
@@ -323,7 +329,7 @@ internal sealed class EnergyOverlay:Form {
         Shown+=delegate{CoreSize=initialSize;ready=true;if(!preview)Microsoft.Win32.SystemEvents.DisplaySettingsChanged+=DisplayChanged;ApplyLock();fpsWidget.Configure(fpsOptions,locked,preview);pingWidget.Configure(pingOptions,locked,preview);dpsWidget.Configure(dpsOptions,locked);notificationWidget.Configure(notificationOptions,locked);staggerWidget.Configure(staggerOptions,locked);if(!preview)recorder.MaintainAsync(options.Enabled||staggerOptions.Bar.Enabled||dpsOptions.Enabled||notificationOptions.NeedsCapture);UpdateBar();SaveSettings(false);};
         Resize+=delegate{if(ready)RenderNow();};Move+=delegate{if(ready&&Visible&&!rendering)RenderNow();};
         timer.Interval=250;timer.Tick+=delegate{try{double now=animationClock.Elapsed.TotalSeconds;if(!preview&&(options.Enabled||staggerOptions.Bar.Enabled||dpsOptions.Enabled||notificationOptions.NeedsCapture)&&now-lastPoll>=2){lastPoll=now;recorder.MaintainAsync(true);}combatHistory.Maintain(DpsHistory.UtcNow());startError=recorder.LastStartError;notificationWidget.Maintain(now);UpdateBar();if(Visible&&now-lastRaise>=1){lastRaise=now;OverlayNative.RaiseWithoutFocus(Handle);}}catch(Exception ex){status="Error: "+ex.Message;stateItem.Text=status;}};timer.Start();
-        FormClosing+=delegate{closing=true;Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=DisplayChanged;fpsWidget.Close();pingWidget.Close();dpsWidget.Close();notificationWidget.Close();staggerWidget.Close();energyTexts.Close();if(trayMenu!=null&&!trayMenu.IsDisposed)trayMenu.Close();if(settingsWindow!=null&&!settingsWindow.IsDisposed)settingsWindow.Close();timer.Stop();recorder.Dispose();combat.Finish("Helper closed");combatHistory.Dispose();timer.Dispose();SaveSettings(false);statusWriter.Dispose();image.Dispose();tray.Visible=false;tray.Dispose();helperIcon.Dispose();};
+        FormClosing+=delegate{closing=true;Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=DisplayChanged;fpsWidget.Close();pingWidget.Close();dpsWidget.Close();characterNotice.Close();notificationWidget.Close();staggerWidget.Close();energyTexts.Close();if(trayMenu!=null&&!trayMenu.IsDisposed)trayMenu.Close();if(settingsWindow!=null&&!settingsWindow.IsDisposed)settingsWindow.Close();timer.Stop();recorder.Dispose();combat.Finish("Helper closed");combatHistory.Dispose();timer.Dispose();SaveSettings(false);statusWriter.Dispose();image.Dispose();tray.Visible=false;tray.Dispose();helperIcon.Dispose();};
     }
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80)&~0x40000;cp.Style&=~0x40000;return cp;}}
     protected override bool ShowWithoutActivation {get{return true;}}
@@ -355,7 +361,7 @@ internal sealed class EnergyOverlay:Form {
     internal string FpsExplanation {get{return fpsWidget.Explanation(language);}}
     internal void AllowFpsAdministrator(){fpsWidget.AllowAdministrator();}
     void DisplayChanged(object sender,EventArgs args){if(closing||!IsHandleCreated||Interlocked.CompareExchange(ref displayChangeQueued,1,0)!=0)return;try{BeginInvoke(new Action(delegate{Interlocked.Exchange(ref displayChangeQueued,0);if(closing)return;var next=WidgetDisplayLayout.Screens();if(WidgetDisplayLayout.Same(displayAreas,next))return;var previous=displayAreas;displayAreas=next;configurationHistory.AdaptDisplays(previous,next);adaptingDisplay=true;try{ApplyConfiguration(displayLayout.Adapt(Configuration,next));}finally{adaptingDisplay=false;}}));}catch(InvalidOperationException){Interlocked.Exchange(ref displayChangeQueued,0);}}
-    protected override void Dispose(bool disposing){if(disposing)Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=DisplayChanged;if(disposing&&notificationWidget!=null){notificationWidget.Dispose();notificationWidget=null;}if(disposing&&pingWidget!=null){pingWidget.Dispose();pingWidget=null;}if(disposing&&fpsWidget!=null){fpsWidget.Dispose();fpsWidget=null;}if(disposing&&dpsWidget!=null){dpsWidget.Dispose();dpsWidget=null;}if(disposing&&staggerWidget!=null){staggerWidget.Dispose();staggerWidget=null;}if(disposing)energyTexts.Dispose();if(disposing&&combatHistory!=null)combatHistory.Dispose();base.Dispose(disposing);}
+    protected override void Dispose(bool disposing){if(disposing)Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=DisplayChanged;if(disposing&&notificationWidget!=null){notificationWidget.Dispose();notificationWidget=null;}if(disposing&&pingWidget!=null){pingWidget.Dispose();pingWidget=null;}if(disposing&&fpsWidget!=null){fpsWidget.Dispose();fpsWidget=null;}if(disposing&&dpsWidget!=null){dpsWidget.Dispose();dpsWidget=null;}if(disposing&&staggerWidget!=null){staggerWidget.Dispose();staggerWidget=null;}if(disposing){characterNotice.Dispose();energyTexts.Dispose();}if(disposing&&combatHistory!=null)combatHistory.Dispose();base.Dispose(disposing);}
     internal bool CanUndoConfiguration {get{return configurationHistory.CanUndo;}}
     internal bool CanRedoConfiguration {get{return configurationHistory.CanRedo;}}
     internal void UndoConfiguration(){RestoreConfiguration(false);}
@@ -396,11 +402,12 @@ internal sealed class EnergyOverlay:Form {
         if(closing||!IsHandleCreated||Interlocked.CompareExchange(ref readingQueued,1,0)!=0)return;
         try{BeginInvoke(new Action(delegate{Interlocked.Exchange(ref readingQueued,0);if(!closing)UpdateBar();}));}catch(InvalidOperationException){Interlocked.Exchange(ref readingQueued,0);}
     }
-    bool Fresh(DashSignal.Snapshot snapshot,double now){return preview||(recorder.Active&&snapshot.Reading!=null&&now-snapshot.LastTraffic<=4);}
+    bool Fresh(DashSignal.Snapshot snapshot,double now){return preview||(recorder.Active&&snapshot.Reading!=null&&Math.Max(0,now-snapshot.LastTraffic)<=4&&(!dpsOptions.Enabled||combat.CharacterIdentified));}
     bool IsFresh {get{return Fresh(signal.ReadSnapshot(),(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds);}}
     double Ratio {get{var snapshot=signal.ReadSnapshot();var r=snapshot.Reading;return preview?previewRatio:r==null?0:(double)r.Value/EnergyMaximum(snapshot);}}
     void UpdateBar(){
         if(closing)return;var snapshot=signal.ReadSnapshot();var r=snapshot.Reading;double utcNow=(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds,now=animationClock.Elapsed.TotalSeconds;bool fresh=Fresh(snapshot,utcNow);
+        if(!preview)characterNotice.UpdateNotice(now,recorder.Active&&recorder.HasGameConnection&&(dpsOptions.Enabled||options.Enabled),(dpsOptions.Enabled&&!combat.CharacterIdentified)||(options.Enabled&&r==null),!locked,dpsOptions.Bounds,language,TrayMenuOpen);
         if(!preview&&fresh&&snapshot.DetectedMaximum>0&&lastAutomaticMaximum!=snapshot.DetectedMaximum){lastAutomaticMaximum=snapshot.DetectedMaximum;SaveSettings(false);}
         uint maximum=EnergyMaximum(snapshot);double ratio=preview?previewRatio:r==null?0:(double)r.Value/maximum;
         string nextStatus=!options.Enabled?"Energy Bar disabled":fresh?ratio.ToString("P0")+(!preview&&snapshot.DetectedMaximum==0?" · waiting for maximum energy stats":""):(startError.Length>0?startError:"No data · dash once to start");
@@ -417,7 +424,7 @@ internal sealed class EnergyOverlay:Form {
         if(!motion.Animating&&motion.FullSince.HasValue&&motion.Opacity>0){double remaining=options.HoldSeconds-(now-motion.FullSince.Value);if(remaining>0)interval=Math.Min(interval,Math.Max(1,(int)Math.Ceiling(remaining*1000)));}
         if(timer.Interval!=interval)timer.Interval=interval;
     }
-    void WriteStatus(DashSignal.Snapshot snapshot,bool fresh){var core=CoreBounds;var r=snapshot.Reading;statusWriter.Publish(new {ts=r==null?0:r.Timestamp,actor=r==null?0:r.Actor,value=r==null?0:r.Value,maximum=EnergyMaximum(snapshot),detectedMaximum=snapshot.DetectedMaximum,automaticMaximum=true,percentage=(r==null?0:(double)r.Value/EnergyMaximum(snapshot))*100,displayedPercentage=motion.Value*100,opacity=motion.Opacity,enabled=options.Enabled,autoHide=options.AutoHide,fullHoldSeconds=options.HoldSeconds,fadeSeconds=options.Fade?options.FadeSeconds:0,smoothingSeconds=options.Smooth?options.SmoothingSeconds:0,samples=snapshot.Samples,errors=snapshot.Errors,fresh=fresh,editing=options.Enabled&&!locked,visible=Visible,width=core.Width,height=core.Height,x=core.X,y=core.Y,status=status,fpsValue=fpsWidget.Value,fpsStatus=fpsWidget.ReadingStatus,pingValue=pingWidget.Value,pingStatus=pingWidget.ReadingStatus,notifications=notifications.Status,notificationWindow=notificationWidget.WindowStatus,stagger=staggerWidget.Status,dpsWindow=dpsWidget.WindowStatus,dps=dpsOptions.Enabled?DpsSignal.Export(combat.Read((DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds)):null,style="slim-v2",emissive=options.Emissive});}
+    void WriteStatus(DashSignal.Snapshot snapshot,bool fresh){var core=CoreBounds;var r=snapshot.Reading;statusWriter.Publish(new {ts=r==null?0:r.Timestamp,actor=r==null?0:r.Actor,value=r==null?0:r.Value,maximum=EnergyMaximum(snapshot),detectedMaximum=snapshot.DetectedMaximum,automaticMaximum=true,percentage=(r==null?0:(double)r.Value/EnergyMaximum(snapshot))*100,displayedPercentage=motion.Value*100,opacity=motion.Opacity,enabled=options.Enabled,autoHide=options.AutoHide,fullHoldSeconds=options.HoldSeconds,fadeSeconds=options.Fade?options.FadeSeconds:0,smoothingSeconds=options.Smooth?options.SmoothingSeconds:0,samples=snapshot.Samples,errors=snapshot.Errors,fresh=fresh,editing=options.Enabled&&!locked,visible=Visible,width=core.Width,height=core.Height,x=core.X,y=core.Y,status=status,fpsValue=fpsWidget.Value,fpsStatus=fpsWidget.ReadingStatus,pingValue=pingWidget.Value,pingStatus=pingWidget.ReadingStatus,notifications=notifications.Status,notificationWindow=notificationWidget.WindowStatus,stagger=staggerWidget.Status,dpsWindow=dpsWidget.WindowStatus,characterNotice=characterNotice.Status,dps=dpsOptions.Enabled?DpsSignal.Export(combat.Read((DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds)):null,style="slim-v2",emissive=options.Emissive});}
     void RenderNow(bool includeHidden=false){
         if(!ready||closing||rendering||!options.Enabled||(!Visible&&!includeHidden))return;rendering=true;
         try {float scale=1;try{scale=OverlayNative.GetDpiForWindow(Handle)/96f;}catch(EntryPointNotFoundException){}double ratio=motion.Value;byte alpha=(byte)Math.Round(motion.Opacity*255);

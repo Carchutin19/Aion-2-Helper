@@ -56,3 +56,22 @@ A2Tools reference above and the locally installed NotMeter reader. The observed
 plotter byte, restoration integer and angle byte were checked against our own
 recorded frames. Front/Back, Perfect and Double counters are implemented in our
 own bounded reader; no external implementation is copied or linked.
+
+## DPS skill catalogue and adapted parsing
+
+The skill metadata and the adapted catalogue lookup, character skill-list
+recognition and family-based combat classification consult/reuse the MIT project:
+
+- https://github.com/SkeeveAN/Aion-DPS-Meter
+- Revision: e767bf486d52407d91f5fea698a9fdc5c7d1d5af.
+- Client/Aion2/Protocol/Aion2SkillNames.cs and Aion2FrameDecoder.cs;
+  Client/assets/aion2/skills data files.
+- Copyright (c) 2026 SkeeveTV. Complete notice in assets/skills/LICENSE-MIT.txt,
+  included with packaged binaries. The catalogue is embedded in the executable.
+- Dataset transformation/provenance: assets/skills/README.md. Names/text are
+  Aion 2 game metadata; the code licence does not claim ownership of game content.
+
+No third-party application, backend, updater, telemetry/upload service or icon
+collection is required. Character levels and actual impacts are read passively
+from the existing game stream. The rest of the application's licence status is
+unchanged; these referenced/adapted portions retain their applicable MIT notice.
