@@ -3,7 +3,7 @@
 **Customizable utility overlays for Aion 2.**
 
 **Alpha software — actively in development.** Energy/Stagger progress bars, FPS/Ping widgets and a
-DPS Meter in **Beta**, Notifications and an optional intro skip are available now. **The DPS Meter is in Beta and still incomplete: combat
+DPS Meter in **Beta**, Notifications and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
 updates. Please report
@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.11.0 release — DPS Meter Beta](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.11.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.11.0/Aion-2-Helper-v1.11.0-windows-x64.zip).
+The [v1.12.0 release — Combat UI, Notifications and Visual Tweaks](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.12.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.12.0/Aion-2-Helper-v1.12.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy/Stagger bars, DPS Meter and invitation notifications;
@@ -31,6 +31,34 @@ while you play, with movable widgets, a clean interface, and a focus on low over
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
 
+## New in v1.12.0: Combat UI, adaptive notifications and visual tweaks
+
+**The v1.12.0 Windows ZIP includes all changes below.** See the
+[release notes](RELEASE-NOTES.md) for details and known limitations.
+
+- **Clearer DPS menus:** Combat, History and Configuration. Skills are integrated
+  with player statistics; visible tables no longer show skill or target IDs.
+- **Role-colored DPS/HPS charts:** select a player to see their fight averages,
+  contribution, supported critical statistics and skill breakdown. Live combat
+  and saved fights use the same layout. Charts show average rates, not a timeline.
+- **More usable Settings:** responsive tables, expandable details and mouse-wheel
+  scrolling over the menu content.
+- **Notifications fit their text:** shorter backgrounds for shorter messages,
+  wrapping for longer ones, adjustable maximum width/scale and one generic test
+  button. Existing notification types, sounds and appearance settings remain.
+- **Game Tweaks → Visuals:** independent Depth of Field, Chromatic Aberration,
+  Film Grain and Motion Blur controls, automatic Engine.ini discovery, a profile
+  selector/manual fallback and verified backups/restoration. Other INI settings
+  are preserved and the file stays writable.
+
+**Close Aion 2 before applying visual changes and relaunch it to check the result.**
+Changes with the game open are not guaranteed. The helper blocks writes while the
+game runs; opening Settings or using undo/redo does not edit game files.
+
+**DPS remains Beta and incomplete.** This update improves presentation rather
+than resolving every unsupported event. Open-world boss party-damage freezes and
+Energy PvP remain pending; wider group/healing and visual-effect testing continues.
+
 ## New in v1.11.0: DPS Meter Beta, visibility and stagger animation
 
 **The v1.11.0 Windows ZIP includes all the changes below.** The DPS Meter is now
@@ -40,7 +68,7 @@ See [release notes](RELEASE-NOTES.md) for the full update and remaining limitati
 - **Skill names ready before combat:** embedded catalogue of 16,899 definitions,
   with English and available Spanish names. Local character skills/levels are
   separate. Unknown names retain numeric IDs and validated totals.
-- **Live skill breakdown:** open **DPS Meter → Skills** to inspect damage,
+- **Live skill breakdown:** open **DPS Meter → Combat** (Skills was integrated in v1.12.0) to inspect damage,
   periodic damage, healing done/received, hits/ticks, highest hits and supported
   critical statistics by player, skill and target. Histories save the new details,
   show the selected player's skills and include a breakdown in TXT exports.
@@ -196,6 +224,26 @@ party-damage issue remains unresolved.**
 
 ## Available now: Game Tweaks
 
+**Settings → Game Tweaks → Visuals** edits only four renderer overrides in your
+Engine.ini: Depth of Field, Chromatic Aberration, Film Grain and Motion Blur.
+Enabled uses the game's settings; disabled writes zero. With no overrides, all
+four default to enabled. The game may still choose whether an effect is rendered.
+
+Configuration discovery looks under **%LOCALAPPDATA%/AION2**, including
+**Saved_Steam/Config/Windows/Engine.ini** and other launcher profiles. Select your
+profile if several are found, or use **Browse Engine.ini**. With Aion closed,
+choose effects and click **Apply visual changes**; relaunch to check the result.
+Live changes are not guaranteed, so writes are blocked with Aion running.
+
+Backups stay under **LocalAppData/Aion2Helper/VisualBackups**. **Restore previous
+visual change** undoes the last change, preserving unrelated later edits and
+rejecting conflicting visual settings. No whole-file replacement from another
+INI is used. Paths, DLSS/FSR and unrelated settings are retained; encoding/line
+endings are preserved and Engine.ini stays writable. Grain quantization/dithering
+is separate from Film Grain and is not edited. Game updates may rewrite the file;
+**Refresh status** checks it without applying changes. Visual effects still need
+live validation after restart. Startup intro skipping is independent.
+
 **Settings → Game Tweaks → Startup** provides our own reversible **Skip the
 NCSOFT intro** function. The helper first detects the game installation from the
 running game, Windows installation records, Steam libraries/manifests and common
@@ -311,8 +359,9 @@ installations and on updates without previous DPS settings. Enter with your
 character. Missing identity hides the widget; after 60 seconds a separate notice
 explains how to recover it by changing zones, dashing or logging in again.
 
-- Preloaded skill names and live per-player/per-skill/target details in **Skills**,
-  with bounded saved breakdowns in History and TXT exports.
+- Preloaded skill names, role-colored DPS/HPS charts and per-player skill
+  breakdowns in **Combat**, with expandable statistics, bounded saved details
+  in History and raw skill/target identifiers retained in TXT exports.
 - Direct damage, DPS, supported damage over time, healing done, healing received
   and HPS, with **Damage / Heals / Received** tabs on the widget.
 - **Self**, **Party** and **Nearby players** filters. Nearby means information
@@ -601,9 +650,10 @@ identity, party, incoming invitation and combat updates.
 It does not read or write game memory, inject code, send game packets, or automate
 character actions.
 
-The optional **Game Tweaks → Skip intro** feature changes only the startup video
-when explicitly applied, with the game closed. It keeps a verified original
-backup for restoration and remains applied after the helper closes.
+The optional **Game Tweaks → Startup** feature changes the startup video, while
+**Game Tweaks → Visuals** edits the four supported Engine.ini renderer overrides.
+Both require explicit application with the game closed, keep verified backups
+for restoration, and remain applied after the helper closes.
 
 The normal overlay processes readings in memory and saves completed combat
 summaries locally. It does not save packet captures,
@@ -649,6 +699,7 @@ Existing checks:
 .\DashProbe.exe --fps-test
 .\DashProbe.exe --dps-test
 .\DashProbe.exe --notifications-test
+.\DashProbe.exe --visual-tweaks-test
 .\DashProbe.exe --game-tweaks-test
 .\DashProbe.exe --settings-test
 .\DashProbe.exe --progress-test

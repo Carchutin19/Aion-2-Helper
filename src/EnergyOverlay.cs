@@ -292,6 +292,7 @@ internal sealed class EnergyOverlay:Form {
     NotificationOptions notificationOptions=new NotificationOptions();NotificationOverlay notificationWidget;readonly NotificationSignal notifications=new NotificationSignal();
     readonly DpsHistory combatHistory;internal DpsHistory CombatHistory {get{return combatHistory;}}
     internal string SkillCatalogueStatus {get{return combat.CatalogueStatus;}}
+    internal DpsHistoryRecord CombatAnalysis {get{return combat.ReadAnalysis(DpsHistory.UtcNow());}}
     internal List<DpsSkillDisplay> CombatSkills {get{return combat.ReadSkills(language);}}
     internal long CombatSkillRevision {get{return combat.SkillRevision;}}
     EnergyBarOptions options=new EnergyBarOptions();HelperSettings settingsWindow;HelperTrayMenu trayMenu;
@@ -384,6 +385,7 @@ internal sealed class EnergyOverlay:Form {
     internal void OpenPingSettings(){OpenSettings();settingsWindow.ShowPing();}
     internal void OpenStaggerSettings(){OpenSettings();settingsWindow.ShowStagger();}
     internal void OpenGameTweaksSettings(){OpenSettings();settingsWindow.ShowGameTweaks();}
+    internal void OpenVisualSettings(){OpenSettings();settingsWindow.ShowVisuals();}
     internal void OpenDpsSettings(){OpenSettings();settingsWindow.ShowDps();}
     internal void OpenDpsHistory(){OpenSettings();settingsWindow.ShowDpsHistory();}
     internal void OpenNotificationSettings(){OpenSettings();settingsWindow.ShowNotifications();}

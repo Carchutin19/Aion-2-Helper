@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -19,6 +19,20 @@ using Drawing=System.Drawing;
 // WinForms/native drawing path and does not run a second animation loop.
 internal static class SettingsVisual {
     internal static readonly Color Accent=Color.FromRgb(103,199,176);
+    static DependencyObject Parent(DependencyObject value){return value is Visual||value is System.Windows.Media.Media3D.Visual3D?VisualTreeHelper.GetParent(value):LogicalTreeHelper.GetParent(value);}
+    // Prefer the innermost scrollable content; at its edge continue in the
+    // surrounding page. Routing runs only on an actual wheel event.
+    internal static bool RouteWheel(DependencyObject source,int delta){
+        if(delta==0)return false;
+        for(var value=source;value!=null;value=Parent(value)){
+            var viewer=value as ScrollViewer;if(viewer==null||!viewer.IsEnabled||viewer.ScrollableHeight<=0)continue;
+            if(delta>0&&viewer.VerticalOffset<=0||delta<0&&viewer.VerticalOffset>=viewer.ScrollableHeight)continue;
+            double step=viewer.CanContentScroll?Math.Max(1,SystemParameters.WheelScrollLines):48*Math.Max(1,SystemParameters.WheelScrollLines);
+            viewer.ScrollToVerticalOffset(Math.Max(0,Math.Min(viewer.ScrollableHeight,viewer.VerticalOffset-delta/120.0*step)));return true;
+        }return false;
+    }
+    static ScrollViewer PageScroll(DependencyObject root){if(root==null)return null;var viewer=root as ScrollViewer;if(viewer!=null&&viewer.IsVisible&&viewer.IsEnabled&&viewer.ScrollableHeight>0)return viewer;int count=root is Visual||root is System.Windows.Media.Media3D.Visual3D?VisualTreeHelper.GetChildrenCount(root):0;for(int i=0;i<count;i++){var result=PageScroll(VisualTreeHelper.GetChild(root,i));if(result!=null)return result;}return null;}
+    internal static bool RoutePageWheel(DependencyObject source,DependencyObject page,int delta){return RouteWheel(source,delta)||RouteWheel(PageScroll(page),delta);}
     internal static Brush Brush(string hex){return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));}
     internal static void Theme(Window window){
         using(var stream=typeof(SettingsVisual).Assembly.GetManifestResourceStream("SettingsTheme.xaml"))window.Resources.MergedDictionaries.Add((ResourceDictionary)XamlReader.Load(stream));
@@ -38,7 +52,7 @@ internal static class SettingsVisual {
     }
     internal static string Hex(Color color){return "#"+color.R.ToString("X2")+color.G.ToString("X2")+color.B.ToString("X2");}
     internal static void RenderPreview(Window window,string path){
-        var root=(FrameworkElement)window.Content;root.Measure(new Size(window.Width,window.Height));root.Arrange(new Rect(0,0,window.Width,window.Height));root.UpdateLayout();
+        var root=(FrameworkElement)window.Content;root.Measure(new Size(window.Width,window.Height));root.Arrange(new Rect(0,0,window.Width,window.Height));root.UpdateLayout();root.Dispatcher.Invoke(DispatcherPriority.Render,new Action(delegate{}));root.UpdateLayout();
         var image=new RenderTargetBitmap((int)window.Width,(int)window.Height,96,96,PixelFormats.Pbgra32);var backdrop=new DrawingVisual();using(var dc=backdrop.RenderOpen())dc.DrawRectangle(Brush("#FF20232B"),null,new Rect(0,0,window.Width,window.Height));image.Render(backdrop);image.Render(root);
         var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(image));using(var output=File.Create(path))encoder.Save(output);
     }
@@ -121,7 +135,8 @@ internal sealed class HelperSettings : Window {
     readonly Grid progressTabs=new Grid{Margin=new Thickness(0,14,0,0)};readonly Button[] progressButtons=new Button[2];readonly Dictionary<string,ComboBox> positions=new Dictionary<string,ComboBox>();readonly StackPanel countdownPage=new StackPanel();readonly TextBlock activationLabel=SettingsVisual.Text("Enable Energy Bar",13),detectionHint=SettingsVisual.Text("",11,"#8994A6");bool staggerSelected;
     readonly Grid activationRow=new Grid{Margin=new Thickness(0,18,0,0)};readonly StackPanel generalPage=new StackPanel();bool generalSelected;
     bool loading;DateTime noticeUntil;internal bool IsDisposed {get;private set;}
-    internal HelperSettings(EnergyOverlay owner,NpcapSupport dependency=null,IntroTweaks tweaks=null){
+    internal HelperSettings(EnergyOverlay owner,NpcapSupport dependency=null,IntroTweaks tweaks=null,VisualTweaks visualTweaks=null){
+        PreviewMouseWheel+=delegate(object sender,MouseWheelEventArgs e){if(SettingsVisual.RoutePageWheel(e.OriginalSource as DependencyObject,Content as DependencyObject,e.Delta))e.Handled=true;};
         overlay=owner;npcSupport=dependency??NpcapSupport.Current;Title="Aion 2 Helper · Settings";SettingsVisual.Theme(this);Width=980;Height=816;MinWidth=880;MinHeight=650;
         var work=SystemParameters.WorkArea;Width=Math.Min(Width,work.Width-24);Height=Math.Min(Height,work.Height-24);MinWidth=Math.Min(MinWidth,Width);MinHeight=Math.Min(MinHeight,Height);
         using(var icon=owner.Icon.ToBitmap())Icon=SettingsVisual.Bitmap(icon);
@@ -147,7 +162,7 @@ internal sealed class HelperSettings : Window {
         performancePage.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});performancePage.RowDefinitions.Add(new RowDefinition{Height=new GridLength(1,GridUnitType.Star)});Grid.SetRow(performancePage,1);Grid.SetRowSpan(performancePage,3);body.Children.Add(performancePage);var perfTabs=new Grid{Margin=new Thickness(0,0,0,12)};performancePage.Children.Add(perfTabs);for(int n=0;n<2;n++){bool forPing=n==1;perfTabs.ColumnDefinitions.Add(new ColumnDefinition());performanceTabs[n]=SettingsVisual.Button(forPing?"Ping":"FPS",delegate{SelectPerformance(forPing);});Grid.SetColumn(performanceTabs[n],n);performanceTabs[n].Margin=new Thickness(n==0?0:4,0,n==1?0:4,0);perfTabs.Children.Add(performanceTabs[n]);}fpsPage=new FpsSettingsPane(overlay,this);pingPage=new FpsSettingsPane(overlay,this,true);Grid.SetRow(fpsPage,1);Grid.SetRow(pingPage,1);performancePage.Children.Add(fpsPage);performancePage.Children.Add(pingPage);SelectPerformance(false);
         dpsPage=new DpsSettingsPane(overlay,this);Grid.SetRow(dpsPage,1);Grid.SetRowSpan(dpsPage,3);body.Children.Add(dpsPage);
         notificationPage=new NotificationSettingsPane(overlay,this);Grid.SetRow(notificationPage,1);Grid.SetRowSpan(notificationPage,3);body.Children.Add(notificationPage);
-        gameTweaksPage=new GameTweaksPane(overlay,this,tweaks);Grid.SetRow(gameTweaksPage,1);Grid.SetRowSpan(gameTweaksPage,3);body.Children.Add(gameTweaksPage);
+        gameTweaksPage=new GameTweaksPane(overlay,this,tweaks,visualTweaks);Grid.SetRow(gameTweaksPage,1);Grid.SetRowSpan(gameTweaksPage,3);body.Children.Add(gameTweaksPage);
         var footer=new Grid{Margin=new Thickness(0,14,0,0)};Grid.SetRow(footer,4);footer.ColumnDefinitions.Add(new ColumnDefinition());footer.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});body.Children.Add(footer);
         var historyActions=new StackPanel{Orientation=Orientation.Horizontal};footer.Children.Add(historyActions);
         undo=SettingsVisual.Button("↶  Undo",overlay.UndoConfiguration);undo.ToolTip="Undo the last change · Ctrl+Z";undo.Margin=new Thickness(0,0,8,0);historyActions.Children.Add(undo);
@@ -183,8 +198,8 @@ internal sealed class HelperSettings : Window {
         languagePicker.Items.Add(new ComboBoxItem{Content="English",Tag="en"});languagePicker.Items.Add(new ComboBoxItem{Content="Español",Tag="es"});
         languagePicker.SelectionChanged+=delegate{if(loading||IsDisposed)return;var item=languagePicker.SelectedItem as ComboBoxItem;if(item==null)return;var cfg=overlay.Configuration;cfg.Language=(string)item.Tag;overlay.ApplyConfiguration(cfg);};
         var note=SettingsVisual.Text("Changes apply immediately and are saved automatically.",11,"#8994A6");note.Margin=new Thickness(2,0,0,0);generalPage.Children.Add(note);
-        var news=new StackPanel();news.Children.Add(SettingsVisual.Text("WHAT'S NEW · v1.11.0 · DPS Beta",11,"#84B8AB"));
-        var details=SettingsVisual.Text("DPS Meter is now in Beta: preloaded skill names, live skill breakdowns, saved skill/target details and broader supported damage/healing coverage. Missing character data hides DPS/Energy; an independent recovery notice appears after 60 seconds. Stagger now fills visually during its estimated countdown. Solo live tests passed; group/healing coverage and known world-boss/PvP issues still need validation.",12,"#A7ADBA");details.Margin=new Thickness(0,10,0,0);news.Children.Add(details);
+        var news=new StackPanel();news.Children.Add(SettingsVisual.Text("WHAT'S NEW · v1.12.0",11,"#84B8AB"));
+        var details=SettingsVisual.Text("Clearer Combat and History views combine role-colored DPS/HPS charts, player statistics and skill breakdowns. Notifications fit their text and have one generic test button. Game Tweaks now includes independent visual-effect switches with configuration discovery and backups. Close Aion 2 to apply visual changes, then relaunch. DPS remains in Beta; known world-boss/PvP issues still need validation.",12,"#A7ADBA");details.Margin=new Thickness(0,10,0,0);news.Children.Add(details);
         var warning=SettingsVisual.Text("Known issue: party members' damage may stop updating during open-world bosses. This remains unresolved; DPS totals and rankings can be incomplete.",12,"#E4B986");warning.Margin=new Thickness(0,10,0,0);news.Children.Add(warning);
         var newsCard=SettingsVisual.Card(news,new Thickness(18,16,18,16));newsCard.Margin=new Thickness(0,20,0,0);generalPage.Children.Add(newsCard);
         var requirement=new StackPanel();requirement.Children.Add(SettingsVisual.Text("GAME DATA REQUIREMENT",10,"#929CAD"));npcMessage.Margin=new Thickness(0,10,0,0);requirement.Children.Add(npcMessage);
@@ -197,7 +212,7 @@ internal sealed class HelperSettings : Window {
     void UpdateNpcap(){var visibility=npcSupport.Required?Visibility.Visible:Visibility.Collapsed;if(npcCard.Visibility!=visibility)npcCard.Visibility=visibility;string message=UiLanguage.Text(npcSupport.Message,overlay.Language);if(npcMessage.Text!=message)npcMessage.Text=message;}
     void SelectSection(bool general){SelectModule(general?0:1);}
     void SelectModule(int module){
-        generalSelected=module==0;sectionTitle.Text=module==0?"General":module==1?"Progress bar":module==2?"FPS/Ping":module==3?"DPS Meter":module==4?"Notifications":"Game Tweaks";sectionSubtitle.Text=module==0?"App preferences":module==1?(staggerSelected?"Enemy stagger gauge":"Energy bar for dash and sprint"):module==2?"Frame rate and server latency, in separate widgets":module==3?"Combat damage · experimental alpha":module==4?"Useful alerts while you play":"Startup and optional game adjustments";
+        generalSelected=module==0;sectionTitle.Text=module==0?"General":module==1?"Progress bar":module==2?"FPS/Ping":module==3?"DPS Meter":module==4?"Notifications":"Game Tweaks";sectionSubtitle.Text=module==0?"App preferences":module==1?(staggerSelected?"Enemy stagger gauge":"Energy bar for dash and sprint"):module==2?"Frame rate and server latency, in separate widgets":module==3?"Combat analysis · Beta":module==4?"Useful alerts while you play":"Startup and optional game adjustments";
         generalPage.Visibility=module==0?Visibility.Visible:Visibility.Collapsed;performancePage.Visibility=module==2?Visibility.Visible:Visibility.Collapsed;dpsPage.Visibility=module==3?Visibility.Visible:Visibility.Collapsed;notificationPage.Visibility=module==4?Visibility.Visible:Visibility.Collapsed;gameTweaksPage.Visibility=module==5?Visibility.Visible:Visibility.Collapsed;if(module==5)gameTweaksPage.Open();progressTabs.Visibility=activationRow.Visibility=previewCard.Visibility=segmented.Visibility=scroller.Visibility=module==1?Visibility.Visible:Visibility.Collapsed;
         for(int n=0;n<6;n++){bool selected=n==module;sections[n].Background=SettingsVisual.Brush(selected?"#235DC7B0":"#0CFFFFFF");sections[n].Foreground=SettingsVisual.Brush(selected?"#A7E5D5":"#929CAD");sections[n].BorderBrush=SettingsVisual.Brush(selected?"#3067C7B0":"#10FFFFFF");}
         UiLanguage.Apply(this,overlay.Language);
@@ -271,6 +286,8 @@ internal sealed class HelperSettings : Window {
     internal void ShowNotifications(){SelectModule(4);}
     internal void VerifyNotifications(string root){SelectModule(4);notificationPage.Verify();var c=overlay.Configuration;c.Language="en";overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-notifications-en.png"));c.Language="es";overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-notifications-es.png"));if(sectionTitle.Text!="Notificaciones")throw new Exception("Notifications localization");}
     internal void ShowGameTweaks(){SelectModule(5);}
+    internal void ShowVisuals(){SelectModule(5);gameTweaksPage.SelectVisuals();}
+    internal void VerifyVisualMenu(string root){Directory.CreateDirectory(Path.Combine(root,"designs"));ShowVisuals();gameTweaksPage.VerifyVisuals();var c=overlay.Configuration;c.Language="en";overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-game-visuals-en.png"));c.Language="es";overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-game-visuals-es.png"));}
     internal void VerifyGameTweaks(string root){var original=overlay.Configuration;var en=original.Copy();en.Language="en";overlay.ApplyConfiguration(en);SelectModule(5);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-game-tweaks-en.png"));var cfg=overlay.Configuration;cfg.Language="es";overlay.ApplyConfiguration(cfg);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-game-tweaks-es.png"));if(sectionTitle.Text!="Ajustes del juego"||(string)sections[5].Content!="◉   Ajustes del juego")throw new Exception("Game tweaks live localization");}
     void SelectPerformance(bool ping){fpsPage.Visibility=ping?Visibility.Collapsed:Visibility.Visible;pingPage.Visibility=ping?Visibility.Visible:Visibility.Collapsed;for(int n=0;n<2;n++)performanceTabs[n].Background=SettingsVisual.Brush((n==1)==ping?"#3067C7B0":"#102F3542");}
     internal void ShowFps(){SelectModule(2);SelectPerformance(false);}
@@ -286,7 +303,7 @@ internal sealed class HelperSettings : Window {
         overlay.ApplyConfiguration(original);SelectProgress(false);
     }
     internal void ShowDps(){SelectModule(3);}
-    internal void RenderDpsSkills(string path){SelectModule(3);dpsPage.SelectSkills();SettingsVisual.RenderPreview(this,path);}
+    internal void RenderDpsSkills(string path){SelectModule(3);dpsPage.SelectSkills();SettingsVisual.RenderPreview(this,path);dpsPage.VerifyCombatLayout();}
     internal void ShowDpsHistory(){SelectModule(3);dpsPage.SelectHistory(true);}
     internal void VerifyDps(string root){SelectModule(3);dpsPage.Verify();var original=overlay.Configuration;var c=original.Copy();c.Language="en";c.Dps.Enabled=true;c.Dps.AutoHide=true;overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-en.png"));c.Language="es";overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-es.png"));dpsPage.RenderSections(Path.Combine(root,"designs"));overlay.CombatHistory.Add(DpsVerification.HistorySample(DpsHistory.UtcNow(),Math.Max(60,overlay.Configuration.Dps.HistoryMinimumSeconds)));dpsPage.SelectHistory(true);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-history-es.png"));dpsPage.RenderHistoryDetails(Path.Combine(root,"designs","settings-dps-history-players-es.png"));dpsPage.SelectHistory(false);overlay.CombatHistory.Clear();if(sectionTitle.Text!="Medidor de DPS")throw new Exception("DPS localization");overlay.ApplyConfiguration(original);}
     internal void VerifyFps(string root){SelectModule(2);fpsPage.Verify();pingPage.Verify();SelectPerformance(true);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-ping-en.png"));SelectPerformance(false);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-fps-en.png"));var cfg=overlay.Configuration;cfg.Language="es";overlay.ApplyConfiguration(cfg);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-fps-es.png"));SelectPerformance(true);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-ping-es.png"));SelectPerformance(false);if(sectionTitle.Text!="FPS/Ping")throw new Exception("FPS section localization");}

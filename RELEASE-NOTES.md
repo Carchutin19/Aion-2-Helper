@@ -1,3 +1,73 @@
+# Aion 2 Helper v1.12.0 Alpha — Combat UI, Adaptive Notifications and Visual Tweaks
+
+The application remains Alpha and the DPS Meter remains **Beta**. This update
+improves the interface and adds optional visual settings; it does not claim new
+combat-event coverage or fixes for the known open-world boss party-damage issue.
+
+## Combat and History
+
+- Reorganized DPS settings into **Combat / History / Configuration**. The separate
+  Skills tab is now integrated into Combat and selected history entries.
+- Added role-colored **average DPS/HPS comparison charts** with selectable players,
+  summary statistics and a compact skill breakdown. These are fight averages,
+  not instantaneous time-series graphs.
+- Switch between damage, healing done and healing received, select a player and
+  inspect contribution, supported critical statistics, highest hits and more.
+  Additional statistics expand when needed instead of overwhelming the table.
+- Removed skill and target IDs from the visible tables. Saved details and TXT
+  exports retain their identifiers; skills combine across targets without merging
+  different skill IDs that happen to share a name.
+- Improved responsive tables and scrolling throughout Settings. Mouse-wheel
+  input works over the menu content, including nested areas and scroll boundaries.
+- Retained fight deletion, player deletion, TXT export and history retention.
+  Older records remain readable without invented missing skill statistics.
+
+## Adaptive notifications
+
+- Notification backgrounds fit each message. Longer messages and names wrap;
+  shorter messages use smaller backgrounds.
+- Retained independent notification switches, position, colors, opacity, fades,
+  timing and sound. **Maximum width** controls wrapping and **Notification scale**
+  controls text and padding. Existing saved reference geometry is preserved.
+- Replaced the two Shugo test buttons with one generic **Test notification**.
+  The unlocked positioning sample remains silent.
+
+## Game Tweaks → Visuals
+
+- Independent **Depth of Field, Chromatic Aberration, Film Grain and Motion Blur**
+  switches. An unmodified INI defaults to all four enabled. Existing zero overrides
+  are reflected in the menu rather than silently reset.
+- Finds Engine.ini beneath **LocalAppData/AION2** for Steam and other launchers;
+  select the correct profile if several exist, or browse to the file manually.
+- **Apply visual changes** edits only the four supported renderer keys. Disabling
+  writes zero; enabling removes the disable override and uses game settings rather
+  than forcing an arbitrary quality level. Unrelated paths, DLSS/FSR settings,
+  sections, comments, encoding and line endings are preserved.
+- Verified backups and **Restore previous visual change** undo the last change.
+  Unrelated later edits are retained; conflicting visual edits or damaged backups
+  are rejected. Engine.ini remains writable; the helper does not set read-only.
+- **Changes with the game open are not guaranteed to take effect. Close Aion 2
+  before applying, then relaunch to check them.** Writes are blocked while Aion
+  runs. The helper does not inject console commands or repeatedly rewrite the INI.
+- Existing Startup intro skipping remains available in its own tab.
+
+## Validation and known limitations
+
+Local checks cover combat summaries/history, responsive layouts, scroll routing,
+notification fitting/fades/resources, INI editing/restore/discovery/conflicts,
+settings persistence, existing intro handling and FPS/Ping/progress regressions.
+Visual configuration writing and its backup were checked locally. **Actual visual
+effects still need testing after a game restart** and may depend on the game's
+supported Unreal variables and graphics settings. No performance claim for every
+PC is made.
+
+The DPS Meter is still Beta and incomplete. Live group/healing validation is
+ongoing; **party damage may stop updating at open-world bosses**, and **Energy Bar
+in PvP** remains pending. Effective healing/overhealing, causal buff bonuses,
+per-player stagger and unsupported combat events are not claimed as resolved.
+
+---
+
 # Aion 2 Helper v1.11.0 Alpha — DPS Meter Beta, Visibility and Stagger Animation
 
 The **DPS Meter is now in Beta**. We have made substantial progress on skill

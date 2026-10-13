@@ -267,6 +267,7 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--fps-native-test")return FpsEtw.Live(root);
         if(args.Length>0&&args[0]=="--fps-worker")return FpsWorker.Run(root,args);
         if(args.Length>0&&args[0]=="--game-tweaks-test"){try{GameTweaksVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"game-tweaks-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--visual-tweaks-test"){try{VisualTweaksVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"visual-tweaks-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--fps-test"){try{FpsSamples.Verify();FpsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"fps-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--settings-test") {try{SettingsVisual.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"settings-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ui-test") {try{BarDesign.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ui-test.txt"),"FAIL: "+ex);return 1;}}
@@ -279,7 +280,9 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--ui-preview"){Application.Run(new EnergyOverlay(root,true));return 0;}
         if(args.Length>0&&args[0]=="--notifications-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenNotificationSettings));};Application.Run(helper);return 0;}
         if(args.Length>0&&args[0]=="--game-tweaks-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenGameTweaksSettings));};Application.Run(helper);return 0;}
+        if(args.Length>0&&args[0]=="--visual-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenVisualSettings));};Application.Run(helper);return 0;}
         if(args.Length>0&&args[0]=="--fps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenFpsSettings));};Application.Run(overlay);return 0;}
+        if(args.Length>0&&args[0]=="--notifications-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenNotificationSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--ping-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenPingSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--stagger-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenStaggerSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--dps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsSettings));};Application.Run(overlay);return 0;}

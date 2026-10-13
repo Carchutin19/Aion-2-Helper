@@ -18,7 +18,7 @@ internal sealed class NotificationOptions {
     public Rectangle Bounds=new Rectangle(740,120,440,90);
     internal NotificationOptions Copy(){return (NotificationOptions)MemberwiseClone();}
     internal bool NeedsCapture {get{return Enabled&&(PartyInvites||DungeonInvites);}}
-    internal static bool SameAppearance(NotificationOptions a,NotificationOptions b){return a.BackgroundOpacity==b.BackgroundOpacity&&a.FontSize==b.FontSize&&a.Color==b.Color;}
+    internal static bool SameAppearance(NotificationOptions a,NotificationOptions b){return a.BackgroundOpacity==b.BackgroundOpacity&&a.FontSize==b.FontSize&&a.Color==b.Color&&a.Bounds.Size==b.Bounds.Size;}
     internal void Normalize(){BackgroundOpacity=Math.Max(0,Math.Min(255,BackgroundOpacity));FontSize=Math.Max(10,Math.Min(48,FontSize));Volume=Math.Max(0,Math.Min(100,Volume));DurationSeconds=Finite(DurationSeconds,6,1,60);FadeSeconds=Finite(FadeSeconds,.25,0,2);if(!EnergyBarOptions.ValidColor(Color))Color="#EEEEEE";Bounds=new Rectangle(Math.Max(-100000,Math.Min(100000,Bounds.X)),Math.Max(-100000,Math.Min(100000,Bounds.Y)),Math.Max(260,Math.Min(1600,Bounds.Width)),Math.Max(60,Math.Min(500,Bounds.Height)));}
     static double Finite(double value,double fallback,double min,double max){return double.IsNaN(value)||double.IsInfinity(value)?fallback:Math.Max(min,Math.Min(max,value));}
     internal static NotificationOptions Read(Dictionary<string,object> data){object value;var o=new NotificationOptions();if(data.TryGetValue("notifications",out value))try{o=new JavaScriptSerializer().ConvertToType<NotificationOptions>(value)??o;}catch{}o.Normalize();return o;}
@@ -100,19 +100,49 @@ internal sealed class NotificationAudio:IDisposable {
 }
 
 internal static class NotificationDesign {
+    internal sealed class Layout {internal Size Size;internal Rectangle Title,Body;internal int BodySize,TitleSize,Padding;internal string TitleText,BodyText;}
+    static string Title(string name,string language,bool sample,bool shugo,bool dungeon){return UiLanguage.Text(sample?"Notification":shugo?"Shugo Festival":dungeon?"Dungeon party invitation":"Party invitation",language);}
+    static string Body(string name,string language,bool sample,bool shugo,bool opening,bool dungeon){return sample?UiLanguage.Text("This is a sample notification.",language):shugo?UiLanguage.Text(opening?"You can now sign up for Shugo Festival.":"Shugo Festival starts in 5 minutes.",language):string.Format(UiLanguage.Text(dungeon?"{0} is inviting you to a dungeon party.":"{0} is inviting you to a party.",language),name);}
+    static string Wrap(string text,Font font,int width){
+        var output=new StringBuilder();var line=new StringBuilder();var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine;
+        foreach(string word in text.Split(new[]{' '},StringSplitOptions.RemoveEmptyEntries)){
+            string candidate=line.Length==0?word:line+" "+word;
+            if(line.Length>0&&TextRenderer.MeasureText(candidate,font,Size.Empty,flags).Width>width){output.AppendLine(line.ToString());line.Clear();}
+            if(TextRenderer.MeasureText(word,font,Size.Empty,flags).Width<=width){if(line.Length>0)line.Append(' ');line.Append(word);continue;}
+            var elements=System.Globalization.StringInfo.GetTextElementEnumerator(word);
+            while(elements.MoveNext()){string element=elements.GetTextElement();if(line.Length>0&&TextRenderer.MeasureText(line.ToString()+element,font,Size.Empty,flags).Width>width){output.AppendLine(line.ToString());line.Clear();}line.Append(element);}
+        }return output.Append(line).ToString();
+    }
+    internal static Layout Measure(int maximumWidth,int maximumHeight,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo=false,bool opening=false,bool dungeon=false){
+        bool sample=editing||name==null&&!shugo;string title=Title(name,language,sample,shugo,dungeon),text=Body(name,language,sample,shugo,opening,dungeon);
+        int limit=Math.Max(80,Math.Min(maximumWidth,o.Bounds.Width));double scale=o.Bounds.Height/90.0;int font=Math.Max(10,Math.Min(144,(int)Math.Round(o.FontSize*scale)));
+        var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.WordBreak;Layout result=null;
+        for(int attempt=0;attempt<20;attempt++){
+            int pad=Math.Max(8,(int)Math.Round(18.0*font/o.FontSize)),top=Math.Max(6,(int)Math.Round(10.0*font/o.FontSize)),gap=Math.Max(4,(int)Math.Round(5.0*font/o.FontSize));pad=Math.Min(pad,(limit-20)/2);int titleSize=Math.Max(10,(int)Math.Round(font*.75));int room=Math.Max(20,limit-pad*2);
+            var titleFont=workspace.Font(titleSize,true);var bodyFont=workspace.Font(font,false);
+            int natural=Math.Max(TextRenderer.MeasureText(title,titleFont,Size.Empty,TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine).Width,TextRenderer.MeasureText(text,bodyFont,Size.Empty,TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine).Width);
+            int inner=Math.Min(room,natural+2);string wrappedTitle=Wrap(title,titleFont,inner),wrappedBody=Wrap(text,bodyFont,inner);var titleMeasure=TextRenderer.MeasureText(wrappedTitle,titleFont,new Size(inner,int.MaxValue),flags);var bodyMeasure=TextRenderer.MeasureText(wrappedBody,bodyFont,new Size(inner,int.MaxValue),flags);
+            int titleHeight=titleMeasure.Height+2,bodyHeight=bodyMeasure.Height+2;result=new Layout{Size=new Size(inner+pad*2,titleHeight+bodyHeight+top*2+gap),Title=new Rectangle(pad,top,inner,titleHeight),Body=new Rectangle(pad,top+titleHeight+gap,inner,bodyHeight),BodySize=font,TitleSize=titleSize,Padding=pad,TitleText=wrappedTitle,BodyText=wrappedBody};
+            if(result.Size.Height<=maximumHeight||font==10)break;font=Math.Max(10,(int)Math.Floor(font*.9));
+        }return result;
+    }
+    internal static Bitmap RenderFitted(int maximumWidth,int maximumHeight,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo=false,bool opening=false,bool dungeon=false){var layout=Measure(maximumWidth,maximumHeight,name,language,o,editing,workspace,shugo,opening,dungeon);return RenderLayout(layout.Size.Width,layout.Size.Height,layout,o,editing,workspace);}
     internal static Bitmap Render(int width,int height,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace){
         return Render(width,height,name,language,o,editing,workspace,false);
     }
     internal static Bitmap Render(int width,int height,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo,bool opening=false,bool dungeon=false){
+        var layout=Measure(width,height,name,language,o,editing,workspace,shugo,opening,dungeon);return RenderLayout(width,height,layout,o,editing,workspace);
+    }
+    static Bitmap RenderLayout(int width,int height,Layout layout,NotificationOptions o,bool editing,FpsDesign.Workspace workspace){
         workspace.Prepare(width,height);var image=new Bitmap(width,height,PixelFormat.Format32bppPArgb);var mask=workspace.Mask;var mg=workspace.MaskGraphics;mg.Clear(Color.Black);
         using(var g=Graphics.FromImage(image)){g.SmoothingMode=SmoothingMode.AntiAlias;
             if(editing)using(var target=new SolidBrush(Color.FromArgb(1,0,0,0)))g.FillRectangle(target,0,0,width,height);
-            using(var shape=FpsDesign.Round(2,2,width-4,height-4,12))using(var background=new SolidBrush(Color.FromArgb(o.BackgroundOpacity,0,0,0)))g.FillPath(background,shape);
-            using(var shape=FpsDesign.Round(2.5f,2.5f,width-5,height-5,12))using(var pen=new Pen(Color.FromArgb(35,255,255,255)))g.DrawPath(pen,shape);
-            int pad=18,bodySize=Math.Min(o.FontSize,Math.Max(10,(height-22)/2)),titleHeight=Math.Max(16,(int)(bodySize*.9)),contentTop=Math.Max(titleHeight+12,(height-bodySize)/2);var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis|TextFormatFlags.VerticalCenter;
-            bool sample=editing||name==null&&!shugo;
-            TextRenderer.DrawText(mg,UiLanguage.Text(sample?"Notification":shugo?"Shugo Festival":dungeon?"Dungeon party invitation":"Party invitation",language),workspace.Font(Math.Max(10,bodySize*.75f),true),new Rectangle(pad,8,width-pad*2,titleHeight),Color.FromArgb(175,175,175),flags);
-            string text=sample?UiLanguage.Text("This is a sample notification.",language):shugo?UiLanguage.Text(opening?"You can now sign up for Shugo Festival.":"Shugo Festival starts in 5 minutes.",language):string.Format(UiLanguage.Text(dungeon?"{0} is inviting you to a dungeon party.":"{0} is inviting you to a party.",language),name);TextRenderer.DrawText(mg,text,workspace.Font(bodySize,false),new Rectangle(pad,contentTop,width-pad*2,Math.Max(bodySize+4,height-contentTop-10)),Color.White,flags);
+            float radius=Math.Min(12,layout.Size.Height/4f);
+            using(var shape=FpsDesign.Round(2,2,layout.Size.Width-4,layout.Size.Height-4,radius))using(var background=new SolidBrush(Color.FromArgb(o.BackgroundOpacity,0,0,0)))g.FillPath(background,shape);
+            using(var shape=FpsDesign.Round(2.5f,2.5f,layout.Size.Width-5,layout.Size.Height-5,radius))using(var pen=new Pen(Color.FromArgb(35,255,255,255)))g.DrawPath(pen,shape);
+            var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.WordBreak;
+            TextRenderer.DrawText(mg,layout.TitleText,workspace.Font(layout.TitleSize,true),layout.Title,Color.FromArgb(175,175,175),flags);
+            TextRenderer.DrawText(mg,layout.BodyText,workspace.Font(layout.BodySize,false),layout.Body,Color.White,flags);
             var data=mask.LockBits(new Rectangle(0,0,width,height),ImageLockMode.ReadWrite,PixelFormat.Format32bppArgb);try{var pixels=workspace.Pixels;int length=data.Stride*height;var tint=ColorTranslator.FromHtml(o.Color);Marshal.Copy(data.Scan0,pixels,0,length);for(int p=0;p<length;p+=4){byte alpha=Math.Max(pixels[p],Math.Max(pixels[p+1],pixels[p+2]));pixels[p]=tint.B;pixels[p+1]=tint.G;pixels[p+2]=tint.R;pixels[p+3]=alpha;}Marshal.Copy(pixels,0,data.Scan0,length);}finally{mask.UnlockBits(data);}g.DrawImageUnscaled(mask,0,0);
             if(editing)using(var pen=new Pen(Color.FromArgb(140,145,162,163))){pen.DashStyle=DashStyle.Dot;using(var shape=FpsDesign.Round(.5f,.5f,width-1,height-1,12))g.DrawPath(pen,shape);}
         }return image;
@@ -128,13 +158,13 @@ internal sealed class NotificationOverlay:Form {
     void CheckShugo(){hourly.Stop();if(disposed||preview||!options.Enabled||!options.ShugoFestival&&!options.ShugoOpening)return;DateTime utc=DateTime.UtcNow;bool advance=options.ShugoFestival&&shugoSchedule.Due(utc),opening=options.ShugoOpening&&shugoSchedule.DueOpening(utc);if((advance||opening)&&!editing&&ShugoSchedule.GameOpen()){shugoReminders++;lastShugoUtc=utc;ShowNotice(null,true,true,true,opening);}hourly.Interval=ShugoSchedule.NextCheck(DateTime.UtcNow);hourly.Start();}
     void Wake(){if(!IsHandleCreated||IsDisposed||System.Threading.Interlocked.CompareExchange(ref wakeQueued,1,0)!=0)return;try{BeginInvoke((Action)delegate{System.Threading.Interlocked.Exchange(ref wakeQueued,0);if(!disposed)Pulse();});}catch(InvalidOperationException){System.Threading.Interlocked.Exchange(ref wakeQueued,0);}}
     internal string AudioError {get{return audio.Error;}}
-    internal object WindowStatus {get{return new{enabled=options.Enabled,partyInvites=options.PartyInvites,dungeonInvites=options.DungeonInvites,activeDungeonInvitation=isDungeon,shugoFestival=options.ShugoFestival,shugoOpening=options.ShugoOpening,shugoReminders=shugoReminders,lastShugoUtc=lastShugoUtc==DateTime.MinValue?null:lastShugoUtc.ToString("o"),sound=options.Sound,visible=Visible,opacity=motion.Opacity,editing=editing,animationTimer=animation.Enabled,audioError=audio.Error,dispatchedUtc=dispatchedUtc,firstVisibleUtc=firstVisibleUtc,dispatchDelayMs=dispatchDelayMs,firstVisibleDelayMs=firstVisibleUtc==0?0:Math.Max(0,(firstVisibleUtc-dispatchedUtc)*1000)};}}
+    internal object WindowStatus {get{return new{x=Left,y=Top,width=Width,height=Height,autoSize=true,maximumWidth=options.Bounds.Width,scalePercent=options.Bounds.Height/90.0*100,enabled=options.Enabled,partyInvites=options.PartyInvites,dungeonInvites=options.DungeonInvites,activeDungeonInvitation=isDungeon,shugoFestival=options.ShugoFestival,shugoOpening=options.ShugoOpening,shugoReminders=shugoReminders,lastShugoUtc=lastShugoUtc==DateTime.MinValue?null:lastShugoUtc.ToString("o"),sound=options.Sound,visible=Visible,opacity=motion.Opacity,editing=editing,animationTimer=animation.Enabled,audioError=audio.Error,dispatchedUtc=dispatchedUtc,firstVisibleUtc=firstVisibleUtc,dispatchDelayMs=dispatchDelayMs,firstVisibleDelayMs=firstVisibleUtc==0?0:Math.Max(0,(firstVisibleUtc-dispatchedUtc)*1000)};}}
     internal void Configure(NotificationOptions value,bool locked){
         bool stopInvite=(options.PartyInvites&&!value.PartyInvites&&!isShugo&&!isDungeon)||(options.DungeonInvites&&!value.DungeonInvites&&!isShugo&&isDungeon)||(options.ShugoFestival&&!value.ShugoFestival&&isShugo&&!isShugoOpening)||(options.ShugoOpening&&!value.ShugoOpening&&isShugoOpening);
         bool changed=!NotificationOptions.SameAppearance(options,value)||language!=owner.Language||editing==locked;
         bool timing=options.Fade!=value.Fade||options.FadeSeconds!=value.FadeSeconds||options.DurationSeconds!=value.DurationSeconds;
         options=value.Copy();options.Normalize();signal.Configure(options);language=owner.Language;editing=!locked;
-        Rectangle target=DpsDesign.UsableBounds(options.Bounds);if(target.Size!=Size)changed=true;if(target!=Bounds)Bounds=target;
+        Rectangle target=editing?DpsDesign.UsableBounds(options.Bounds):FittedBounds(Size);if(target!=Bounds)Bounds=target;
         if(changed)valid=false;
         if(stopInvite){motion.Clear();animation.Stop();audio.Close();if(Visible)Hide();}
         if(!options.Sound)audio.Close();
@@ -147,6 +177,12 @@ internal sealed class NotificationOverlay:Form {
     internal void Test(){if(!options.Enabled)return;ShowNotice(null,true);}
     internal void TestShugo(){if(!options.Enabled||!options.ShugoFestival)return;ShowNotice(null,true,true,true);}
     internal void TestShugoOpening(){if(!options.Enabled||!options.ShugoOpening)return;ShowNotice(null,true,true,true,true);}
+    internal void VerifyAutoSize(){
+        var o=new NotificationOptions{Sound=false,Fade=false,FontSize=10};Configure(o,true);Test();Size small=Size;CheckAutoSize(small.Width<260&&small.Height<90,"Short locked notice must shrink below the old fixed minimum");
+        ShowNotice(new string('W',48),false,true,false,false,true);CheckAutoSize(Width>small.Width||Height>small.Height,"New longer message must expand native bounds");CheckAutoSize(options.Bounds==o.Bounds,"Automatic fitting must not overwrite the saved reference geometry");
+        Configure(o,false);CheckAutoSize(Size==DpsDesign.UsableBounds(o.Bounds).Size,"Unlocked sample keeps reference area resizable");o.PartyInvites=o.DungeonInvites=o.ShugoFestival=o.ShugoOpening=false;Configure(o,true);Test();CheckAutoSize(motion.Opacity==1&&!isShugo&&!isDungeon&&name==null,"Generic test remains independent of disabled categories");
+    }
+    static void CheckAutoSize(bool ok,string text){if(!ok)throw new Exception(text);}
     internal void VerifyDungeonNative(){
         var o=new NotificationOptions{Sound=false,Fade=false};Configure(o,true);ShowNotice("Example",false,true,false,false,true);
         int uploads=image.Uploads;o.PartyInvites=false;Configure(o,true);if(!isDungeon||motion.Opacity!=1||image.Uploads!=uploads)throw new Exception("Normal invitation switch must preserve active dungeon notice and cached glyphs");
@@ -194,11 +230,12 @@ internal sealed class NotificationOverlay:Form {
         double now=clock.Elapsed.TotalSeconds;bool active=motion.Step(now,options,editing);Schedule(active);
         bool shell=!preview&&DpsDesign.ShellUiActive();byte alpha=shell?(byte)0:(byte)Math.Round(motion.Opacity*255);
         if(alpha==0){if(Visible)Hide();return;}
-        if(!valid){using(var bitmap=NotificationDesign.Render(Width,Height,name,language,options,editing,workspace,isShugo,isShugoOpening,isDungeon))image.Upload(bitmap);valid=true;shownAlpha=0;}
+        if(!valid){var reference=DpsDesign.UsableBounds(options.Bounds);var area=Screen.FromRectangle(reference).WorkingArea;var layout=NotificationDesign.Measure(reference.Width,editing?reference.Height:area.Height,name,language,options,editing,workspace,isShugo,isShugoOpening,isDungeon);Bounds=editing?reference:FittedBounds(layout.Size);using(var bitmap=NotificationDesign.Render(Width,Height,name,language,options,editing,workspace,isShugo,isShugoOpening,isDungeon))image.Upload(bitmap);valid=true;shownAlpha=0;}
         if(alpha!=shownAlpha||shownLocation!=Location||!preview&&!Visible){image.Present(Handle,Left,Top,alpha);shownAlpha=alpha;shownLocation=Location;}
         if(!preview&&!Visible)Show();if(firstVisibleUtc==0&&dispatchedUtc>0)firstVisibleUtc=DpsHistory.UtcNow();
         if(!preview&&now-lastRaise>=1){OverlayNative.RaiseWithoutFocus(Handle);lastRaise=now;}
     }
+    Rectangle FittedBounds(Size size){var reference=options.Bounds;return DpsDesign.UsableBounds(new Rectangle(reference.X+(reference.Width-size.Width)/2,reference.Y+(reference.Height-size.Height)/2,size.Width,size.Height));}
     void SaveGeometry(){var c=owner.Configuration;c.Notifications.Bounds=Bounds;owner.ApplyConfiguration(c);}
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80|0x08000000)&~0x40000;return cp;}}
     protected override bool ShowWithoutActivation {get{return true;}}
@@ -209,7 +246,7 @@ internal sealed class NotificationOverlay:Form {
         if(m.Msg==0xa1&&editing){hit=m.WParam.ToInt32();if(hit==2||hit>=10&&hit<=17){dragging=true;dragStart=Bounds;mouseStart=Cursor.Position;Capture=true;m.Result=IntPtr.Zero;return;}}
         if(m.Msg==0x200&&dragging){Point delta=new Point(Cursor.Position.X-mouseStart.X,Cursor.Position.Y-mouseStart.Y);Rectangle previous=Bounds;Bounds=DpsDesign.UsableBounds(hit==2?new Rectangle(dragStart.X+delta.X,dragStart.Y+delta.Y,dragStart.Width,dragStart.Height):NotificationDesign.Resize(dragStart,delta,hit));if(Size!=previous.Size)valid=false;Pulse();m.Result=IntPtr.Zero;return;}
         if((m.Msg==0x202||m.Msg==0xa2||m.Msg==0x215)&&dragging){dragging=false;Capture=false;SaveGeometry();m.Result=IntPtr.Zero;return;}
-        if(m.Msg==0x46){var p=(OverlayNative.WindowPos)Marshal.PtrToStructure(m.LParam,typeof(OverlayNative.WindowPos));if((p.Flags&1)==0){p.Width=Math.Max(260,Math.Min(1600,p.Width));p.Height=Math.Max(60,Math.Min(500,p.Height));Marshal.StructureToPtr(p,m.LParam,false);}}
+        if(m.Msg==0x46){var p=(OverlayNative.WindowPos)Marshal.PtrToStructure(m.LParam,typeof(OverlayNative.WindowPos));if((p.Flags&1)==0){p.Width=Math.Max(editing?260:80,Math.Min(1600,p.Width));p.Height=Math.Max(editing?60:20,Math.Min(editing?500:Screen.FromRectangle(options.Bounds).WorkingArea.Height,p.Height));Marshal.StructureToPtr(p,m.LParam,false);}}
         base.WndProc(ref m);
     }
     protected override void Dispose(bool disposing){if(disposing&&!disposed){disposed=true;signal.OnPending=null;hourly.Stop();hourly.Dispose();animation.Stop();animation.Dispose();audio.Dispose();image.Dispose();workspace.Dispose();}base.Dispose(disposing);}

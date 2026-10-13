@@ -1,4 +1,4 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <SolidColorBrush x:Key="Ink" Color="#F0F1F5"/>
   <SolidColorBrush x:Key="Muted" Color="#969CAB"/>
   <SolidColorBrush x:Key="Accent" Color="#67C7B0"/>
@@ -139,9 +139,10 @@
     <Style.Triggers><Trigger Property="Orientation" Value="Horizontal"><Setter Property="Width" Value="Auto"/><Setter Property="Height" Value="10"/></Trigger></Style.Triggers>
   </Style>
   <Style x:Key="SlimScroll" TargetType="ScrollViewer">
+    <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Template"><Setter.Value>
       <ControlTemplate TargetType="ScrollViewer">
-        <Grid>
+        <Grid Background="{TemplateBinding Background}">
           <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/></Grid.ColumnDefinitions>
           <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="{TemplateBinding CanContentScroll}"/>
           <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Orientation="Vertical" Style="{StaticResource {x:Type ScrollBar}}" Minimum="0" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Value="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
@@ -156,6 +157,19 @@
     <Setter Property="RowBackground" Value="#3010151C"/><Setter Property="AlternatingRowBackground" Value="#201C242C"/>
     <Setter Property="RowHeight" Value="32"/><Setter Property="FontSize" Value="12"/>
     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/><Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+  </Style>
+  <Style TargetType="Expander">
+    <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander">
+      <StackPanel>
+        <ToggleButton x:Name="HeaderToggle" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Background="Transparent" BorderThickness="0" Foreground="{TemplateBinding Foreground}" HorizontalContentAlignment="Left" Cursor="Hand">
+          <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" Padding="0,6"><StackPanel Orientation="Horizontal"><TextBlock x:Name="Chevron" Text="›" Foreground="{StaticResource Accent}" Margin="0,0,8,0"/><ContentPresenter VerticalAlignment="Center"/></StackPanel></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Chevron" Property="Text" Value="⌄"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers></ControlTemplate></ToggleButton.Template>
+          <ContentPresenter Content="{TemplateBinding Header}"/>
+        </ToggleButton>
+        <ContentPresenter x:Name="Details" Content="{TemplateBinding Content}" Visibility="Collapsed"/>
+      </StackPanel>
+      <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="Details" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers>
+    </ControlTemplate></Setter.Value></Setter>
   </Style>
   <Style TargetType="DataGridColumnHeader">
     <Setter Property="Background" Value="#F01B232B"/><Setter Property="Foreground" Value="{StaticResource Muted}"/>
