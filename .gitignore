@@ -50,4 +50,5 @@ __pycache__/
 # Private game-tweak preferences and imported mod research
 /game-tweaks.json
 /visual-tweaks.json
+/intro-status.txt
 /assets/startup/black.bmp

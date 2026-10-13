@@ -14,13 +14,14 @@ internal sealed class IntroTweaks {
     internal const string ReplacementHash="afbf665659bda86a01e139cf872f8e007591935ae8805eeac0ff9b0d9908b307";
     // Read-only migration path for the unsuccessful rename prototype.
     internal const string DisabledSuffix=".aion2helper-disabled";
-    readonly string preferences,backupBase;readonly Func<bool> gameRunning;
+    readonly string preferences,backupBase,diagnosticPath;readonly Func<bool> gameRunning;string recordDiagnostic="";
+    internal string Diagnostics="";
     internal string GameFolder="";
     internal sealed class Preferences {public string GameFolder="";}
     internal sealed class Manifest {public int Version=3;public string Mode="blank-v1",GameFolder,OriginalHash,ReplacementHash;}
     internal sealed class State {internal bool Active,CanApply,CanRestore,Running;internal string Message;}
     internal IntroTweaks(string root,string backups=null,Func<bool> running=null){
-        preferences=Path.Combine(root,"game-tweaks.json");backupBase=backups??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Aion2Helper","IntroBackups");gameRunning=running??Running;
+        preferences=Path.Combine(root,"game-tweaks.json");diagnosticPath=Path.Combine(root,"intro-status.txt");backupBase=backups??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Aion2Helper","IntroBackups");gameRunning=running??Running;
         try{if(File.Exists(preferences)&&new FileInfo(preferences).Length<32768){var p=new JavaScriptSerializer().Deserialize<Preferences>(File.ReadAllText(preferences));if(p!=null)GameFolder=p.GameFolder??"";}}catch(IOException){}catch(UnauthorizedAccessException){}catch(ArgumentException){}catch(InvalidOperationException){}
     }
     internal static bool Running(){var processes=Process.GetProcessesByName("AION2");try{return processes.Length!=0;}finally{foreach(var p in processes)p.Dispose();}}
@@ -41,14 +42,19 @@ internal sealed class IntroTweaks {
     internal void ChooseFolder(string folder){string before=GameFolder;try{GameFolder=Canonical(folder);Target();Save();}catch{GameFolder=before;throw;}}
     void Save(){Atomic(preferences,Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(new Preferences{GameFolder=GameFolder})));}
     internal static string FindGameFolder(){return GameInstallation.Find();}
-    Manifest ReadManifest(){string file=Path.Combine(BackupDirectory(),"active.json");NoLinks(file);if(!File.Exists(file))return null;if(new FileInfo(file).Length>32768)throw new InvalidOperationException("The saved intro backup record is invalid.");Manifest m;
-        try{m=new JavaScriptSerializer().Deserialize<Manifest>(File.ReadAllText(file));}catch{throw new InvalidOperationException("The saved intro backup record is invalid.");}
-        if(m==null||!((m.Version==2&&m.Mode=="rename-v1")||(m.Version==3&&m.Mode=="blank-v1"&&m.ReplacementHash==ReplacementHash))||!string.Equals(m.GameFolder,Canonical(GameFolder),StringComparison.OrdinalIgnoreCase)||!ValidHash(m.OriginalHash)||m.OriginalHash==ReplacementHash)throw new InvalidOperationException("The saved intro backup record is invalid.");return m;
+    Manifest ReadManifest(){string file=Path.Combine(BackupDirectory(),"active.json");recordDiagnostic="Record: "+file;NoLinks(file);if(!File.Exists(file)){recordDiagnostic+="\r\nRecord missing";return null;}if(new FileInfo(file).Length>32768)throw new InvalidOperationException("The saved intro backup record is invalid.");Manifest m;
+        try{m=new JavaScriptSerializer().Deserialize<Manifest>(File.ReadAllText(file));}catch(Exception error){recordDiagnostic+="\r\nRead error: "+error;throw new InvalidOperationException("The intro backup record could not be read. Copy intro diagnostics to report this problem.",error);}
+        if(m==null)throw new InvalidOperationException("The saved intro backup record is invalid.");
+        recordDiagnostic+="\r\nRecord version: "+m.Version+"; mode: "+m.Mode+"\r\nRecord folder: "+m.GameFolder+"\r\nOriginal hash: "+m.OriginalHash+"\r\nReplacement hash: "+m.ReplacementHash;
+        if(!((m.Version==2&&m.Mode=="rename-v1")||(m.Version==3&&m.Mode=="blank-v1")))throw new InvalidOperationException("The intro backup belongs to an unsupported format.");
+        if(m.Version==3&&m.ReplacementHash!=ReplacementHash)throw new InvalidOperationException("The intro backup uses a different replacement video.");
+        if(!string.Equals(m.GameFolder,Canonical(GameFolder),StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("The intro backup belongs to a different game folder.");
+        if(!ValidHash(m.OriginalHash)||m.OriginalHash==ReplacementHash)throw new InvalidOperationException("The intro backup contains an invalid original hash.");return m;
     }
     static bool ValidHash(string value){if(value==null||value.Length!=64)return false;foreach(char c in value)if(!((c>='0'&&c<='9')||(c>='a'&&c<='f')))return false;return true;}
     byte[] Backup(Manifest m){string path=Path.Combine(BackupDirectory(),m.OriginalHash,"original.bk2");if(!File.Exists(path))throw new InvalidOperationException("The original intro backup is missing. Repair the game files to recover it.");byte[] bytes=ReadVideo(path);if(Hash(bytes)!=m.OriginalHash)throw new InvalidOperationException("The original intro backup failed verification. No game file was changed.");return bytes;}
-    internal State Inspect(){var s=new State();try{
-        if(string.IsNullOrEmpty(GameFolder)){s.Message="Select the game folder to check its intro.";return s;}
+    internal State Inspect(){var s=new State();recordDiagnostic="";try{
+        if(string.IsNullOrEmpty(GameFolder)){s.Message="Select the game folder to check its intro.";return Report(s);}
         string target=Target(),retained=target+DisabledSuffix;s.Running=gameRunning();
         if(File.Exists(target)){byte[] bytes=ReadVideo(target);if(Hash(bytes)==ReplacementHash){Manifest m=ReadManifest();if(m==null||m.Version!=3)throw new InvalidOperationException("The saved intro backup record is invalid.");Backup(m);s.Active=true;s.CanRestore=!s.Running;s.Message="Intro skipping is active. A verified backup is available.";}
             else{if(bytes.Length<128)throw new InvalidOperationException("The intro video has an unsupported size.");s.Message="The intro video is available. Skipping is disabled.";s.CanApply=!s.Running;}}
@@ -56,7 +62,10 @@ internal sealed class IntroTweaks {
             if(File.Exists(retained)&&Hash(ReadVideo(retained))!=m.OriginalHash)throw new InvalidOperationException("The retained intro changed. Its current file will be preserved.");
             s.Active=true;s.CanRestore=!s.Running;s.Message=m.Version==2?"The previous rename method is active. Restore the original before applying the new method.":"The startup video is missing. Restore the original from its verified backup.";}
         if(s.Running)s.Message="Close Aion 2 before applying or restoring this tweak.";
-    }catch(Exception e){s.Message=e.Message;s.CanApply=s.CanRestore=false;}return s;}
+    }catch(Exception e){s.Message=e.Message;s.CanApply=s.CanRestore=false;recordDiagnostic+="\r\nInspect error: "+e;}return Report(s);}
+    State Report(State s){
+        Diagnostics="Aion 2 Helper "+typeof(IntroTweaks).Assembly.GetName().Version+"\r\nUser: "+Environment.UserName+"\r\nGame folder: "+GameFolder+"\r\nBackup base: "+backupBase+"\r\nStatus: "+s.Message+"\r\nActive: "+s.Active+"; can restore: "+s.CanRestore+"; game running: "+s.Running+"\r\n"+recordDiagnostic;
+        try{File.WriteAllText(diagnosticPath,Diagnostics,Encoding.UTF8);}catch(IOException){}catch(UnauthorizedAccessException){}return s;}
     void RequireClosed(){if(gameRunning())throw new InvalidOperationException("Close Aion 2 before applying or restoring this tweak.");}
     internal void Apply(){RequireClosed();string target=Target(),retained=target+DisabledSuffix,directory=BackupDirectory();using(var mutex=new Mutex(false,"Local\\Aion2Helper-Intro-"+Path.GetFileName(directory))){bool owned=false;try{
         try{owned=mutex.WaitOne(0);}catch(AbandonedMutexException){owned=true;}if(!owned)throw new InvalidOperationException("Another intro operation is in progress.");

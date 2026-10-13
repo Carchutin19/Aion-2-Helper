@@ -1,3 +1,37 @@
+# Aion 2 Helper v1.12.1 Alpha — Intro Status Recovery and Diagnostics
+
+This hotfix addresses the reported intro backup/status warning and adds the
+details needed to investigate it if it returns. In the local retest, the helper
+correctly recognized the active intro skip and its verified original backup;
+**the installed video and original backup remained unchanged**. The precise
+cause of the previous live-menu rejection was not captured, so this is not a
+claim that every possible intro warning has been resolved.
+
+- Specific errors now distinguish unreadable JSON/records, unsupported formats,
+  a different replacement video, a different game folder and an invalid original
+  hash instead of grouping them into one generic warning.
+- Added **Copy intro diagnostics** under Game Tweaks → Startup. Reports include
+  the helper version, selected/backup paths, record state and error details.
+- Diagnostic output is local in **intro-status.txt**; nothing is uploaded
+  automatically. Reports contain local paths/user information, so review them
+  before posting publicly. Diagnostics are excluded from Git and the release ZIP.
+- Refreshing status rebuilds the report and clears previous diagnostic detail.
+  Reading status never applies the intro tweak or changes the backup/video.
+- Removed the small Startup caption and introductory paragraph below the title.
+  The controls, backup guidance and separate Visuals tab remain available.
+- Strict record/hash checks, verified backups and game-closed apply/restore
+  requirements remain in place; invalid metadata does not enable restoration.
+
+Validated with intro/video preservation, specific record-error cases, successful
+refresh after restoring valid metadata, restoration/update/migration fixtures,
+visual-tweak regressions and general Settings checks. The user confirmed that
+the intro is now recognized correctly in the locally updated helper.
+
+The application remains Alpha, the DPS Meter remains Beta, and existing combat,
+Energy PvP and visual-effect validation limits are unchanged.
+
+---
+
 # Aion 2 Helper v1.12.0 Alpha — Combat UI, Adaptive Notifications and Visual Tweaks
 
 The application remains Alpha and the DPS Meter remains **Beta**. This update

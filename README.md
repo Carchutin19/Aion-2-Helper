@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.12.0 release — Combat UI, Notifications and Visual Tweaks](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.12.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.12.0/Aion-2-Helper-v1.12.0-windows-x64.zip).
+The [v1.12.1 release — Intro Status Recovery and Diagnostics](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.12.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.12.1/Aion-2-Helper-v1.12.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy/Stagger bars, DPS Meter and invitation notifications;
@@ -30,6 +30,22 @@ Aion 2 Helper is a community project designed to keep useful information visible
 while you play, with movable widgets, a clean interface, and a focus on low overhead.
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
+
+## New in v1.12.1: Intro status recovery and diagnostics
+
+**The v1.12.1 ZIP includes this hotfix and all v1.12.0 features.** Intro status
+was recovered in the reported local case with the installed video and original
+backup unchanged. The exact earlier cause was not captured; persistent warnings
+still need diagnostic evidence.
+
+- Specific intro record errors replace the generic warning where possible.
+- **Game Tweaks → Startup → Copy intro diagnostics** provides version, paths,
+  record state and error details for feedback. Reports stay local and may contain
+  your Windows username/paths; review them before sharing publicly.
+- Cleaner Startup menu; intro apply/restore protections remain intact.
+
+If a warning persists, click **Refresh status**, then copy the diagnostic report.
+See [release notes](RELEASE-NOTES.md) for details.
 
 ## New in v1.12.0: Combat UI, adaptive notifications and visual tweaks
 
