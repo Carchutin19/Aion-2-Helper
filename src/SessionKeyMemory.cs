@@ -10,7 +10,7 @@ using System.Text;
 // Only QUERY_INFORMATION | VM_READ. No writes, injection, or full-memory fallback.
 // Used by the exact-distance worker only, after a captured game handshake.
 internal sealed class SessionKeyMemory:IDisposable {
-    [StructLayout(LayoutKind.Sequential)] struct Region {internal IntPtr Base,Allocation;internal uint AllocationProtection;internal UIntPtr Size;internal uint State,Protection,Type;}
+    [StructLayout(LayoutKind.Sequential)] internal struct Region {internal IntPtr Base,Allocation;internal uint AllocationProtection;internal UIntPtr Size;internal uint State,Protection,Type;}
     [StructLayout(LayoutKind.Sequential)] struct Module {internal IntPtr Base;internal uint Size;internal IntPtr Entry;}
     [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr OpenProcess(uint access,bool inherit,int pid);
     [DllImport("kernel32.dll")] static extern bool GetExitCodeProcess(IntPtr process,out uint code);
@@ -20,12 +20,17 @@ internal sealed class SessionKeyMemory:IDisposable {
     [DllImport("psapi.dll",SetLastError=true)] static extern bool EnumProcessModulesEx(IntPtr process,[Out]IntPtr[] modules,int size,out int needed,uint flags);
     [DllImport("psapi.dll",SetLastError=true)] static extern bool GetModuleInformation(IntPtr process,IntPtr module,out Module info,int size);
     [DllImport("psapi.dll",CharSet=CharSet.Unicode)] static extern uint GetModuleBaseNameW(IntPtr process,IntPtr module,StringBuilder name,int size);
-    IntPtr handle;int processId;long vtable,owner;
+    IntPtr handle;int processId;long vtable,owner,stateA,stateB,scanAfter;bool ownerScanned;
+    readonly Func<long,int,byte[]> fixtureRead;readonly Func<long,long,IEnumerable<Region>> fixtureRegions;
+    internal SessionKeyMemory(){}
+    internal SessionKeyMemory(long table,Func<long,int,byte[]> read,Func<long,long,IEnumerable<Region>> regions){vtable=table;fixtureRead=read;fixtureRegions=regions;}
     static readonly byte?[] Signature=Pattern("B9 38 01 00 00 E8 ?? ?? ?? ?? 48 8B D8 48 85 C0 0F 84 ?? ?? ?? ?? 48 89 6C 24 30 48 8D 0D ?? ?? ?? ?? 48 89 74 24 38 33 D2 BE 01 00 00 00 41 B8 00 01 00 00 89 70 08 89 70 0C 48 8D 05 ?? ?? ?? ?? 48 89 03");
     static byte?[] Pattern(string source){var parts=source.Split(' ');var result=new byte?[parts.Length];for(int i=0;i<parts.Length;i++)if(parts[i]!="??")result[i]=Convert.ToByte(parts[i],16);return result;}
-    byte[] Read(long address,int size){if(address<=0||size<0||size>8*1024*1024)return null;var data=new byte[size];UIntPtr actual;return ReadProcessMemory(handle,new IntPtr(address),data,new UIntPtr((uint)size),out actual)&&actual.ToUInt64()==(ulong)size?data:null;}
+    byte[] Read(long address,int size){if(address<=0||size<0||size>8*1024*1024)return null;if(fixtureRead!=null)return fixtureRead(address,size);var data=new byte[size];UIntPtr actual;return ReadProcessMemory(handle,new IntPtr(address),data,new UIntPtr((uint)size),out actual)&&actual.ToUInt64()==(ulong)size?data:null;}
+    bool ReadBlock(long address,byte[] block){if(fixtureRead!=null){var data=fixtureRead(address,block.Length);if(data==null||data.Length!=block.Length)return false;Buffer.BlockCopy(data,0,block,0,block.Length);return true;}UIntPtr actual;return ReadProcessMemory(handle,new IntPtr(address),block,new UIntPtr((uint)block.Length),out actual)&&actual.ToUInt64()==(ulong)block.Length;}
+    internal bool SearchPending {get{return scanAfter!=0;}}
     static bool Usable(Region r){return r.State==0x1000&&(r.Protection&0x101)==0;}
-    IEnumerable<Region> Regions(long start,long end){long at=start;int queries=0;while(at<end&&queries++<100000){Region r;if(VirtualQueryEx(handle,new IntPtr(at),out r,new UIntPtr((uint)Marshal.SizeOf(typeof(Region))))==UIntPtr.Zero)yield break;long next=r.Base.ToInt64()+(long)r.Size.ToUInt64();if(next<=at)yield break;at=next;if(r.Base.ToInt64()<end&&next>start)yield return r;}}
+    IEnumerable<Region> Regions(long start,long end){if(fixtureRegions!=null){foreach(var r in fixtureRegions(start,end))yield return r;yield break;}long at=start;int queries=0;while(at<end&&queries++<100000){Region r;if(VirtualQueryEx(handle,new IntPtr(at),out r,new UIntPtr((uint)Marshal.SizeOf(typeof(Region))))==UIntPtr.Zero)yield break;long next=r.Base.ToInt64()+(long)r.Size.ToUInt64();if(next<=at)yield break;at=next;if(r.Base.ToInt64()<end&&next>start)yield return r;}}
     void Open(int pid,Func<bool> cancelled){Dispose();handle=OpenProcess(0x410,false,pid);if(handle==IntPtr.Zero)throw new Win32Exception(Marshal.GetLastWin32Error());processId=pid;try{
         var modules=new IntPtr[1024];int needed;if(!EnumProcessModulesEx(handle,modules,modules.Length*IntPtr.Size,out needed,3)||needed<=0||needed>modules.Length*IntPtr.Size)throw new InvalidOperationException("Cannot identify Aion module");
         var name=new StringBuilder(1024);GetModuleBaseNameW(handle,modules[0],name,name.Capacity);if(!name.ToString().Equals("AION2.exe",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Exact distance only reads AION2.exe");
@@ -38,15 +43,26 @@ internal sealed class SessionKeyMemory:IDisposable {
     static bool Slots(byte[] block,int at){long a=BitConverter.ToInt64(block,at+16),b=BitConverter.ToInt64(block,at+32);return BitConverter.ToInt64(block,at)!=0&&BitConverter.ToInt64(block,at+8)!=0&&a>0x10&&b>0x10&&BitConverter.ToInt64(block,at+24)==a-0x10&&BitConverter.ToInt64(block,at+40)==b-0x10;}
     byte[] Owner(long candidate){var slots=Read(candidate+0xe10,0x30);if(slots==null||!Slots(slots,0))return null;byte[] first=State(BitConverter.ToInt64(slots,16)),second=State(BitConverter.ToInt64(slots,32));bool same=first!=null&&second!=null;if(same)for(int i=0;i<214;i++)same&=first[i]==second[i];if(second!=null)Array.Clear(second,0,second.Length);if(same)return first;if(first!=null)Array.Clear(first,0,first.Length);return null;}
     static bool Equal(byte[] a,byte[] b){if(a==null||b==null||a.Length!=b.Length)return false;bool equal=true;for(int i=0;i<a.Length;i++)equal&=a[i]==b[i];return equal;}
-    static bool Accepted(byte[] key,Func<byte[],bool> matches){if(key==null)return false;if(matches==null||matches(key))return true;Array.Clear(key,0,key.Length);return false;}
-    internal byte[] ReadKey(int pid,Func<bool> cancelled,Func<byte[],bool> matches=null){uint exit;if(handle==IntPtr.Zero||processId!=pid||!GetExitCodeProcess(handle,out exit)||exit!=259)Open(pid,cancelled);if(cancelled())throw new OperationCanceledException();        if(owner!=0){var key=Owner(owner);if(Accepted(key,matches))return key;owner=0;}
-        var regions=new List<Region>();foreach(var region in Regions(0x200000000,0x300000000)){if(cancelled())throw new OperationCanceledException();uint p=region.Protection&255;if(Usable(region)&&region.Type==0x20000&&region.Size.ToUInt64()==65536&&(p==4||p==8||p==0x40||p==0x80))regions.Add(region);}
-        regions.Reverse();long bytes=0;foreach(var region in regions){if(cancelled())throw new OperationCanceledException();bytes+=65536;if(bytes>256L*1024*1024)break;var block=Read(region.Base.ToInt64(),65536);if(block==null)continue;for(int at=0;at<=block.Length-0xe40;at+=8){if(BitConverter.ToInt64(block,at)!=vtable+0x148)continue;long candidate=region.Base.ToInt64()+at;var key=Owner(candidate);if(Accepted(key,matches)){owner=candidate;return key;}}
+    static bool Accepted(byte[] key,Func<byte[],bool> matches){if(key==null)return false;bool accepted=false;try{accepted=matches==null||matches(key);return accepted;}finally{if(!accepted)Array.Clear(key,0,key.Length);}}
+    internal byte[] ReadKey(int pid,Func<bool> cancelled,Func<byte[],bool> matches=null){uint exit;if(fixtureRead==null&&(handle==IntPtr.Zero||processId!=pid||!GetExitCodeProcess(handle,out exit)||exit!=259))Open(pid,cancelled);if(cancelled())throw new OperationCanceledException();if(stateA!=0&&stateB!=0){var a=State(stateA);var b=State(stateB);bool valid=Equal(a,b);if(b!=null)Array.Clear(b,0,b.Length);if(valid&&Accepted(a,matches))return a;if(a!=null)Array.Clear(a,0,a.Length);stateA=stateB=0;}
+        if(owner!=0){var key=Owner(owner);if(Accepted(key,matches))return key;owner=0;}
+        var regions=new List<Region>();if(!ownerScanned)foreach(var region in Regions(0x200000000,0x300000000)){if(cancelled())throw new OperationCanceledException();uint p=region.Protection&255;if(Usable(region)&&region.Type==0x20000&&region.Size.ToUInt64()==65536&&(p==4||p==8||p==0x40||p==0x80))regions.Add(region);}ownerScanned=true;
+        regions.Reverse();long bytes=0;var block=new byte[65536];var clock=System.Diagnostics.Stopwatch.StartNew();foreach(var region in regions){if(cancelled())throw new OperationCanceledException();bytes+=65536;if(bytes>64L*1024*1024||clock.ElapsedMilliseconds>500)break;if(!ReadBlock(region.Base.ToInt64(),block))continue;for(int at=0;at<=block.Length-0xe40;at+=8){if(BitConverter.ToInt64(block,at)!=vtable+0x148)continue;long candidate=region.Base.ToInt64()+at;var key=Owner(candidate);if(Accepted(key,matches)){owner=candidate;return key;}}
             // Same bounded owner arena: some owner variants use another vtable.
             // Validate both complete state objects; never scan all private memory.
             for(int at=0;at<=block.Length-0x30;at+=16){if(!Slots(block,at))continue;long candidate=region.Base.ToInt64()+at-0xe10;if(candidate<=0)continue;var key=Owner(candidate);if(Accepted(key,matches)){owner=candidate;return key;}}
         }
-        return null;
+        return LocateStatePair(cancelled,matches);
     }
-    public void Dispose(){if(handle!=IntPtr.Zero){CloseHandle(handle);handle=IntPtr.Zero;}processId=0;vtable=owner=0;}
+    byte[] LocateStatePair(Func<bool> cancelled,Func<byte[],bool> matches){
+        // Address layouts change between launches. Only bounded writable private
+        // 64-KiB allocations are examined; no unrestricted large-region scan.
+        var candidates=new List<KeyValuePair<long,byte[]>>();long bytes=0;var block=new byte[65536];var clock=System.Diagnostics.Stopwatch.StartNew();try{foreach(var region in Regions(scanAfter,0x7fffffffffff)){if(cancelled())throw new OperationCanceledException();if(bytes>=128L*1024*1024||clock.ElapsedMilliseconds>750)return null;scanAfter=region.Base.ToInt64()+(long)region.Size.ToUInt64();uint p=region.Protection&255;if(!Usable(region)||region.Type!=0x20000||region.Size.ToUInt64()!=65536||(p!=4&&p!=8&&p!=0x40&&p!=0x80))continue;bytes+=65536;if(!ReadBlock(region.Base.ToInt64(),block))continue;for(int at=0;at<=block.Length-8;at+=8){if(BitConverter.ToInt64(block,at)!=vtable)continue;long address=region.Base.ToInt64()+at;byte[] key=State(address);if(key==null)continue;
+                // A received handshake is the authority: an allocated state alone
+                // is not enough. This also works when its paired state moved.
+                if(matches!=null&&Accepted(key,matches)){stateA=stateB=address;scanAfter=0;return key;}
+                if(matches!=null)continue;
+                bool retained=false;foreach(var candidate in candidates)if(Equal(key,candidate.Value)){stateA=candidate.Key;stateB=address;scanAfter=0;return key;}if(candidates.Count<32){candidates.Add(new KeyValuePair<long,byte[]>(address,key));retained=true;}if(!retained)Array.Clear(key,0,key.Length);}}scanAfter=0;return null;}finally{foreach(var candidate in candidates)Array.Clear(candidate.Value,0,candidate.Value.Length);}
+    }
+    public void Dispose(){if(handle!=IntPtr.Zero){CloseHandle(handle);handle=IntPtr.Zero;}processId=0;vtable=owner=stateA=stateB=scanAfter=0;ownerScanned=false;}
 }

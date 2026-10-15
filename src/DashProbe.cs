@@ -293,6 +293,7 @@ internal static class Entry {
         if(args.Length==2&&args[0]=="--apply-update")return UpdateRuntime.Apply(args[1]);
         if(args.Length==1&&args[0]=="--update-health-check"){try{UpdateInstaller.HealthCheck(root);return 0;}catch{return 1;}}
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+        if(args.Length==1&&args[0]=="--updated")UpdateManager.Shared.CheckAsync();
         bool normalLaunch=args.Length==0||args[0]=="--overlay"||args[0]=="--settings";
         if(normalLaunch&&UpdateRuntime.Startup(root))return 0;
         if(args.Length>0&&args[0]=="--ui-preview"){Application.Run(new EnergyOverlay(root,true));return 0;}

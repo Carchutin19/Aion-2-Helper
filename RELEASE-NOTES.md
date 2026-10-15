@@ -1,3 +1,89 @@
+# Aion 2 Helper v1.13.1 Alpha — Experimental Distance Recovery
+
+This patch improves the **optional experimental enemy-distance reader** and is
+the first published update offered to v1.13.0's new in-app updater. Enemy health,
+enemy target and exact distance remain **experimental**; DPS remains Beta.
+
+## What caused the missing metres
+
+The earlier session-key locator assumed the supported game objects stayed in a
+particular allocation arena. A game restart or different allocation layout could
+move them outside that arena. Repeating the same search then failed even though
+the game continued sending movement. In addition, an old connection could keep
+requesting its missing key and leave a stale error after another connection had
+already started producing valid distances. Opening the helper late can still
+miss the initial handshake; this separate startup limitation remains.
+
+## Reader changes
+
+- Retains a fast, bounded lookup for the previously observed layout, then can
+  locate supported state objects in other committed writable private **64-KiB**
+  allocations. It does not fall back to an unrestricted full-memory dump.
+- Broader searches process at most **128 MiB / 750 ms per chunk**, stop at the
+  first reached bound, and resume from the next region instead of repeatedly
+  scanning the same prefix. The initial fast arena attempt is separately bounded
+  to 64 MiB / 500 ms. Work runs on the existing optional background worker.
+- While a bounded search is incomplete, a later worker tick continues it. A
+  completed unsuccessful pass backs off for 30 seconds. Resolved connections do
+  not keep searching for their keys.
+- A candidate must match the supported state/header and permutation checks and
+  **successfully validate the actual captured encrypted setup frame** before
+  production accepts it. A memory object or plausible pointer alone is not proof
+  that the key belongs to the active connection.
+- Cached state is revalidated; process exit/restart invalidates the native handle
+  and lookup state. Disabling the option still cancels work and clears keys.
+- Waits for encrypted setup before searching, and skips pending connections with
+  no recently observed outgoing traffic. An old connection error does not take
+  precedence over an active ready session's status.
+- Reuses a 64-KiB block buffer during each search instead of allocating a new
+  block for every region. Keys remain in RAM only; no game memory is written,
+  no code is injected and no game packets are sent.
+
+## Updating from v1.13.0
+
+1. Open **General → Application updates → Check for updates**.
+2. Choose **Download and update**. The helper verifies the download, closes,
+   installs through its separate updater and restarts. Your settings/history and
+   game-tweak backups are preserved.
+3. **Fully restart Aion after updating the helper**, with the helper already open.
+   Keep **Enemy health → Details → Exact distance (reads game memory)** enabled
+   if you want metres. This option remains **off by default** for new users.
+4. Enter your character, walk and select/attack an enemy. Missing or stale
+   coordinates still hide the distance; they are not replaced with a false zero.
+
+After an updater restart, General refreshes the latest-release status in the
+background so it can show the result without another startup offer. Versions
+older than v1.13.0 still need a manual ZIP download to get the updater.
+
+The first real v1.13.0 → v1.13.1 upgrade is being tested with the author and Edeln;
+publication is not a claim that this two-PC end-to-end test has already passed.
+
+## Validation and remaining limits
+
+- Automated synthetic-memory tests cover a valid state beyond the former arena
+  and beyond the first chunk, continued searches without rereading the prefix,
+  rejection of another session's key, cached-state invalidation, malformed
+  permutations and cancellation. No real game memory is opened by these tests.
+- Native read-only validation on the test PC found a supported state in 319 ms;
+  the cached check completed below the one-millisecond timer resolution.
+- A separate **180-second live diagnostic using the corrected lookup** validated
+  the captured session, decoded 1,497 frames and received 258 position readings.
+  It calculated enemy distances during movement, ending at approximately 13.3 m.
+  No raw packets, keys or decrypted bodies were saved. The existing v1.13.0 helper
+  also recovered visible metres after a fresh game restart; this single run does
+  not prove every reconnect/instance case is resolved by the new code.
+- Combat/targeting, Settings, distance/position, updater staging/rollback and
+  package checks remain part of release validation. Wider PCs and repeated
+  instance transitions still need testing.
+
+**Still experimental:** unsupported game builds/state layouts, missing initial
+handshakes, missing enemy/player profiles and unknown NPC metadata can still
+prevent data from appearing. Read-only memory access is optional and does not
+guarantee anti-cheat compatibility or permission. The known open-world boss
+party-DPS freeze and Energy Bar PvP issue remain unresolved.
+
+---
+
 # Aion 2 Helper v1.13.0 Alpha — Experimental Enemy Bars and Built-in Updates
 
 This release adds two **experimental** Progress bar widgets and an integrated

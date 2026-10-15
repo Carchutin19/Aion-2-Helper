@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.13.0 release — Experimental Enemy Bars and Built-in Updates](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.13.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.13.0/Aion-2-Helper-v1.13.0-windows-x64.zip).
+The [v1.13.1 release — Experimental Distance Recovery](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.13.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.13.1/Aion-2-Helper-v1.13.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy/Stagger bars, DPS Meter and invitation notifications;
@@ -30,6 +30,26 @@ Aion 2 Helper is a community project designed to keep useful information visible
 while you play, with movable widgets, a clean interface, and a focus on low overhead.
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
+
+## New in v1.13.1: Experimental distance recovery
+
+The optional exact-distance reader can now find supported session data outside
+the previously fixed allocation arena. It continues bounded searches from where
+it stopped, reuses its block buffer and validates candidates against the captured
+connection before using them. Old inactive connections no longer keep triggering
+searches or override a ready connection's status.
+
+**On v1.13.0:** go to **General → Application updates → Check for updates**, then
+**Download and update**. Settings, combat history and game-tweak backups are
+preserved. **Restart Aion after updating**, with the helper already open; enable
+the optional exact-distance setting before launching the game. Older helper
+versions still require a manual ZIP download to get the updater.
+
+**Enemy bars and metres remain experimental.** The corrected reader passed a
+bounded live decoding/position test, but wider PCs, repeated instance changes
+and the first real two-PC in-app upgrade are still being validated. Missing
+handshakes/profiles or unsupported layouts can still hide data. See the
+[complete release notes](RELEASE-NOTES.md) for evidence, limits and troubleshooting.
 
 ## New in v1.13.0: Experimental enemy bars and built-in updates
 
@@ -51,15 +71,15 @@ an optional locked-target-only filter.
 - Downloads use HTTPS, SHA-256 and checked package paths. Program files are
   backed up before replacement; install/check failures attempt restoration.
   Personal settings, combat history and game-tweak backups are preserved.
-- **Download v1.13.0 manually once** to get the updater. The first real update
-  from this version will be checked with a following release; it is not yet a
-  completed live version-to-version validation.
+- **Download v1.13.0 or newer manually once** to get the updater. The first real
+  v1.13.0 → v1.13.1 upgrade is now being tested; it is not yet a completed
+  two-PC live validation.
 
 **Known limitations:** missing initial enemy/player profiles can hide either
 bar if the helper starts late; open it before Aion. The captured **Pesadilla**
 NPC-range issue is corrected, but other instances/unknown NPCs still need tests.
 **Metres may still be missing after reconnects/instance changes**; the session-key
-lookup fix remains pending for a later release. Exact distance is optional,
+lookup has been improved in v1.13.1 above; wider validation continues. Exact distance is optional,
 default-off and reads game memory; see [How it works](#how-it-works). Missing data
 is not replaced with fabricated health or distance. The DPS Meter remains Beta;
 open-world boss party-damage freezes and Energy PvP remain pending.

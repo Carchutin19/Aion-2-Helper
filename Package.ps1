@@ -1,8 +1,10 @@
-﻿param([string]$Version = '1.13.0', [switch]$SkipBuild)
+﻿param([string]$Version = '1.13.1', [switch]$SkipBuild, [string]$ExecutablePath)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release version.' }
 $projectRoot = $PSScriptRoot
 if (-not $SkipBuild) { & (Join-Path $projectRoot 'Build.ps1') }
+if (-not $ExecutablePath) { $ExecutablePath = Join-Path $projectRoot 'Aion2Helper.exe' }
+if (-not (Test-Path -LiteralPath $ExecutablePath -PathType Leaf)) { throw 'Compiled executable not found.' }
 $distRoot = Join-Path $projectRoot 'dist'
 $packageName = 'Aion-2-Helper-v' + $Version + '-windows-x64'
 $packageRoot = Join-Path $distRoot $packageName
@@ -24,7 +26,8 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\skills\LICENSE-MIT.txt') 
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\skills\README.md') -Destination (Join-Path $packageRoot 'assets\skills\README.md')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\sounds\party-invite.mp3') -Destination (Join-Path $packageRoot 'assets\sounds\party-invite.mp3')
 foreach ($name in @('Aion2Helper.exe','Aion-2-Helper.cmd','README.md','THIRD-PARTY.md','RELEASE-NOTES.md')) {
-    Copy-Item -LiteralPath (Join-Path $projectRoot $name) -Destination (Join-Path $packageRoot $name)
+    $packageSource = if ($name -eq 'Aion2Helper.exe') { $ExecutablePath } else { Join-Path $projectRoot $name }
+    Copy-Item -LiteralPath $packageSource -Destination (Join-Path $packageRoot $name)
 }
 foreach ($name in @('aion-2-helper.png','aion-2-helper.ico')) {
     Copy-Item -LiteralPath (Join-Path $projectRoot ('assets\' + $name)) -Destination (Join-Path $packageRoot ('assets\' + $name))
