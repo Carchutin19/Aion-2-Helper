@@ -1,3 +1,109 @@
+# Aion 2 Helper v1.13.0 Alpha — Experimental Enemy Bars and Built-in Updates
+
+This release adds two **experimental** Progress bar widgets and an integrated
+updater. The application remains Alpha and the DPS Meter remains Beta.
+**Enemy bars and distance do not have complete coverage.** The known limitations
+below are part of this release, rather than a claim that every instance is fixed.
+
+## Experimental enemy health
+
+- New **Progress bar → Enemy health**: current HP, actual received maximum HP,
+  percentage and name, with optional level, known creature type and metres.
+- Follows a received locked target, or the primary enemy of an attack when no
+  lock exists. In area attacks it retains the primary target rather than cycling
+  through each secondary hit. This is observed protocol behavior, not a direct
+  read of the game's unlocked targeting icon or UI target pointer.
+- Hides on death or missing supported health data; does not fabricate maximum HP.
+- Name/level, current/max/percentage, distance, creature type and lock status
+  have position, size and color controls. Distance/type/lock text have their own
+  offsets; black outlines have an enable switch, thickness and opacity.
+- Locked/unlocked text is independently rendered so metres cannot suppress it.
+- The observed level-45 scaling display can show the received base level in
+  parentheses. Missing level/type metadata is left unknown.
+
+## Experimental enemy target
+
+- New **Progress bar → Enemy target**: a simple blue health bar and adjustable
+  name for the player the tracked enemy is targeting, when focus and actual
+  character-health data are available. Nearby players are supported too.
+- Separate optional bar color and name color when the enemy targets **you**.
+- Independent name positioning, text outline, opacity, geometry and appearance.
+- Each enemy bar has its own **show only with a locked enemy** setting,
+  **off by default**; normal unlocked attacks remain supported.
+
+## Shared progress-bar and visibility improvements
+
+- Whole-widget scale on each of the four bars: Energy, Stagger, Enemy health
+  and Enemy target. Bar geometry, labels, offsets and outline sizes scale together;
+  original per-widget preferences are retained until changed.
+- Sharper enemy text rendered at its final pixel size with cached rasterization;
+  reusable drawing buffers avoid adding a capture process or per-text timers.
+- The character-identification recovery notice is positioned above the DPS widget
+  so it does not cover the combat rows. Other existing visibility behavior remains.
+
+## Built-in application updates
+
+- On normal startup, checks the **latest published stable GitHub release** and
+  offers **Download and update** or **Not now / Open helper** when newer.
+- **General → Application updates** shows installed/latest versions, the real
+  check status, a manual **Check for updates** button and an update button when
+  available. Startup checking can be disabled independently.
+- A download/progress window supports cancellation. No connection or a GitHub
+  rate limit does not prevent opening the installed helper and is not reported
+  as "up to date".
+- Downloads the exact official Windows asset over HTTPS, verifies its SHA-256,
+  checks ZIP paths and an explicit program-file allowlist, and validates the
+  executable's product/version before replacing files.
+- A separate updater waits for the helper to exit, backs up existing program
+  files, replaces/verifies them and checks the updated executable before restart.
+  Copy/startup-check failures attempt to restore the previous program files;
+  restoration failures identify the retained backup folder.
+- Overlay preferences, combat history, game-tweak settings, update preferences
+  and original game-tweak backups are **not replaced by package defaults**.
+  The updater does not apply any game tweak or modify game files.
+- GitHub requests are for release metadata/downloads. No combat data, character
+  information, settings or session keys are uploaded. Staged program backups stay
+  locally under **LocalAppData/Aion2Helper/Updates**.
+- Users on v1.12.1 or older must download this version manually **once**. Future
+  published stable releases can then be offered inside the helper. The first
+  real upgrade from v1.13.0 will be validated with the next published version;
+  local installation, rollback and official-download tests have passed.
+
+## Fixes and known experimental limitations
+
+- **Pesadilla:** the reported Sangre venenosa de Fafnir used an NPC identifier
+  outside the previous reader range. The bounded reader now accepts that NPC
+  namespace, with actual received HP/max validation unchanged. Its Spanish name
+  was confirmed in game; the English name is our translation. This fixes the
+  captured case, not every untested NPC or instance layout.
+- **Missing initial data:** opening/restarting the helper after character entry
+  can miss enemy spawns or character-health profiles. Start the helper before
+  the game. Re-entering the character/zone can provide fresh profiles; some bars
+  may otherwise remain hidden until the required data arrives.
+- **Metres are experimental and may be absent**, including after reconnects or
+  instance changes. The session-key lookup limitation has been reproduced and
+  further correction is **pending for a following release**. This release does
+  not claim to resolve it. Missing/stale positions hide the distance rather than
+  displaying a false zero or an invented value.
+- Exact distance is an **optional, default-off read-only game-memory feature**
+  that obtains the session key to decode movement. Enable it before launching
+  Aion; if already connected, fully restart Aion. Administrator access may be
+  required. Keys/decrypted bodies are never persisted. This changes the access
+  method; anti-cheat compatibility or permission is not guaranteed.
+- Unknown names/types/levels, target changes during special mechanics and wider
+  instance coverage still need live validation. Enemy-target health may be
+  unavailable if that player's profile was not received. No HP is synthesized.
+- Existing **open-world boss party-DPS freezes** and **Energy Bar PvP** remain
+  unresolved. DPS totals/rankings can still be partial.
+
+Validation includes supported targeting/death/HP and Pesadilla replay cases,
+malformed inputs, target-of-target changes, text outlines/scaling, independent
+preferences and undo, existing Settings/combat/widget regressions, verified
+official GitHub download/staging, protected user files and rollback fixtures.
+Live updater-to-next-release and wider enemy/distance validation remain pending.
+
+---
+
 # Aion 2 Helper v1.12.1 Alpha — Intro Status Recovery and Diagnostics
 
 This hotfix addresses the reported intro backup/status warning and adds the

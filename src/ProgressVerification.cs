@@ -33,6 +33,7 @@ internal static class ProgressVerification {
     }
     internal static void Run(string root){
         VerifyVisualRefill();
+        VerifyLabelCache();
         var s=new StaggerSignal();int wakes=0;s.Changed=delegate{wakes++;};Send(s,Gauge(99,150,150),1);Check(s.Read()==null&&wakes==0,"Disabled reader must do no work");s.Configure(true);
         Send(s,Gauge(99,150,150),10);Check(s.Read().Current==150,"Initial full gauge");Send(s,Gauge(99,27,150),11);Send(s,Gauge(99,0,0,true),12);Check(s.Read().Current==0&&s.Read().Groggy&&s.Read().GroggyStarted==12,"Zero state");Send(s,Gauge(99,0,0,true),13);Check(s.Read().GroggyStarted==12,"Repeated state must not extend countdown");Check(s.Read().Current==0,"No timer-based fake refill");Send(s,Gauge(99,150,150),17.1);Check(s.Read().Current==150&&!s.Read().Groggy,"Actual refill ends state");Send(s,Gauge(99,20,150),11);Check(s.Read().Current==150,"Ignore old gauge");
         Check(StaggerSignal.Fresh(s.Read(),17.099),"New packet slightly ahead of UI clock must not hide gauge");Check(StaggerSignal.Fresh(s.Read(),27.1),"Retain gauge through capture grace");Check(!StaggerSignal.Fresh(s.Read(),27.2),"Inactive capture must still expire");Check(!StaggerSignal.Fresh(null,18),"No gauge must stay unknown");
@@ -58,5 +59,14 @@ internal static class ProgressVerification {
         var cfg=new StaggerOptions();cfg.Bar.Enabled=true;cfg.Countdown.Color="#112233";cfg.Countdown.OffsetY=17;cfg.Bar.MaximumOffsetY=-9;var copy=cfg.Copy();copy.Countdown.FontSize=40;copy.Bar.CurrentText=false;Check(cfg.Countdown.FontSize==24&&cfg.Bar.CurrentText,"Independent snapshots");var saved=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>("{\"stagger\":"+new JavaScriptSerializer().Serialize(cfg)+"}");Check(StaggerOptions.Same(cfg,StaggerOptions.Read(saved)),"Stagger persistence");
         using(var owner=new EnergyOverlay(root,true)){var settings=new HelperSettings(owner);try{settings.VerifyProgress(root);}finally{settings.Close();}}
         File.WriteAllText(Path.Combine(root,"progress-test.txt"),"PASS: full phase states0/1/2/3; stale128 and zero refills; explicit inactive visibility and actual active resume; repeated-state countdown; linear visual refill isolated from actual gauge/labels; phase/early refill overrides; no timer-based data mutation; old/malformed/truncated envelopes; flow isolation; target change/no-gauge/despawn/map reset; disable; bounded parser fuzz; independently positioned/unknown labels; deep copies, persistence and independent EN/ES progress tabs, undo and disabled controls.");
+    }
+
+    static void VerifyLabelCache(){
+        var options=new EnergyBarOptions{CurrentText=true,MaximumText=true,PercentageText=true,CurrentPosition=0,MaximumPosition=0,PercentagePosition=5};var cache=new ProgressLabelCache();var first=cache.Read(options,true,75,150);
+        for(int i=0;i<10000;i++)Check(object.ReferenceEquals(first,cache.Read(options,true,75,150)),"Unchanged animation ticks must reuse formatted labels");Check(cache.Rebuilds==1,"Formatting happens once across ten thousand unchanged ticks");
+        options.TextSize=40;options.TextColor="#112233";Check(object.ReferenceEquals(first,cache.Read(options,true,75,150)),"Paint changes cannot force numeric reformatting");
+        options.MaximumOffsetY=10;var moved=cache.Read(options,true,75,150);Check(moved.Count==3&&moved[1].Offset==10&&!object.ReferenceEquals(first,moved),"Mutable layout change invalidates independently positioned labels");
+        var changed=cache.Read(options,true,90,150);Check(changed[0].Text=="90"&&changed[2].Text=="60%","Actual values invalidate cached formatting");Check(cache.Read(options,false,90,150).Count==0&&cache.Read(options,true,90,0).Count==0,"Unknown or zero maximum cannot retain old labels");
+        options.CurrentText=false;options.MaximumText=false;options.PercentageText=false;Check(cache.Read(options,true,90,150).Count==0,"Disabling labels clears previous values");options.CurrentText=true;var english=cache.Read(options,true,12345,20000,System.Globalization.CultureInfo.GetCultureInfo("en-US"));var spanish=cache.Read(options,true,12345,20000,System.Globalization.CultureInfo.GetCultureInfo("es-ES"));Check(english[0].Text=="12,345"&&spanish[0].Text=="12.345","Changing language cannot reuse another locale's numbers");
     }
 }

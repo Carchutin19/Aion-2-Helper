@@ -1,0 +1,32 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+// Target-of-target uses NPC focus announcements, independently compared with
+// NPC casts. It never treats the player's Tab selection as the NPC's focus.
+internal sealed class EnemyTargetSignal {
+    internal sealed class Player {internal uint Actor,Current,Maximum;internal string Name;internal double Time,Born;}
+    sealed class Focus {internal uint Target;internal double Time;}
+    sealed class Flow {internal readonly Dictionary<uint,Player> Players=new Dictionary<uint,Player>();internal readonly Dictionary<uint,Focus> Targets=new Dictionary<uint,Focus>();internal uint Map,Self;internal double Traffic;}
+    readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();volatile bool enabled;
+    internal void Configure(bool value){lock(gate){if(enabled==value)return;enabled=value;flows.Clear();}}
+    internal void Reset(){lock(gate)flows.Clear();}
+    internal static bool FocusFrame(byte[] b,int start,int end,out uint actor,out uint target){actor=target=0;int p=start+2;return end-start>=5&&DpsSignal.Var(b,ref p,end,out actor)&&actor>0&&p<end&&b[p++]==0&&DpsSignal.Var(b,ref p,end,out target)&&p==end&&target<=10000000;}
+    // The observed global character profile: identity is length-prefixed;
+    // own records add a server ID and fixed appearance block before shared
+    // state. No absolute packet offset or highest-seen HP is used as maximum.
+    internal static bool PlayerState(byte[] b,int start,int end,bool own,out Player player){player=null;uint actor;string name;byte role;if(!DpsSignal.PlayerIdentity(b,start,end,own,out actor,out name,out role))return false;int p=start+2;uint id;if(!DpsSignal.Var(b,ref p,end,out id))return false;int at=-1;
+        for(int q=p;q<Math.Min(end-12,p+16);q++){int n=b[q];if(n<2||n>24||q+1+n>end)continue;string value;try{value=new UTF8Encoding(false,true).GetString(b,q+1,n);}catch(DecoderFallbackException){continue;}if(value!=name)continue;int after=q+1+n+(own?2:0);if(after+5>end)continue;uint code=BitConverter.ToUInt32(b,after);if(code>=5&&code<=36&&(b[after+4]==1||b[after+4]==2)){at=after+(own?160:6);break;}}
+        if(at<0||at+20>end)return false;int flags=BitConverter.ToUInt16(b,at);p=at+2;for(int n=0;n<4;n++){float v=BitConverter.ToSingle(b,p+4*n);if(float.IsNaN(v)||float.IsInfinity(v)||Math.Abs(v)>(n==3?720:1000000))return false;}p+=18;int[] bits={1,2,4,8,16,32},lengths={12,4,2,12,12,4};for(int i=0;i<bits.Length;i++)if((flags&bits[i])!=0){if(p>end-lengths[i])return false;p+=lengths[i];}uint current,max;if(p>=end||b[p++]>3||!DpsSignal.Var(b,ref p,end,out current)||!DpsSignal.Var(b,ref p,end,out max)||max==0||max>1000000000||current>max||p+52>end)return false;uint mp=BitConverter.ToUInt32(b,p),mpmax=BitConverter.ToUInt32(b,p+4);if(mpmax==0||mpmax>10000000||mp>mpmax)return false;player=new Player{Actor=actor,Name=name,Current=current,Maximum=max};return true;
+    }
+    static void Trim(Flow f){if(f.Players.Count<256)return;uint remove=0;double oldest=double.MaxValue;foreach(var pair in f.Players)if(pair.Key!=f.Self&&pair.Value.Time<oldest){remove=pair.Key;oldest=pair.Value.Time;}if(remove!=0)f.Players.Remove(remove);}
+    internal void Consume(byte[] b,int start,int end,double time,string key){if(!enabled||b==null||start<0||end>b.Length||end-start<2||end-start>65536||key==null||double.IsNaN(time)||double.IsInfinity(time))return;lock(gate){if(!enabled)return;Flow f;if(!flows.TryGetValue(key,out f)){if(flows.Count>=4){string remove=null;double oldest=double.MaxValue;foreach(var pair in flows)if(pair.Value.Traffic<oldest){oldest=pair.Value.Traffic;remove=pair.Key;}if(remove!=null)flows.Remove(remove);}flows[key]=f=new Flow();}if(f.Traffic>0&&time-f.Traffic>30){f.Players.Clear();f.Targets.Clear();f.Self=0;}f.Traffic=Math.Max(f.Traffic,time);int op=(b[start]<<8)|b[start+1],p=start+2;uint actor,target;uint? current,max;bool energy;Player player;
+        if(op==0x2136&&end-start==48&&BitConverter.ToUInt32(b,start+2)<=10000){uint map=BitConverter.ToUInt32(b,start+6);if(map>0&&map<10000000){if(f.Map!=0&&f.Map!=map){Player own=null;if(f.Self!=0)f.Players.TryGetValue(f.Self,out own);f.Players.Clear();f.Targets.Clear();if(own!=null&&Math.Max(0,time-own.Born)<=2)f.Players[own.Actor]=own;else f.Self=0;}f.Map=map;}}
+        else if((op==0x3336||op==0x4536)&&PlayerState(b,start,end,op==0x3336,out player)){Trim(f);player.Time=player.Born=time;f.Players[player.Actor]=player;if(op==0x3336)f.Self=player.Actor;}
+        else if(op==0x3538&&FocusFrame(b,start,end,out actor,out target)){Focus focus;if(!f.Targets.TryGetValue(actor,out focus)){if(f.Targets.Count>=512){uint remove=0;double oldest=double.MaxValue;foreach(var pair in f.Targets)if(pair.Value.Time<oldest){remove=pair.Key;oldest=pair.Value.Time;}f.Targets.Remove(remove);}f.Targets[actor]=focus=new Focus();}if(time>=focus.Time){focus.Target=target;focus.Time=time;}}
+        else if(op==0x008d&&EnemyHealthSignal.Points(b,start,end,out actor,out current,out max,out energy)){if(energy)f.Self=actor;if(f.Players.TryGetValue(actor,out player)&&time>=player.Time){uint c=current.HasValue?current.Value:player.Current,m=max.HasValue?max.Value:player.Maximum;if(m>0&&c<=m){player.Current=c;player.Maximum=m;player.Time=time;}}}
+        else if(op==0x1b92&&DpsSignal.PartyVital(b,start,end,out actor)){p=start+2;uint c,m;if(DpsSignal.Var(b,ref p,end,out actor)&&DpsSignal.Var(b,ref p,end,out c)&&DpsSignal.Var(b,ref p,end,out m)&&f.Players.TryGetValue(actor,out player)&&time>=player.Time&&m>0&&c<=m){player.Current=c;player.Maximum=m;player.Time=time;}}
+        else if(op==0x4236&&DpsSignal.Var(b,ref p,end,out actor)&&end-p==2&&b[p]==0){f.Players.Remove(actor);f.Targets.Remove(actor);}
+    }}
+    internal EnemyHealthSignal.Sample Read(EnemyHealthSignal.Sample enemy,EnemyHealthSignal source){if(enemy==null||!EnemyHealthSignal.Fresh(enemy,DpsHistory.UtcNow()))return null;lock(gate){Flow f;Focus focus;Player player;if(!flows.TryGetValue(enemy.Flow,out f)||!f.Targets.TryGetValue(enemy.Actor,out focus)||focus.Target==0 )return null;if(!f.Players.TryGetValue(focus.Target,out player))return source.Actor(enemy.Flow,focus.Target);if(player.Maximum==0||string.IsNullOrEmpty(player.Name))return null;return new EnemyHealthSignal.Sample{Actor=player.Actor,Current=player.Current,Maximum=player.Maximum,Name=player.Name,Flow=enemy.Flow,Time=player.Time,Traffic=f.Traffic,IsSelf=player.Actor==f.Self};}}
+}

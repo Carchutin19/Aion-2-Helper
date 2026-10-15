@@ -71,7 +71,25 @@ recognition and family-based combat classification consult/reuse the MIT project
 - Dataset transformation/provenance: assets/skills/README.md. Names/text are
   Aion 2 game metadata; the code licence does not claim ownership of game content.
 
-No third-party application, backend, updater, telemetry/upload service or icon
-collection is required. Character levels and actual impacts are read passively
+No third-party application, backend, external updater, telemetry/upload service or
+icon collection is required. The built-in updater contacts this project's GitHub
+release API and download endpoints; it does not upload gameplay data. Character levels and actual impacts are read passively
 from the existing game stream. The rest of the application's licence status is
 unchanged; these referenced/adapted portions retain their applicable MIT notice.
+
+Enemy-health display names use the MIT reference NPC catalogue from SkeeveAN/Aion-DPS-Meter, revision ce50cb1c28c95dfde0f776c32ad555c1febfe79b. Provenance and retained notice are in assets/npcs. Target/aim framing was consulted and independently checked against controlled local Tab, unlocked attacks, area damage and death recordings. No external meter binary is shipped.
+
+NPC creature classifications in `assets/npcs/species.json` are transformed from the same MIT-licensed SkeeveAN/Aion-DPS-Meter NPC/pet catalogue; EN/ES type labels come from its extracted game species labels. The notice remains in `assets/npcs/LICENSE-MIT.txt`. Game data and names remain NCSOFT content. Unmapped types are left unknown.
+
+## Optional exact enemy distance
+
+The read-only session-key locator and client movement/RC4 implementation adapt
+the MIT protocol research from https://github.com/lunixxx37/aion2-protocol-research,
+revision `fe2122f0e54e1de854c11e91e3c7bf51916a4f52`, specifically
+`tools/locate_session_key.py`, `tools/watch_session_key.py`,
+`tools/live_opcode_viewer.py` and `tools/aion2_client_crypto.py`.
+Copyright (c) 2026 Aion 2 Protocol Research contributors. The complete notice is
+retained in `assets/licenses/Aion2ProtocolResearch-MIT.txt` and embedded in the
+executable. This optional module is implemented in C#; no external application
+or Python runtime is required. Keys are held only in memory and are not logged
+or saved. The default mode remains passive server packet reading.

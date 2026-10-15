@@ -78,6 +78,9 @@ internal sealed class Recorder:IDisposable {
     internal string LastStartError {get{lock(sync){return lastStartError;}}}
     internal Action<Segment,double> OnSegment;
     internal Action OnCaptureStarted;
+    volatile bool clientTraffic;Dictionary<string,int> flowOwners=new Dictionary<string,int>();
+    internal void SetClientTraffic(bool value){clientTraffic=value;}
+    internal int OwnerPid(string key){lock(sync){int pid;return flowOwners.TryGetValue(key,out pid)?pid:0;}}
     Dictionary<string,string> flows=new Dictionary<string,string>(); readonly List<Thread> workers=new List<Thread>();
     StreamWriter writer,marks; volatile bool active; DateTime started; string session;
     long bytes,packets;int openAdapters;string error=""; string processes="Game not detected";
@@ -93,7 +96,7 @@ internal sealed class Recorder:IDisposable {
         int self;using(var current=Process.GetCurrentProcess())self=current.Id;
         var candidates=Process.GetProcessesByName("AION2");if(candidates.Length==0)candidates=Process.GetProcesses();
         foreach(var p in candidates) {try {string name=p.ProcessName;if(p.Id!=self&&name.IndexOf("aion",StringComparison.OrdinalIgnoreCase)>=0){pids.Add(p.Id);names.Add(name+" ("+p.Id+")");}} catch{} finally{p.Dispose();}}
-        var updated=new Dictionary<string,string>();
+        var updated=new Dictionary<string,string>();var owners=new Dictionary<string,int>();
         foreach(int family in new int[]{2,23}) {
             if(pids.Count==0)break;
             int size=0;Native.GetExtendedTcpTable(IntPtr.Zero,ref size,false,family,5,0);if(size<=0)continue;
@@ -106,19 +109,20 @@ internal sealed class Recorder:IDisposable {
                     string local=Segment.Ip(table,i+(family==2?4:0),family==2?4:16);
                     string remote=Segment.Ip(table,i+(family==2?12:24),family==2?4:16);
                     int lp=Segment.U16(table,i+(family==2?8:20)),rp=Segment.U16(table,i+(family==2?16:44));
-                    updated[local+":"+lp+">"+remote+":"+rp]="out";updated[remote+":"+rp+">"+local+":"+lp]="in";
+                    updated[local+":"+lp+">"+remote+":"+rp]="out";updated[remote+":"+rp+">"+local+":"+lp]="in";owners[local+":"+lp+">"+remote+":"+rp]=pid;owners[remote+":"+rp+">"+local+":"+lp]=pid;
                 }
             }finally{Marshal.FreeHGlobal(memory);}
         }
-        lock(sync){flows=updated;processes=names.Count==0?"Game not detected":String.Join(", ",names.ToArray());}
+        lock(sync){flows=updated;flowOwners=owners;processes=names.Count==0?"Game not detected":String.Join(", ",names.ToArray());}
     }
     bool Tracked(Segment segment){
+        if(!writePackets&&!clientTraffic&&segment.DstPort==13328)return false;
         lock(sync){if(!active)return false;if(flows.ContainsKey(segment.Key))return true;}
         // A dungeon creates a new TCP connection. Waiting for the normal UI
         // maintenance tick loses its initial roster and character appearance.
         // Confirm ownership through Windows before accepting the first payload;
         // discovery is throttled and the kernel filter remains unchanged.
-        if(segment.SrcPort!=13328)return false;long now=DateTime.UtcNow.Ticks,previous=Interlocked.Read(ref lastDiscoveryTicks);
+        if(segment.Data.Length==0||(segment.SrcPort!=13328&&!(clientTraffic&&segment.DstPort==13328)))return false;long now=DateTime.UtcNow.Ticks,previous=Interlocked.Read(ref lastDiscoveryTicks);
         if(now-previous<TimeSpan.TicksPerMillisecond*250||Interlocked.CompareExchange(ref lastDiscoveryTicks,now,previous)!=previous)return false;
         if(!active||disposed)return false;RefreshFlows();
         lock(sync)return active&&flows.ContainsKey(segment.Key);
@@ -133,7 +137,7 @@ internal sealed class Recorder:IDisposable {
     }
     void StartCore() {
         if(active)return;NpcapSupport.Current.EnsureAvailable();RefreshFlows();
-        lock(sync){if(flows.Count==0)throw new Exception("Enter the game with your character first: no Aion connections detected.");}
+        lock(sync){if(flows.Count==0&&!clientTraffic)throw new Exception("Enter the game with your character first: no Aion connections detected.");}
         Native.SetDllDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"Npcap"));
         var err=new StringBuilder(512);IntPtr head;
         if(Native.pcap_findalldevs(out head,err)!=0)throw new Exception(err.ToString());
@@ -146,19 +150,19 @@ internal sealed class Recorder:IDisposable {
         started=DateTime.UtcNow;bytes=packets=0;error="";openAdapters=0;liveWorkers=devices.Count;stopEvent.Reset();if(OnCaptureStarted!=null)OnCaptureStarted();active=true;Mark("START");
         foreach(string name in devices) {string captured=name;var t=new Thread(delegate(){Capture(captured);});t.IsBackground=true;workers.Add(t);t.Start();}
     }
+    static void ApplyTrafficFilter(IntPtr handle,bool recording,bool outgoing){Native.Filter filter;if(Native.pcap_compile(handle,out filter,recording?"tcp":outgoing?"tcp port 13328":"tcp src port 13328",1,0xffffffff)!=0)throw new Exception("Could not compile game traffic filter");try{if(Native.pcap_setfilter(handle,ref filter)!=0)throw new Exception("Could not apply game traffic filter");}finally{Native.pcap_freecode(ref filter);}}
     void Capture(string device) {
         IntPtr h=IntPtr.Zero;EventWaitHandle packetEvent=null;bool opened=false;
         try {
             var err=new StringBuilder(512);h=Native.pcap_open_live(device,65535,0,100,err);
             if(h==IntPtr.Zero){Error("Could not open an adapter: "+err);return;}
-            Native.Filter f;int compiled=Native.pcap_compile(h,out f,writePackets?"tcp":"tcp src port 13328",1,0xffffffff);
-            if(compiled!=0)throw new Exception("Npcap filter: "+Marshal.PtrToStringAnsi(Native.pcap_geterr(h)));
-            try {if(Native.pcap_setfilter(h,ref f)!=0)throw new Exception("Could not apply the TCP filter.");}finally{Native.pcap_freecode(ref f);}
+            bool filterClient=clientTraffic;ApplyTrafficFilter(h,writePackets,filterClient);
             if(Native.pcap_setnonblock(h,1,err)!=0)throw new Exception("Non-blocking mode: "+err);
             try{if(Native.pcap_setmintocopy(h,1)==0){IntPtr handle=Native.pcap_getevent(h);if(handle!=IntPtr.Zero){packetEvent=new EventWaitHandle(false,EventResetMode.ManualReset);packetEvent.SafeWaitHandle=new SafeWaitHandle(handle,false);}}}catch(EntryPointNotFoundException){}
             var waits=packetEvent==null?null:new WaitHandle[]{stopEvent,packetEvent};var raw=new byte[65535];
             int link=Native.pcap_datalink(h);lock(sync){openAdapters++;opened=true;}
             while(active) {
+                if(!writePackets&&filterClient!=clientTraffic){filterClient=clientTraffic;ApplyTrafficFilter(h,false,filterClient);}
                 IntPtr hp,dp;int result=Native.pcap_next_ex(h,out hp,out dp);if(result==0){if(waits==null)stopEvent.WaitOne(15);else WaitHandle.WaitAny(waits,1000);continue;}if(result<0){Error("Capture stopped on an adapter: "+Marshal.PtrToStringAnsi(Native.pcap_geterr(h)));break;}
                 // Windows timeval uses 32-bit longs, including on x64.
                 int caplen=Marshal.ReadInt32(hp,8);if(caplen<0||caplen>65535)continue;
@@ -255,6 +259,14 @@ internal static class Entry {
     [STAThread] static int Main(string[] args) {
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
+        if(args.Length>1&&args[0]=="--enemy-target-replay-test"){try{EnemyTargetVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-target-replay-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==2&&args[0]=="--client-position-native-test"){try{ClientPositionVerification.NativeCheck(root,int.Parse(args[1]));return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"client-position-native-test.txt"),"FAIL: "+ex.Message);return 1;}}
+        if(args.Length>0&&args[0]=="--client-position-test"){try{ClientPositionVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"client-position-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--enemy-details-test"){try{EnemyDetailsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-details-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>1&&args[0]=="--enemy-details-replay-test"){try{EnemyDetailsVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-details-replay-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--enemy-target-test"){try{EnemyTargetVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-target-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--enemy-health-test"){try{EnemyHealthVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-health-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>1&&args[0]=="--enemy-health-replay-test"){try{EnemyHealthVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-health-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--progress-test"){try{ProgressVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"progress-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-test"){try{PingVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-live-test"){try{return PingVerification.Live(root);}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-live-test.txt"),"FAIL: "+ex);return 1;}}
@@ -276,7 +288,13 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--diagnose") {
             var r=new Recorder(root);r.RefreshFlows();File.WriteAllText(Path.Combine(root,"diagnostic.txt"),r.Status,Encoding.UTF8);return 0;
         }
+        if(args.Length==1&&args[0]=="--updates-test"){try{UpdateVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"updates-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--updates-live-test"){try{UpdateVerification.Live(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"updates-live-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==2&&args[0]=="--apply-update")return UpdateRuntime.Apply(args[1]);
+        if(args.Length==1&&args[0]=="--update-health-check"){try{UpdateInstaller.HealthCheck(root);return 0;}catch{return 1;}}
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+        bool normalLaunch=args.Length==0||args[0]=="--overlay"||args[0]=="--settings";
+        if(normalLaunch&&UpdateRuntime.Startup(root))return 0;
         if(args.Length>0&&args[0]=="--ui-preview"){Application.Run(new EnergyOverlay(root,true));return 0;}
         if(args.Length>0&&args[0]=="--notifications-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenNotificationSettings));};Application.Run(helper);return 0;}
         if(args.Length>0&&args[0]=="--game-tweaks-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenGameTweaksSettings));};Application.Run(helper);return 0;}

@@ -146,7 +146,8 @@ internal static class DpsDesign {
     internal static Bitmap Compose(DpsPaintWorkspace workspace,DpsSignal.Snapshot snapshot,DpsOptions options,IDictionary<uint,double> ratios){var bitmap=(Bitmap)workspace.Panel.Clone();using(var g=Graphics.FromImage(bitmap))PaintBars(g,bitmap.Width,bitmap.Height,snapshot,options,ratios);return bitmap;}
     internal static Rectangle Resize(Rectangle start,Point delta,int hit){bool left=hit==10||hit==13||hit==16,right=hit==11||hit==14||hit==17,top=hit==12||hit==13||hit==14,bottom=hit==15||hit==16||hit==17;int w=Math.Max(260,Math.Min(1600,start.Width+(left?-delta.X:right?delta.X:0))),h=Math.Max(110,Math.Min(900,start.Height+(top?-delta.Y:bottom?delta.Y:0)));return new Rectangle(left?start.Right-w:start.Left,top?start.Bottom-h:start.Top,w,h);}
     internal static Rectangle Constrain(Rectangle bounds,Rectangle area){int width=Math.Min(bounds.Width,area.Width),height=Math.Min(bounds.Height,area.Height);return new Rectangle(Math.Max(area.Left,Math.Min(area.Right-width,bounds.Left)),Math.Max(area.Top,Math.Min(area.Bottom-height,bounds.Top)),width,height);}
-    internal static Rectangle UsableBounds(Rectangle bounds){var screen=Screen.FromRectangle(bounds);Rectangle full=screen.Bounds,working=screen.WorkingArea;double now=Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;
+    internal static Rectangle UsableBounds(Rectangle bounds){return Constrain(bounds,UsableArea(bounds));}
+    internal static Rectangle UsableArea(Rectangle bounds){var screen=Screen.FromRectangle(bounds);Rectangle full=screen.Bounds,working=screen.WorkingArea;double now=Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;
         if(now>=areaExpires||full!=lastScreen||working!=lastWorking){safeArea=working;lastScreen=full;lastWorking=working;areaExpires=now+1;
             // Windows returns the full monitor as WorkingArea for autohide.
             // Reserve its real appbar thickness so the tray remains reachable.
@@ -157,7 +158,7 @@ internal static class DpsDesign {
                 if(edge==2&&safeArea.Right==full.Right)safeArea=Rectangle.FromLTRB(safeArea.Left,safeArea.Top,full.Right-thickness,safeArea.Bottom);
                 if(edge==3&&safeArea.Bottom==full.Bottom)safeArea=Rectangle.FromLTRB(safeArea.Left,safeArea.Top,safeArea.Right,full.Bottom-thickness);
             }
-        }return Constrain(bounds,safeArea);
+        }return safeArea;
     }
     internal static DpsSignal.Snapshot Sample(DpsOptions options=null){var s=new DpsSignal.Snapshot{SelfActor=2,Duration=24.5,Status="In combat",Active=true};s.Rows.Add(new DpsSignal.Row{Actor=1,Role=1,Name="Player One",HighestHit=5400,TaggedDamageEvents=20,BackHits=12,FrontHits=6,DoubleHits=3,PerfectHits=5,BackCriticalHits=4,FrontCriticalHits=2,BackDoubleCriticalHits=2,FrontDoubleCriticalHits=1,BackPerfectHits=3,FrontPerfectHits=2,Damage=38600,Dps=1576,DamageEvents=20,Criticals=6,DamagePrimary=35000,DamageCritical=15000,Healing=4000,Hps=163,HealingEvents=5,HealingCriticals=1,HealingPrimary=4000,HealingCritical=1000,HealingReceived=22000,ReceivedHps=898,ReceivedEvents=12,ReceivedCriticals=3,ReceivedPrimary=22000,ReceivedCritical=8000});s.Rows.Add(new DpsSignal.Row{Actor=2,Role=2,Name="Player Two",HighestHit=3600,TaggedDamageEvents=18,BackHits=10,FrontHits=5,DoubleHits=2,PerfectHits=3,BackCriticalHits=3,FrontCriticalHits=1,BackDoubleCriticalHits=1,BackPerfectHits=2,FrontPerfectHits=1,Damage=27100,Dps=1106,DamageEvents=18,Criticals=4,DamagePrimary=26000,DamageCritical=9000,Healing=43000,Hps=1755,HealingEvents=15,HealingCriticals=5,HealingPrimary=38000,HealingCritical=19000,HealingReceived=13000,ReceivedHps=531,ReceivedEvents=10,ReceivedCriticals=2,ReceivedPrimary=13000,ReceivedCritical=4000});s.Rows.Add(new DpsSignal.Row{Actor=3,Role=3,Name="Player Three",HighestHit=3000,TaggedDamageEvents=12,BackHits=4,FrontHits=8,DoubleHits=1,PerfectHits=2,BackCriticalHits=1,FrontCriticalHits=1,FrontDoubleCriticalHits=1,BackPerfectHits=1,FrontPerfectHits=1,Damage=20300,Dps=829,DamageEvents=12,Criticals=2,DamagePrimary=20000,DamageCritical=6000,Healing=12000,Hps=490,HealingEvents=8,HealingCriticals=2,HealingPrimary=10000,HealingCritical=3000,HealingReceived=24000,ReceivedHps=980,ReceivedEvents=14,ReceivedCriticals=3,ReceivedPrimary=22000,ReceivedCritical=9000});DpsSignal.SortRows(s.Rows,s.SelfActor,options!=null&&options.PinSelfFirst,options==null?"damage":options.View);return s;}
 }
@@ -203,12 +204,22 @@ internal sealed class CharacterNoticeOverlay:Form {
     internal void UpdateNotice(double now,bool enabled,bool missing,bool editing,Rectangle anchor,string language,bool menuOpen){
         bool show=state.Update(now,enabled,missing);
         if(!show||editing||menuOpen||DpsDesign.ShellUiActive()){if(Visible)Hide();return;}
-        var bounds=DpsDesign.UsableBounds(new Rectangle(anchor.X,anchor.Y,Math.Max(260,Math.Min(520,anchor.Width)),104));
+        var bounds=NoticeBounds(anchor,DpsDesign.UsableArea(anchor));
+        if(bounds.IsEmpty){if(Visible)Hide();return;}
         bool changed=renderedLanguage!=language||renderedBounds.Size!=bounds.Size;
         if(Bounds!=bounds)Bounds=bounds;
         if(changed){using(var bitmap=RenderNotice(bounds.Width,bounds.Height,language,workspace))image.Upload(bitmap);renderedBounds=bounds;renderedLanguage=language;}
         if(changed||!Visible||renderedBounds.Location!=bounds.Location){image.Present(Handle,Left,Top,255);renderedBounds=bounds;}
         if(!Visible)Show();if(now-lastRaise>=1){lastRaise=now;OverlayNative.RaiseWithoutFocus(Handle);}
+    }
+    internal static Rectangle NoticeBounds(Rectangle anchor,Rectangle area){
+        int width=Math.Min(area.Width,Math.Max(260,Math.Min(520,anchor.Width))),height=104,gap=8;
+        if(width<=0||area.Height<height)return Rectangle.Empty;
+        int x=Math.Max(area.Left,Math.Min(area.Right-width,anchor.Left));
+        // Prefer above the DPS panel, then another free side at screen edges. Never cover its data.
+        var candidates=new[]{new Rectangle(x,anchor.Top-height-gap,width,height),new Rectangle(x,anchor.Bottom+gap,width,height),new Rectangle(anchor.Right+gap,Math.Max(area.Top,Math.Min(area.Bottom-height,anchor.Top)),width,height),new Rectangle(anchor.Left-width-gap,Math.Max(area.Top,Math.Min(area.Bottom-height,anchor.Top)),width,height)};
+        foreach(var candidate in candidates)if(area.Contains(candidate)&&!candidate.IntersectsWith(anchor))return candidate;
+        return Rectangle.Empty;
     }
     internal static Bitmap RenderNotice(int width,int height,string language,FpsDesign.Workspace workspace){
         workspace.Prepare(width,height);var result=new Bitmap(width,height,PixelFormat.Format32bppPArgb);var mg=workspace.MaskGraphics;mg.Clear(Color.Black);

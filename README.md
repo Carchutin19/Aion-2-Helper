@@ -2,7 +2,7 @@
 
 **Customizable utility overlays for Aion 2.**
 
-**Alpha software — actively in development.** Energy/Stagger progress bars, FPS/Ping widgets and a
+**Alpha software — actively in development.** Energy/Stagger and experimental Enemy/Enemy-target progress bars, FPS/Ping widgets and a
 DPS Meter in **Beta**, Notifications and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
@@ -12,8 +12,8 @@ problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/is
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.12.1 release — Intro Status Recovery and Diagnostics](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.12.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.12.1/Aion-2-Helper-v1.12.1-windows-x64.zip).
+The [v1.13.0 release — Experimental Enemy Bars and Built-in Updates](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.13.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.13.0/Aion-2-Helper-v1.13.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy/Stagger bars, DPS Meter and invitation notifications;
@@ -30,6 +30,42 @@ Aion 2 Helper is a community project designed to keep useful information visible
 while you play, with movable widgets, a clean interface, and a focus on low overhead.
 It starts with an independent dash and sprint energy bar and is intended to grow
 into a collection of useful overlays for Aion 2.
+
+## New in v1.13.0: Experimental enemy bars and built-in updates
+
+**Enemy health and Enemy target are experimental.** Configure them in
+**Settings → Progress bar**. The main bar shows name, received current/max HP
+and percentage, with optional level, creature type and distance. The second bar
+shows the health/name of whoever the enemy targets, with independent bar/name
+colors when that player is you. Both support unlocked attacks by default and
+an optional locked-target-only filter.
+
+- Independently place/style names, values, distance, type and locked/unlocked
+  labels. Optional black outlines improve contrast; whole-bar scale is available
+  separately for all four progress bars.
+- Sharper enemy text with cached rendering. The character-recovery notice now
+  sits above the DPS widget instead of covering its rows.
+- **General → Application updates:** installed/latest versions, manual checking,
+  update action and a startup-check switch. A startup offer can download/install
+  a newer stable GitHub version, show progress and restart the helper.
+- Downloads use HTTPS, SHA-256 and checked package paths. Program files are
+  backed up before replacement; install/check failures attempt restoration.
+  Personal settings, combat history and game-tweak backups are preserved.
+- **Download v1.13.0 manually once** to get the updater. The first real update
+  from this version will be checked with a following release; it is not yet a
+  completed live version-to-version validation.
+
+**Known limitations:** missing initial enemy/player profiles can hide either
+bar if the helper starts late; open it before Aion. The captured **Pesadilla**
+NPC-range issue is corrected, but other instances/unknown NPCs still need tests.
+**Metres may still be missing after reconnects/instance changes**; the session-key
+lookup fix remains pending for a later release. Exact distance is optional,
+default-off and reads game memory; see [How it works](#how-it-works). Missing data
+is not replaced with fabricated health or distance. The DPS Meter remains Beta;
+open-world boss party-damage freezes and Energy PvP remain pending.
+
+See the [full v1.13.0 release notes](RELEASE-NOTES.md) for behavior, validation,
+update privacy, experimental limits and troubleshooting.
 
 ## New in v1.12.1: Intro status recovery and diagnostics
 
@@ -663,8 +699,18 @@ the missing signal. Missing data is never treated as full energy.
 The energy, combat and notification modules passively capture Aion TCP traffic through Npcap,
 reconstruct the stream, decode framed/LZ4 messages, and read supported energy,
 identity, party, incoming invitation and combat updates.
-It does not read or write game memory, inject code, send game packets, or automate
-character actions.
+By default these modules do not read game memory. The optional **Progress bar →
+Enemy health → Details → Exact distance (reads game memory)** setting is off by
+default. When enabled together with the enemy bar and metres, it reads the game
+session key from Aion's process memory to decode outgoing movement and calculate
+distance from player and enemy coordinates. Enable it before starting Aion;
+if the connection was already open, fully restart the game to capture its
+handshake. Administrator access may be required. Keys and decrypted packet
+bodies are not saved or logged; disabling the option clears its session state
+and stops the memory reader. Missing or unsupported data hides the distance.
+This changes the access method and does not guarantee anti-cheat compatibility.
+The helper does not write game memory, inject code, send game packets, or
+automate character actions.
 
 The optional **Game Tweaks → Startup** feature changes the startup video, while
 **Game Tweaks → Visuals** edits the four supported Engine.ini renderer overrides.
@@ -672,8 +718,9 @@ Both require explicit application with the game closed, keep verified backups
 for restoration, and remain applied after the helper closes.
 
 The normal overlay processes readings in memory and saves completed combat
-summaries locally. It does not save packet captures,
-upload data, or check for updates online. **live-status.json** contains the latest
+summaries locally. It does not save packet captures or upload gameplay data. The optional startup/manual
+update check contacts GitHub for the latest stable release and downloads only when
+you choose to update; disable startup checking in General if preferred. **live-status.json** contains the latest
 reading and diagnostic state, written in the background at most twice per second.
 The separate diagnostic tool records local captures only when explicitly started.
 

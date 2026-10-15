@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -18,7 +18,7 @@ internal sealed class StaggerCountdownOptions {
     // The observed state lasts ~5s. This is an estimated display, never a reset.
     public double ReferenceSeconds=5;
     internal StaggerCountdownOptions Copy(){return (StaggerCountdownOptions)MemberwiseClone();}
-    internal void Normalize(){OffsetY=Math.Max(-200,Math.Min(200,OffsetY));Position=Math.Max(0,Math.Min(5,Position));FontSize=Math.Max(10,Math.Min(64,FontSize));GlowPercent=Math.Max(0,Math.Min(200,GlowPercent));MinimumScalePercent=Math.Max(20,Math.Min(100,MinimumScalePercent));if(!EnergyBarOptions.ValidColor(Color))Color="#FFE08A";if(double.IsNaN(ReferenceSeconds)||double.IsInfinity(ReferenceSeconds))ReferenceSeconds=5;ReferenceSeconds=Math.Max(1,Math.Min(30,ReferenceSeconds));}
+    internal void Normalize(){OffsetY=Math.Max(-600,Math.Min(600,OffsetY));Position=Math.Max(0,Math.Min(5,Position));FontSize=Math.Max(10,Math.Min(192,FontSize));GlowPercent=Math.Max(0,Math.Min(200,GlowPercent));MinimumScalePercent=Math.Max(20,Math.Min(100,MinimumScalePercent));if(!EnergyBarOptions.ValidColor(Color))Color="#FFE08A";if(double.IsNaN(ReferenceSeconds)||double.IsInfinity(ReferenceSeconds))ReferenceSeconds=5;ReferenceSeconds=Math.Max(1,Math.Min(30,ReferenceSeconds));}
 }
 
 internal sealed class StaggerOptions {
@@ -88,11 +88,20 @@ internal struct StaggerDisplayProgress {
 
 internal static class ProgressBarText {
     internal sealed class Label {internal int Position,Offset;internal string Text;}
-    internal static List<Label> Labels(EnergyBarOptions o,bool known,uint current,uint maximum){var labels=new List<Label>();if(!known||maximum==0)return labels;AddLabel(labels,o.CurrentPosition,o.CurrentOffsetY,o.CurrentText?current.ToString(CultureInfo.InvariantCulture):null);AddLabel(labels,o.MaximumPosition,o.MaximumOffsetY,o.MaximumText?"/ "+maximum.ToString(CultureInfo.InvariantCulture):null);AddLabel(labels,o.PercentagePosition,o.PercentageOffsetY,o.PercentageText?(100.0*current/maximum).ToString("0",CultureInfo.InvariantCulture)+"%":null);return labels;}
+    internal static List<Label> Labels(EnergyBarOptions o,bool known,uint current,uint maximum,CultureInfo culture=null){var labels=new List<Label>();if(!known||maximum==0)return labels;AddLabel(labels,o.CurrentPosition,o.CurrentOffsetY,o.CurrentText?(culture==null?current.ToString(CultureInfo.InvariantCulture):current.ToString("N0",culture)):null);AddLabel(labels,o.MaximumPosition,o.MaximumOffsetY,o.MaximumText?"/ "+(culture==null?maximum.ToString(CultureInfo.InvariantCulture):maximum.ToString("N0",culture)):null);AddLabel(labels,o.PercentagePosition,o.PercentageOffsetY,o.PercentageText?(100.0*current/maximum).ToString("0",CultureInfo.InvariantCulture)+(culture==null?"%":" %"):null);return labels;}
     static void AddLabel(List<Label> labels,int position,int offset,string text){if(text==null)return;foreach(var label in labels)if(label.Position==position&&label.Offset==offset){label.Text+="  "+text;return;}labels.Add(new Label{Position=position,Offset=offset,Text=text});}
-    internal static bool Same(EnergyBarOptions a,EnergyBarOptions b){return a.CurrentOffsetY==b.CurrentOffsetY&&a.MaximumOffsetY==b.MaximumOffsetY&&a.PercentageOffsetY==b.PercentageOffsetY&&a.CurrentText==b.CurrentText&&a.MaximumText==b.MaximumText&&a.PercentageText==b.PercentageText&&a.CurrentPosition==b.CurrentPosition&&a.MaximumPosition==b.MaximumPosition&&a.PercentagePosition==b.PercentagePosition&&a.TextSize==b.TextSize&&a.TextColor==b.TextColor;}
+    internal static bool Same(EnergyBarOptions a,EnergyBarOptions b){return TextOutlineOptions.Same(a.TextOutline,b.TextOutline)&&a.ScalePercent==b.ScalePercent&&ProgressScaleReference.Same(a.ScaleReference,b.ScaleReference)&&a.CurrentOffsetY==b.CurrentOffsetY&&a.MaximumOffsetY==b.MaximumOffsetY&&a.PercentageOffsetY==b.PercentageOffsetY&&a.CurrentText==b.CurrentText&&a.MaximumText==b.MaximumText&&a.PercentageText==b.PercentageText&&a.CurrentPosition==b.CurrentPosition&&a.MaximumPosition==b.MaximumPosition&&a.PercentagePosition==b.PercentagePosition&&a.TextSize==b.TextSize&&a.TextColor==b.TextColor;}
     internal static string[] Slots(EnergyBarOptions o,bool known,uint current,uint maximum){var slots=new string[6];if(!known||maximum==0)return slots;Add(slots,o.CurrentPosition,o.CurrentText?current.ToString(CultureInfo.InvariantCulture):null);Add(slots,o.MaximumPosition,o.MaximumText?"/ "+maximum.ToString(CultureInfo.InvariantCulture):null);Add(slots,o.PercentagePosition,o.PercentageText?(100.0*current/maximum).ToString("0",CultureInfo.InvariantCulture)+"%":null);return slots;}
     static void Add(string[] slots,int position,string value){if(value==null)return;slots[position]=slots[position]==null?value:slots[position]+"  "+value;}
+}
+
+// Animation changes opacity/fill more often than the underlying numeric labels.
+// Cache only formatting inputs; geometry, visibility and countdown keep updating.
+internal sealed class ProgressLabelCache {
+    EnergyBarOptions saved;bool known;uint current,maximum;string culture;
+    List<ProgressBarText.Label> labels;internal int Rebuilds {get;private set;}
+    static bool SameLabels(EnergyBarOptions a,EnergyBarOptions b){return a.CurrentText==b.CurrentText&&a.MaximumText==b.MaximumText&&a.PercentageText==b.PercentageText&&a.CurrentPosition==b.CurrentPosition&&a.MaximumPosition==b.MaximumPosition&&a.PercentagePosition==b.PercentagePosition&&a.CurrentOffsetY==b.CurrentOffsetY&&a.MaximumOffsetY==b.MaximumOffsetY&&a.PercentageOffsetY==b.PercentageOffsetY;}
+    internal List<ProgressBarText.Label> Read(EnergyBarOptions options,bool hasValue,uint value,uint max,CultureInfo format=null){string name=format==null?null:format.Name;if(labels!=null&&known==hasValue&&current==value&&maximum==max&&culture==name&&SameLabels(saved,options))return labels;known=hasValue;current=value;maximum=max;culture=name;if(saved==null)saved=new EnergyBarOptions();saved.CurrentText=options.CurrentText;saved.MaximumText=options.MaximumText;saved.PercentageText=options.PercentageText;saved.CurrentPosition=options.CurrentPosition;saved.MaximumPosition=options.MaximumPosition;saved.PercentagePosition=options.PercentagePosition;saved.CurrentOffsetY=options.CurrentOffsetY;saved.MaximumOffsetY=options.MaximumOffsetY;saved.PercentageOffsetY=options.PercentageOffsetY;labels=ProgressBarText.Labels(options,hasValue,value,max,format);Rebuilds++;return labels;}
 }
 
 internal static class ProgressBarPreview {
@@ -110,19 +119,20 @@ internal static class ProgressBarPreview {
 // Separate text surface keeps the existing emissive bar geometry/pixels intact.
 // It shares its parent tick and opacity, and never captures mouse input.
 internal sealed class ProgressTextOverlay:Form {
-    readonly LayeredImage image=new LayeredImage();string key;byte alpha;Rectangle shown;bool released;long nextRaise;
+    readonly LayeredImage image=new LayeredImage();readonly CrispOverlayText crisp=new CrispOverlayText();readonly ProgressLabelCache labelCache=new ProgressLabelCache();string key;byte alpha;Rectangle shown;bool released;long nextRaise;
     internal ProgressTextOverlay(){FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;Text="Aion 2 Helper - Progress text";}
-    internal void Update(Rectangle core,EnergyBarOptions o,bool known,uint current,uint maximum,byte opacity,StaggerCountdownOptions countdown=null,double remaining=-1){
-        bool activeCountdown=countdown!=null&&countdown.Enabled&&remaining>0;var labels=ProgressBarText.Labels(o,known,current,maximum);bool any=activeCountdown||labels.Count>0;
-        if(!o.Enabled||opacity==0||!any||DpsDesign.ShellUiActive()){if(Visible)Hide();return;}
+    internal void Update(Rectangle core,EnergyBarOptions o,bool known,uint current,uint maximum,byte opacity,StaggerCountdownOptions countdown=null,double remaining=-1,bool enemyStyle=false,string language="en"){
+        if(released)return;bool activeCountdown=countdown!=null&&countdown.Enabled&&remaining>0;
+        if(!o.Enabled||opacity==0||(!activeCountdown&&(!known||maximum==0||!(o.CurrentText||o.MaximumText||o.PercentageText)))||DpsDesign.ShellUiActive()){if(Visible)Hide();return;}
+        var labels=labelCache.Read(o,known,current,maximum,enemyStyle?CultureInfo.GetCultureInfo(language=="es"?"es-ES":"en-US"):null);
         int line=o.TextSize+8,countdownLine=activeCountdown?countdown.FontSize+14:0;bool above=false,below=false;int minY=0,maxY=core.Height;string labelKey="";
         foreach(var label in labels){above|=label.Position<3;below|=label.Position>=3;int y=(label.Position<3?-line-2:core.Height+2)+label.Offset;minY=Math.Min(minY,y);maxY=Math.Max(maxY,y+line);labelKey+=label.Position+":"+label.Offset+":"+label.Text+"|";}
         int countdownY=activeCountdown?(countdown.Position<3?-countdownLine-2-(above?line+4:0):core.Height+2+(below?line+4:0))+countdown.OffsetY:0;
         if(activeCountdown){minY=Math.Min(minY,countdownY);maxY=Math.Max(maxY,countdownY+countdownLine);}
-        var bounds=new Rectangle(core.X,core.Y+minY,core.Width,Math.Max(1,maxY-minY));if(Bounds!=bounds)Bounds=bounds;
-        string next=labelKey+"/"+o.TextSize+o.TextColor+"/"+core.Width+"/"+core.Height+"/"+(activeCountdown?remaining.ToString("F1",CultureInfo.InvariantCulture)+"/"+countdown.Position+"/"+countdown.OffsetY+"/"+countdown.FontSize+"/"+countdown.Color+"/"+countdown.Glow+"/"+countdown.GlowPercent+"/"+countdown.Shrink+"/"+countdown.MinimumScalePercent+"/"+countdown.ReferenceSeconds.ToString(CultureInfo.InvariantCulture):"");
+        int outlinePad=enemyStyle?o.TextOutline.Padding:0;minY-=outlinePad;maxY+=outlinePad;var bounds=new Rectangle(core.X-outlinePad,core.Y+minY,core.Width+2*outlinePad,Math.Max(1,maxY-minY));if(Bounds!=bounds)Bounds=bounds;
+        string next=labelKey+"/"+o.TextOutline.Key+"/"+enemyStyle+"/"+language+"/"+o.TextSize+o.TextColor+"/"+core.Width+"/"+core.Height+"/"+(activeCountdown?remaining.ToString("F1",CultureInfo.InvariantCulture)+"/"+countdown.Position+"/"+countdown.OffsetY+"/"+countdown.FontSize+"/"+countdown.Color+"/"+countdown.Glow+"/"+countdown.GlowPercent+"/"+countdown.Shrink+"/"+countdown.MinimumScalePercent+"/"+countdown.ReferenceSeconds.ToString(CultureInfo.InvariantCulture):"");
         if(next!=key){key=next;using(var bitmap=new Bitmap(Width,Height,PixelFormat.Format32bppPArgb))using(var g=Graphics.FromImage(bitmap)){g.Clear(Color.Transparent);g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-                using(var font=new Font("Segoe UI",o.TextSize,FontStyle.Regular,GraphicsUnit.Pixel))using(var brush=new SolidBrush(ColorTranslator.FromHtml(o.TextColor)))foreach(var label in labels){int y=(label.Position<3?-line-2:core.Height+2)+label.Offset-minY;var rect=new RectangleF(0,y,Width,line);using(var format=Format(label.Position)){g.DrawString(label.Text,font,brush,rect,format);}}
+                using(var font=new Font("Segoe UI",o.TextSize,enemyStyle?FontStyle.Bold:FontStyle.Regular,GraphicsUnit.Pixel))using(var brush=new SolidBrush(ColorTranslator.FromHtml(o.TextColor)))foreach(var label in labels){int y=(label.Position<3?-line-2:core.Height+2)+label.Offset-minY;var rect=new RectangleF(outlinePad,y,core.Width,line);using(var format=Format(label.Position)){if(enemyStyle)crisp.Draw(g,label.Text,o.TextSize,true,label.Text.Contains("%")&&o.TextColor=="#EEEEEE"?Color.FromArgb(255,167,140):ColorTranslator.FromHtml(o.TextColor),Rectangle.Round(rect),label.Position%3,true,o.TextOutline);else g.DrawString(label.Text,font,brush,rect,format);}}
                 if(activeCountdown){double fraction=Math.Max(0,Math.Min(1,remaining/countdown.ReferenceSeconds));float size=(float)(countdown.FontSize*(countdown.Shrink?countdown.MinimumScalePercent/100.0+(1-countdown.MinimumScalePercent/100.0)*fraction:1));var rect=new RectangleF(4,countdownY-minY,Math.Max(1,Width-8),countdownLine);using(var format=Format(countdown.Position))using(var path=new GraphicsPath()){path.AddString(remaining.ToString("F1",CultureInfo.InvariantCulture)+" s",FontFamily.GenericSansSerif,0,size,rect,format);var color=ColorTranslator.FromHtml(countdown.Color);if(countdown.Glow&&countdown.GlowPercent>0)for(int stroke=6;stroke>=2;stroke-=2)using(var pen=new Pen(Color.FromArgb(Math.Min(150,40*countdown.GlowPercent/100),color),stroke)){pen.LineJoin=LineJoin.Round;g.DrawPath(pen,path);}using(var brush=new SolidBrush(color))g.FillPath(brush,path);}}
                 image.Upload(bitmap);
             }alpha=0;
@@ -134,7 +144,7 @@ internal sealed class ProgressTextOverlay:Form {
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x20|0x80|0x08000000)&~0x40000;return cp;}}
     protected override bool ShowWithoutActivation {get{return true;}}
     protected override void WndProc(ref Message m){if(m.Msg==0x21){m.Result=new IntPtr(3);return;}if(m.Msg==0x84){m.Result=new IntPtr(-1);return;}base.WndProc(ref m);}
-    protected override void Dispose(bool disposing){if(disposing&&!released){released=true;image.Dispose();}base.Dispose(disposing);}
+    protected override void Dispose(bool disposing){if(disposing&&!released){released=true;crisp.Dispose();image.Dispose();}base.Dispose(disposing);}
 }
 
 internal sealed class StaggerOverlay:Form {

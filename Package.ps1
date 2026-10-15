@@ -1,4 +1,4 @@
-﻿param([string]$Version = '1.12.1', [switch]$SkipBuild)
+﻿param([string]$Version = '1.13.0', [switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release version.' }
 $projectRoot = $PSScriptRoot
@@ -14,6 +14,12 @@ New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets') -Force | Ou
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'protocol') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\sounds') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\skills') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\npcs') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\licenses') -Force | Out-Null
+foreach ($name in @('LICENSE-MIT.txt','README.md')) {
+    Copy-Item -LiteralPath (Join-Path $projectRoot ('assets\npcs\' + $name)) -Destination (Join-Path $packageRoot ('assets\npcs\' + $name))
+}
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\licenses\Aion2ProtocolResearch-MIT.txt') -Destination (Join-Path $packageRoot 'assets\licenses\Aion2ProtocolResearch-MIT.txt')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\skills\LICENSE-MIT.txt') -Destination (Join-Path $packageRoot 'assets\skills\LICENSE-MIT.txt')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\skills\README.md') -Destination (Join-Path $packageRoot 'assets\skills\README.md')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\sounds\party-invite.mp3') -Destination (Join-Path $packageRoot 'assets\sounds\party-invite.mp3')
@@ -23,6 +29,8 @@ foreach ($name in @('Aion2Helper.exe','Aion-2-Helper.cmd','README.md','THIRD-PAR
 foreach ($name in @('aion-2-helper.png','aion-2-helper.ico')) {
     Copy-Item -LiteralPath (Join-Path $projectRoot ('assets\' + $name)) -Destination (Join-Path $packageRoot ('assets\' + $name))
 }
+$packageAssembly = [System.Reflection.AssemblyName]::GetAssemblyName((Join-Path $packageRoot 'Aion2Helper.exe'))
+if ($packageAssembly.Version.ToString(3) -ne $Version) { throw 'Package version does not match the compiled executable.' }
 foreach ($name in @('sync-opcodes.json','LICENSE-MIT.txt')) {
     Copy-Item -LiteralPath (Join-Path $projectRoot ('protocol\' + $name)) -Destination (Join-Path $packageRoot ('protocol\' + $name))
 }
