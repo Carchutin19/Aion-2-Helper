@@ -16,7 +16,8 @@ internal sealed class TcpPingReader:IDisposable {
     [DllImport("iphlpapi.dll")] static extern uint SetPerTcp6ConnectionEStats(byte[] row,int type,byte[] rw,uint version,uint size,uint offset);
     internal sealed class Connection {
         internal byte[] Row;internal int Family;internal bool Owned,HasCount;internal uint Count,Error;internal int? Value;internal double FreshAt,RetryAt;
-        internal string Key {get{return Family+":"+Convert.ToBase64String(Row);}}
+        string key; // The native endpoint row is fixed for this connection.
+        internal string Key {get{return key??(key=Family+":"+Convert.ToBase64String(Row));}}
     }
     readonly Dictionary<string,Connection> connections=new Dictionary<string,Connection>();
     readonly Func<List<Connection>> discover;readonly Func<Connection,byte[],byte[],uint> read;readonly Func<Connection,bool,uint> write;

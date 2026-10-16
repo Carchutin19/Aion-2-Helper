@@ -20,7 +20,7 @@ internal sealed class SessionKeyMemory:IDisposable {
     [DllImport("psapi.dll",SetLastError=true)] static extern bool EnumProcessModulesEx(IntPtr process,[Out]IntPtr[] modules,int size,out int needed,uint flags);
     [DllImport("psapi.dll",SetLastError=true)] static extern bool GetModuleInformation(IntPtr process,IntPtr module,out Module info,int size);
     [DllImport("psapi.dll",CharSet=CharSet.Unicode)] static extern uint GetModuleBaseNameW(IntPtr process,IntPtr module,StringBuilder name,int size);
-    IntPtr handle;int processId;long vtable,owner,stateA,stateB,scanAfter;bool ownerScanned;
+    IntPtr handle;int processId;long vtable,owner,stateA,stateB,scanAfter,preferredRegion;bool ownerScanned;
     readonly Func<long,int,byte[]> fixtureRead;readonly Func<long,long,IEnumerable<Region>> fixtureRegions;
     internal SessionKeyMemory(){}
     internal SessionKeyMemory(long table,Func<long,int,byte[]> read,Func<long,long,IEnumerable<Region>> regions){vtable=table;fixtureRead=read;fixtureRegions=regions;}
@@ -46,6 +46,10 @@ internal sealed class SessionKeyMemory:IDisposable {
     static bool Accepted(byte[] key,Func<byte[],bool> matches){if(key==null)return false;bool accepted=false;try{accepted=matches==null||matches(key);return accepted;}finally{if(!accepted)Array.Clear(key,0,key.Length);}}
     internal byte[] ReadKey(int pid,Func<bool> cancelled,Func<byte[],bool> matches=null){uint exit;if(fixtureRead==null&&(handle==IntPtr.Zero||processId!=pid||!GetExitCodeProcess(handle,out exit)||exit!=259))Open(pid,cancelled);if(cancelled())throw new OperationCanceledException();if(stateA!=0&&stateB!=0){var a=State(stateA);var b=State(stateB);bool valid=Equal(a,b);if(b!=null)Array.Clear(b,0,b.Length);if(valid&&Accepted(a,matches))return a;if(a!=null)Array.Clear(a,0,a.Length);stateA=stateB=0;}
         if(owner!=0){var key=Owner(owner);if(Accepted(key,matches))return key;owner=0;}
+        // A new connection can allocate its state beside the previous one.
+        // Recheck that single, still-eligible allocation before a wider pass.
+        // Its address is only a hint; the new captured setup must accept the key.
+        if(preferredRegion!=0&&matches!=null){var key=NearbyState(cancelled,matches);if(key!=null)return key;}
         var regions=new List<Region>();if(!ownerScanned)foreach(var region in Regions(0x200000000,0x300000000)){if(cancelled())throw new OperationCanceledException();uint p=region.Protection&255;if(Usable(region)&&region.Type==0x20000&&region.Size.ToUInt64()==65536&&(p==4||p==8||p==0x40||p==0x80))regions.Add(region);}ownerScanned=true;
         regions.Reverse();long bytes=0;var block=new byte[65536];var clock=System.Diagnostics.Stopwatch.StartNew();foreach(var region in regions){if(cancelled())throw new OperationCanceledException();bytes+=65536;if(bytes>64L*1024*1024||clock.ElapsedMilliseconds>500)break;if(!ReadBlock(region.Base.ToInt64(),block))continue;for(int at=0;at<=block.Length-0xe40;at+=8){if(BitConverter.ToInt64(block,at)!=vtable+0x148)continue;long candidate=region.Base.ToInt64()+at;var key=Owner(candidate);if(Accepted(key,matches)){owner=candidate;return key;}}
             // Same bounded owner arena: some owner variants use another vtable.
@@ -54,15 +58,24 @@ internal sealed class SessionKeyMemory:IDisposable {
         }
         return LocateStatePair(cancelled,matches);
     }
+    byte[] NearbyState(Func<bool> cancelled,Func<byte[],bool> matches){
+        foreach(var region in Regions(preferredRegion,preferredRegion+1)){
+            if(cancelled())throw new OperationCanceledException();uint p=region.Protection&255;
+            if(region.Base.ToInt64()!=preferredRegion||!Usable(region)||region.Type!=0x20000||region.Size.ToUInt64()!=65536||(p!=4&&p!=8&&p!=0x40&&p!=0x80))continue;
+            var block=new byte[65536];if(!ReadBlock(preferredRegion,block))return null;
+            for(int at=0;at<=block.Length-8;at+=8){if(BitConverter.ToInt64(block,at)!=vtable)continue;if(cancelled())throw new OperationCanceledException();long address=preferredRegion+at;var key=State(address);if(!Accepted(key,matches))continue;stateA=stateB=address;scanAfter=0;return key;}
+        }
+        return null;
+    }
     byte[] LocateStatePair(Func<bool> cancelled,Func<byte[],bool> matches){
         // Address layouts change between launches. Only bounded writable private
         // 64-KiB allocations are examined; no unrestricted large-region scan.
         var candidates=new List<KeyValuePair<long,byte[]>>();long bytes=0;var block=new byte[65536];var clock=System.Diagnostics.Stopwatch.StartNew();try{foreach(var region in Regions(scanAfter,0x7fffffffffff)){if(cancelled())throw new OperationCanceledException();if(bytes>=128L*1024*1024||clock.ElapsedMilliseconds>750)return null;scanAfter=region.Base.ToInt64()+(long)region.Size.ToUInt64();uint p=region.Protection&255;if(!Usable(region)||region.Type!=0x20000||region.Size.ToUInt64()!=65536||(p!=4&&p!=8&&p!=0x40&&p!=0x80))continue;bytes+=65536;if(!ReadBlock(region.Base.ToInt64(),block))continue;for(int at=0;at<=block.Length-8;at+=8){if(BitConverter.ToInt64(block,at)!=vtable)continue;long address=region.Base.ToInt64()+at;byte[] key=State(address);if(key==null)continue;
                 // A received handshake is the authority: an allocated state alone
                 // is not enough. This also works when its paired state moved.
-                if(matches!=null&&Accepted(key,matches)){stateA=stateB=address;scanAfter=0;return key;}
+                if(matches!=null&&Accepted(key,matches)){stateA=stateB=address;preferredRegion=region.Base.ToInt64();scanAfter=0;return key;}
                 if(matches!=null)continue;
                 bool retained=false;foreach(var candidate in candidates)if(Equal(key,candidate.Value)){stateA=candidate.Key;stateB=address;scanAfter=0;return key;}if(candidates.Count<32){candidates.Add(new KeyValuePair<long,byte[]>(address,key));retained=true;}if(!retained)Array.Clear(key,0,key.Length);}}scanAfter=0;return null;}finally{foreach(var candidate in candidates)Array.Clear(candidate.Value,0,candidate.Value.Length);}
     }
-    public void Dispose(){if(handle!=IntPtr.Zero){CloseHandle(handle);handle=IntPtr.Zero;}processId=0;vtable=owner=stateA=stateB=scanAfter=0;ownerScanned=false;}
+    public void Dispose(){if(handle!=IntPtr.Zero){CloseHandle(handle);handle=IntPtr.Zero;}processId=0;vtable=owner=stateA=stateB=scanAfter=preferredRegion=0;ownerScanned=false;}
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -188,23 +188,26 @@ internal static class BarDesign {
     }
     internal static Bitmap Render(int width,int height,double ratio,bool editing,bool fresh,float dpiScale,EnergyBarOptions options=null) {
         var bitmap=new Bitmap(width,height,PixelFormat.Format32bppPArgb);
-        using(var g=Graphics.FromImage(bitmap)){
-            // Pixel-aligned shapes remain crisp even at the minimum 3-pixel height.
-            g.SmoothingMode=SmoothingMode.None;g.PixelOffsetMode=PixelOffsetMode.Default;g.Clear(Color.Transparent);
-            // Layered windows only hit-test nontransparent pixels. This near-invisible
-            // editing surface also makes the empty part of the bar draggable.
-            if(editing)using(var brush=new SolidBrush(Color.FromArgb(1,0,0,0)))g.FillRectangle(brush,0,0,width,height);
-            int baseline=Math.Max(1,height/4),colorHeight=height-baseline;
-            // The remaining track is a thinner dark line; there is no full-height
-            // black rectangle behind the colored stroke.
-            using(var brush=new SolidBrush(Color.FromArgb(options==null?170:options.TrackOpacity,0,0,0)))g.FillRectangle(brush,0,colorHeight,width,baseline);
-            int filled=(int)Math.Round(width*Math.Max(0,Math.Min(1,ratio)));
-            if(fresh&&filled>0)using(var brush=new SolidBrush(EnergyColor(ratio,options)))g.FillRectangle(brush,0,0,filled,colorHeight);
-            if(!fresh)using(var brush=new SolidBrush(Color.FromArgb(170,167,173,181))){int dot=Math.Max(1,(int)Math.Round(dpiScale));for(int x=0;x<width;x+=dot*4)g.FillRectangle(brush,x,0,Math.Min(dot*2,width-x),colorHeight);}
-            if(editing){
-                using(var brush=new SolidBrush(Color.FromArgb(255,100,110,115))){g.FillRectangle(brush,0,0,1,height);g.FillRectangle(brush,width-1,0,1,height);}
-            }
-        }return bitmap;
+        using(var g=Graphics.FromImage(bitmap)){g.Clear(Color.Transparent);DrawCore(g,width,height,ratio,editing,fresh,dpiScale,options);}return bitmap;
+    }
+    // Share drawing commands rather than allocating a second bitmap/Graphics
+    // pair for every animated emissive bar frame.
+    static void DrawCore(Graphics g,int width,int height,double ratio,bool editing,bool fresh,float dpiScale,EnergyBarOptions options){
+        // Pixel-aligned shapes remain crisp even at the minimum 3-pixel height.
+        g.SmoothingMode=SmoothingMode.None;g.PixelOffsetMode=PixelOffsetMode.Default;
+        // Layered windows only hit-test nontransparent pixels. This near-invisible
+        // editing surface also makes the empty part of the bar draggable.
+        if(editing)using(var brush=new SolidBrush(Color.FromArgb(1,0,0,0)))g.FillRectangle(brush,0,0,width,height);
+        int baseline=Math.Max(1,height/4),colorHeight=height-baseline;
+        // The remaining track is a thinner dark line; there is no full-height
+        // black rectangle behind the colored stroke.
+        using(var brush=new SolidBrush(Color.FromArgb(options==null?170:options.TrackOpacity,0,0,0)))g.FillRectangle(brush,0,colorHeight,width,baseline);
+        int filled=(int)Math.Round(width*Math.Max(0,Math.Min(1,ratio)));
+        if(fresh&&filled>0)using(var brush=new SolidBrush(EnergyColor(ratio,options)))g.FillRectangle(brush,0,0,filled,colorHeight);
+        if(!fresh)using(var brush=new SolidBrush(Color.FromArgb(170,167,173,181))){int dot=Math.Max(1,(int)Math.Round(dpiScale));for(int x=0;x<width;x+=dot*4)g.FillRectangle(brush,x,0,Math.Min(dot*2,width-x),colorHeight);}
+        if(editing){
+            using(var brush=new SolidBrush(Color.FromArgb(255,100,110,115))){g.FillRectangle(brush,0,0,1,height);g.FillRectangle(brush,width-1,0,1,height);}
+        }
     }
     internal static Bitmap RenderEmissive(int width,int height,double ratio,bool editing,bool fresh,float dpiScale,EnergyBarOptions options=null,GlowWorkspace workspace=null){
         int pad=GlowPadding,outerWidth=width+2*pad,outerHeight=height+2*pad;
@@ -227,7 +230,9 @@ internal static class BarDesign {
         }
         using(var g=Graphics.FromImage(bitmap)){
             if(editing)using(var brush=new SolidBrush(Color.FromArgb(1,0,0,0)))g.FillRectangle(brush,0,0,outerWidth,outerHeight);
-            using(var core=Render(width,height,ratio,editing,fresh,dpiScale,options))g.DrawImageUnscaled(core,GlowPadding,GlowPadding);
+            // Keep the edit surface's original alpha compositing unchanged.
+            if(editing){using(var core=Render(width,height,ratio,true,fresh,dpiScale,options))g.DrawImageUnscaled(core,pad,pad);}
+            else{g.TranslateTransform(pad,pad);DrawCore(g,width,height,ratio,false,fresh,dpiScale,options);g.TranslateTransform(-pad,-pad);}
             if(emission&&fresh&&filled>0){
                 // Flight-meter reference: saturated colored edges around a thin,
                 // almost-white luminous filament, rather than a flat dark fill.

@@ -1,3 +1,128 @@
+# Aion 2 Helper v1.14.0 Alpha — Notification Redesign & Performance Improvements
+
+This release refreshes all four notification types and reduces unnecessary work
+in FPS fallback parsing, ping bookkeeping and progress-bar drawing. It also
+includes targeted DPS identity and experimental distance-session corrections.
+The application remains Alpha, the DPS Meter remains **Beta**, and enemy health,
+enemy target and exact distance remain **experimental**.
+
+## Redesigned notifications
+
+- Illustrated notifications are now the default, with dedicated artwork for
+  normal party invitations, dungeon-party invitations and Shugo Festival.
+  Shugo's five-minute reminder and registration-opening notice share an icon,
+  while keeping separate messages and independent enable switches.
+- Icons, the pure-black transparent gradient and localized text are composed
+  separately. The background fits the actual message and wraps long names.
+  Dungeon artwork includes the person and stone emblem, without a crescent moon.
+- **Simplified notifications**, off by default, restores the compact text-only
+  design. Existing sound, volume, duration, fade, color and category preferences
+  are retained. The master switch preserves individual notification choices.
+- Whole-notification scale grows around the saved center, including resizing.
+  Text size can be adjusted independently. Maximum width controls wrapping;
+  icon sizes are normalized across categories.
+- Optional **Icon glow** with its own intensity control retains the soft
+  emissive appearance of the approved designs. Glow stays with the artwork;
+  the text background remains a separate black-alpha gradient.
+- A **Preview type** selector shows the generic sample, both Shugo messages,
+  normal party and dungeon invitations in the selected style. One generic
+  **Test notification** button checks the visual and configured sound.
+  Invitation examples use Carchutin; live notices show the actual inviter.
+- Artwork is embedded in the executable, decoded once per category and cached
+  at a reduced working size. Notice holds and fades reuse their uploaded image.
+  English/Spanish, automatic saving, undo/redo and click-through behavior remain.
+
+Shugo reminders still use the hourly :55/:00 schedule while Aion is running;
+they do not query server registration state or replay missed alerts. This
+release does not add Spacetime Rift or world-boss notifications.
+
+## FPS, ping and progress-bar optimization
+
+- The **PresentMon fallback** extracts only the four fields needed for FPS
+  instead of splitting every CSV column. Quoted/escaped fields, reordered
+  headers and BOM headers remain supported. Native DXGI counting and requested
+  refresh rates are unchanged.
+- Ping reuses a stable endpoint key per connection instead of rebuilding its
+  string during discovery and cleanup. Sampling intervals, expiration,
+  ownership and error handling are unchanged.
+- Locked Energy, Stagger, Enemy health and Enemy target widgets draw their
+  shared bar core directly into the final emissive bitmap, avoiding a temporary
+  bitmap/Graphics pair. Edit mode retains the previous compositing path.
+  A 256-case before/after comparison produced identical pixels.
+
+Five-run median synthetic measurements on the development PC:
+
+| Isolated workload | Before | After |
+| --- | ---: | ---: |
+| 1,500 locked bar renders | 63.368 ms | 50.919 ms |
+| 20,000 wide fallback CSV records | 67.770 ms | 7.098 ms |
+| Managed allocation for that CSV workload | 130.72 MB | 9.22 MB |
+
+These are isolated implementation benchmarks, **not** measured whole-helper
+CPU savings or an increase in in-game FPS. The CSV improvement applies to the
+fallback path, not native DXGI collection. Unchanged widgets were already cached.
+
+## DPS identity handling
+
+Validated remote-player profiles that arrive before the gameplay connection is
+selected are now retained in a small, expiring, connection-specific staging
+buffer. This prevents that particular ordering from discarding explicit names.
+Conflicting, expired and future-dated profiles are rejected; transport reset or
+disabling DPS clears the buffer. Names and party membership are never guessed
+from class/order, and damage is not replayed or counted twice.
+
+Five offline production-parser comparisons covered **931,921 decoded frames**
+and **8,498 aligned snapshots**, with unchanged per-player combat rows. This
+does **not** prove that all temporary Player + ID rows are fixed: a profile that
+the server sends late can still leave a temporary anonymous row. First-entry
+party-name behavior still needs repeated live checks.
+
+## Experimental distance-session recovery
+
+- A new encrypted setup cancels obsolete lookup work and clears the previous
+  session's retry delay. An obsolete result/error cannot overwrite the active
+  session's state or restore its old backoff.
+- Candidate validation is tied to the session requesting the lookup, so an old
+  pending connection's key cannot satisfy a new connection's request.
+- Before a wider bounded search, the reader may recheck the one previously
+  successful 64-KiB allocation. Its current memory attributes, supported
+  structure and actual new setup must all validate. It is only a search hint;
+  process restart/disposal clears it and nothing is persisted to disk.
+
+Synthetic regression tests reproduced these failures before the corrections
+and pass afterwards. Repeated real instance transitions and recovery time still
+need live validation; this is not a guarantee that missing metres are eliminated.
+The optional memory-read setting remains off by default and its scope is unchanged.
+
+## Updating and validation
+
+Use **General → Application updates → Check for updates → Download and update**,
+or download the Windows ZIP. Settings, combat history and game-tweak backups are
+preserved. Versions before v1.13.0 need a manual download to obtain the updater.
+The previous v1.13.1 in-app upgrade was confirmed working by the author and a
+second user; this release also checks staging, preservation and rollback locally.
+
+**Open the helper before Aion 2.** For the optional exact-distance reader, restart
+Aion with the updated helper already running and the option enabled. Missing
+handshakes, initial profiles or supported coordinates can still hide data.
+
+Release verification covers notification layouts/modes/EN-ES/Unicode, native
+category gates/fades/caching and resource bounds; shared Settings/undo/geometry;
+FPS/ping, DPS, synthetic session lookup, enemy/target/details and progress bars;
+updater staging/rollback and the packaged executable/resources. The notification
+designs were reviewed by the author locally. No new live dungeon/session-key
+test is claimed for the optimization/recovery changes in this release.
+
+**Known issues remain:** open-world boss party damage may stop updating; Energy
+Bar PvP is unresolved; some player names/target-health profiles can arrive late
+or be missing. Unknown combat effects, effective healing, causal buff bonuses,
+per-player stagger and universal boss identification are not added or inferred.
+
+Join the [Aion 2 Helper Discord](https://discord.gg/yf7SDZMyd8) for updates,
+community discussion and feedback.
+
+---
+
 # Aion 2 Helper v1.13.1 Alpha — Experimental Distance Recovery
 
 This patch improves the **optional experimental enemy-distance reader** and is

@@ -27,6 +27,26 @@ internal sealed class DpsSignal {
     sealed class Parent {internal uint Actor;internal double Spawned;}
     sealed class PendingRoster {internal byte[] Bytes;internal double Time;}
     readonly Dictionary<string,PendingRoster> pendingRosters=new Dictionary<string,PendingRoster>();
+    sealed class PendingProfile {internal uint Actor;internal string Name;internal byte Role;internal double Time;internal bool Conflict;}
+    sealed class ProfileBatch {internal double Time;internal readonly List<PendingProfile> Profiles=new List<PendingProfile>();}
+    readonly Dictionary<string,ProfileBatch> pendingProfiles=new Dictionary<string,ProfileBatch>();
+    // Explicit profiles can precede the gameplay envelope that selects a new
+    // connection. Retain parsed identity only, never packets, inferred names or
+    // membership. Actor IDs remain scoped to that exact connection and timeout.
+    void StageProfile(string flow,uint actor,string name,byte role,double time){
+        if(flow==null)return;ProfileBatch batch;
+        if(!pendingProfiles.TryGetValue(flow,out batch)){
+            if(pendingProfiles.Count>=4){string oldest=null;double stamp=double.MaxValue;foreach(var entry in pendingProfiles)if(entry.Value.Time<stamp){oldest=entry.Key;stamp=entry.Value.Time;}if(oldest!=null)pendingProfiles.Remove(oldest);}
+            pendingProfiles[flow]=batch=new ProfileBatch();
+        }
+        batch.Time=Math.Max(batch.Time,time);
+        for(int i=batch.Profiles.Count-1;i>=0;i--){var profile=batch.Profiles[i];if(time-profile.Time>120){batch.Profiles.RemoveAt(i);continue;}if(profile.Actor!=actor)continue;if(time<profile.Time)return;profile.Conflict|=profile.Name!=name;profile.Time=time;profile.Role=role;return;}
+        if(batch.Profiles.Count<128)batch.Profiles.Add(new PendingProfile{Actor=actor,Name=name,Role=role,Time=time});
+    }
+    void ApplyProfiles(string flow,double time){
+        ProfileBatch batch;if(flow!=null&&pendingProfiles.TryGetValue(flow,out batch))foreach(var profile in batch.Profiles){if(time<profile.Time||time-profile.Time>120)continue;if(profile.Conflict){conflicted.Add(profile.Actor);continue;}Bind(profile.Actor,profile.Name,profile.Role);}
+        pendingProfiles.Clear();
+    }
     const int EntityLimit=4096;
     readonly object gate=new object();readonly Dictionary<uint,string> names=new Dictionary<uint,string>();
     readonly Dictionary<uint,byte> roles=new Dictionary<uint,byte>();
@@ -156,9 +176,9 @@ internal sealed class DpsSignal {
         uint mp=BitConverter.ToUInt32(b,p),mpMax=BitConverter.ToUInt32(b,p+4);return mp<=mpMax&&mpMax<=10000000&&b[end-1]<=1;
     }
     void Touch(uint actor,double timestamp){double previous;if(activity.TryGetValue(actor,out previous)){if(timestamp>previous)activity[actor]=timestamp;}else if(activity.Count<EntityLimit)activity[actor]=timestamp;}
-    internal void ResetTransport(){lock(gate){stream=null;pendingRosters.Clear();characterSkills.Reset();ClearEntities();}}
+    internal void ResetTransport(){lock(gate){stream=null;pendingRosters.Clear();pendingProfiles.Clear();characterSkills.Reset();ClearEntities();}}
     internal void ResetEncounter(){lock(gate){ClearEncounter("Manual reset");targetHealth.Clear();}}
-    internal void Configure(DpsOptions next){lock(gate){if(DpsOptions.Same(options,next))return;bool reset=options.Enabled!=next.Enabled;if(reset){stream=null;pendingRosters.Clear();characterSkills.Reset();ClearEntities("Meter disabled");}options=next.Copy();options.Normalize();revision++;}}
+    internal void Configure(DpsOptions next){lock(gate){if(DpsOptions.Same(options,next))return;bool reset=options.Enabled!=next.Enabled;if(reset){stream=null;pendingRosters.Clear();pendingProfiles.Clear();characterSkills.Reset();ClearEntities("Meter disabled");}options=next.Copy();options.Normalize();revision++;}}
     internal static bool PlayerIdentity(byte[] b,int start,int end,bool self,out uint actor,out string name,out byte role){
         actor=0;name=null;role=0;int p=start+2;
         if(end-start<128||end-start>65536||!Var(b,ref p,end,out actor)||actor==0)return false;
@@ -168,6 +188,7 @@ internal sealed class DpsSignal {
     }
     void SelectStream(string flow,double timestamp,bool reset){
         if(reset||stream!=flow)ClearEntities();stream=flow;lastTraffic=timestamp;
+        ApplyProfiles(flow,timestamp);
         PendingRoster staged;if(pendingRosters.TryGetValue(flow,out staged)&&timestamp>=staged.Time&&timestamp-staged.Time<=15)ReadParty(staged.Bytes,0,staged.Bytes.Length,false);
         pendingRosters.Clear();
     }
@@ -179,6 +200,7 @@ internal sealed class DpsSignal {
             // bounded copy per candidate flow until a gameplay envelope selects it.
             if(opcode==0x0092&&end-start<=65536&&flow!=null){if(!pendingRosters.ContainsKey(flow)&&pendingRosters.Count>=4)pendingRosters.Clear();var copy=new byte[end-start];Buffer.BlockCopy(b,start,copy,0,copy.Length);pendingRosters[flow]=new PendingRoster{Bytes=copy,Time=timestamp};}
             uint identityActor;string identityName;byte identityRole;
+            if(opcode==0x4536&&stream!=null&&stream!=flow&&PlayerIdentity(b,start,end,false,out identityActor,out identityName,out identityRole)){StageProfile(flow,identityActor,identityName,identityRole,timestamp);return;}
             bool selfInfo=opcode==0x3336&&PlayerIdentity(b,start,end,true,out identityActor,out identityName,out identityRole);
             if(opcode==0x2136&&end-start==48&&BitConverter.ToUInt32(b,start+2)<=10000&&BitConverter.ToUInt32(b,start+6)>0&&BitConverter.ToUInt32(b,start+6)<10000000){
                 uint map=BitConverter.ToUInt32(b,start+6);

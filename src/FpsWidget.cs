@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -36,15 +36,15 @@ internal sealed class FpsSamples {
     }
     sealed class Chain {internal readonly Queue<double> Times=new Queue<double>();internal double Last=-1;internal long Arrival;}
     readonly Dictionary<Surface,Chain> chains=new Dictionary<Surface,Chain>();readonly object gate=new object();
-    int pidIndex=-1,chainIndex=-1,timeIndex=-1;readonly int processId;
+    readonly int[] fieldColumns={0,-1,-1,-1};readonly int processId;
     internal FpsSamples(int pid){processId=pid;}
     internal void Consume(string line){
         if(string.IsNullOrEmpty(line)||line.Length>8192)return;
-        string[] fields=Csv(line);
-        if(fields.Length>0&&fields[0].Trim('\uFEFF')=="Application") {pidIndex=Array.IndexOf(fields,"ProcessID");chainIndex=Array.IndexOf(fields,"SwapChainAddress");timeIndex=Array.IndexOf(fields,"TimeInSeconds");return;}
-        if(pidIndex<0||chainIndex<0||timeIndex<0||fields.Length<=Math.Max(timeIndex,Math.Max(pidIndex,chainIndex)))return;
-        int pid;double time;ulong surface;string address=fields[chainIndex];if(address.StartsWith("0x",StringComparison.OrdinalIgnoreCase))address=address.Substring(2);
-        if(!int.TryParse(fields[pidIndex],out pid)||(processId>0?pid!=processId:!string.Equals(fields[0],"Aion2.exe",StringComparison.OrdinalIgnoreCase))||!double.TryParse(fields[timeIndex],NumberStyles.Float,CultureInfo.InvariantCulture,out time)||!ulong.TryParse(address,NumberStyles.HexNumber,CultureInfo.InvariantCulture,out surface))return;
+        string[] fields=ProjectCsv(line,fieldColumns);
+        if(fields[0].Trim('\uFEFF')=="Application") {var header=Csv(line);fieldColumns[1]=Array.IndexOf(header,"ProcessID");fieldColumns[2]=Array.IndexOf(header,"SwapChainAddress");fieldColumns[3]=Array.IndexOf(header,"TimeInSeconds");return;}
+        if(fields[1]==null||fields[2]==null||fields[3]==null)return;
+        int pid;double time;ulong surface;string address=fields[2];if(address.StartsWith("0x",StringComparison.OrdinalIgnoreCase))address=address.Substring(2);
+        if(!int.TryParse(fields[1],out pid)||(processId>0?pid!=processId:!string.Equals(fields[0],"Aion2.exe",StringComparison.OrdinalIgnoreCase))||!double.TryParse(fields[3],NumberStyles.Float,CultureInfo.InvariantCulture,out time)||!ulong.TryParse(address,NumberStyles.HexNumber,CultureInfo.InvariantCulture,out surface))return;
         Add(pid,surface,time);
     }
     internal void Add(int pid,ulong surface,double time){
@@ -57,7 +57,28 @@ internal sealed class FpsSamples {
     internal int? Read(){lock(gate){Chain best=null;long now=Stopwatch.GetTimestamp();foreach(var chain in chains.Values)if((now-chain.Arrival)/(double)Stopwatch.Frequency<=2&&(best==null||chain.Times.Count>best.Times.Count))best=chain;
         if(best==null||best.Times.Count<2)return null;double duration=best.Last-best.Times.Peek();if(duration<=0)return null;return Math.Max(1,Math.Min(9999,(int)Math.Round((best.Times.Count-1)/duration)));}}
     internal static string[] Csv(string line){var result=new List<string>();var cell=new System.Text.StringBuilder();bool quoted=false;for(int i=0;i<line.Length;i++){char c=line[i];if(c=='"'){if(quoted&&i+1<line.Length&&line[i+1]=='"'){cell.Append('"');i++;}else quoted=!quoted;}else if(c==','&&!quoted){result.Add(cell.ToString());cell.Length=0;}else cell.Append(c);}result.Add(cell.ToString());return result.ToArray();}
-    internal static void Verify(){var s=new FpsSamples(42);s.Consume("Application,ProcessID,SwapChainAddress,TimeInSeconds");for(int i=0;i<=120;i++)s.Consume("\"AION,2.exe\",42,0x1,"+(i/120.0).ToString("R",CultureInfo.InvariantCulture));if(s.Read()!=120)throw new Exception("Actual presentation timestamps must give 120 FPS");for(int i=0;i<=30;i++)s.Consume("AION2.exe,42,0x2,"+(i/30.0).ToString("R",CultureInfo.InvariantCulture));if(s.Read()!=120)throw new Exception("Swap chains must not be added together");s.Consume("Other.exe,43,0x1,10");s.Consume("AION2.exe,42,0x1,NaN");s.Consume("AION2.exe,42,0x1,0.1");if(s.Read()!=120)throw new Exception("Foreign, invalid and out-of-order rows must be ignored");s.Consume("AION2.exe,42,0x1,100");if(s.Read()!=30)throw new Exception("A long pause must discard old frames");var empty=new FpsSamples(42);if(empty.Read()!=null)throw new Exception("No frames must not invent a reading");var names=new FpsSamples(0);names.Consume("Application,ProcessID,SwapChainAddress,TimeInSeconds");for(int i=0;i<=60;i++)names.Consume("AION2.exe,42,0x1,"+(i/60.0).ToString("R",CultureInfo.InvariantCulture));for(int i=0;i<=30;i++)names.Consume("Aion2.exe,84,0x1,"+(i/30.0).ToString("R",CultureInfo.InvariantCulture));names.Consume("Other.exe,99,0x1,10");if(names.Read()!=60)throw new Exception("Pre-armed name filtering must isolate game processes with matching swap-chain addresses");}
+    // PresentMon can emit dozens of columns per frame. Only materialize the
+    // four fields we use, preserving quoted commas and escaped quotes even in
+    // skipped columns. Header parsing still accepts reordered column layouts.
+    internal static string[] ProjectCsv(string line,int[] columns){
+        var result=new string[columns.Length];var cell=new System.Text.StringBuilder();int column=0,last=0;foreach(int at in columns)last=Math.Max(last,at);bool quoted=false,wanted=Array.IndexOf(columns,0)>=0;
+        for(int i=0;i<=line.Length;i++){
+            if(i==line.Length||line[i]==','&&!quoted){if(wanted){string value=cell.ToString();for(int j=0;j<columns.Length;j++)if(columns[j]==column)result[j]=value;}if(column++>=last)break;cell.Length=0;wanted=Array.IndexOf(columns,column)>=0;continue;}
+            char c=line[i];if(c=='"'){if(quoted&&i+1<line.Length&&line[i+1]=='"'){if(wanted)cell.Append('"');i++;}else quoted=!quoted;}else if(wanted)cell.Append(c);
+        }
+        return result;
+    }
+    static void VerifyProjection(){
+        var random=new Random(318);for(int n=0;n<1000;n++){
+            var line=new System.Text.StringBuilder();int count=random.Next(1,70);
+            for(int i=0;i<count;i++){if(i>0)line.Append(',');line.Append('"');line.Append((i%3==0?"comma,quoted\"":"value").Replace("\"","\"\""));line.Append(i);line.Append('"');}
+            if(n%7==0)line.Append(',');int[] columns={0,random.Next(-1,80),random.Next(-1,80),random.Next(-1,80)};var all=Csv(line.ToString());var projected=ProjectCsv(line.ToString(),columns);
+            for(int i=0;i<columns.Length;i++){string expected=columns[i]>=0&&columns[i]<all.Length?all[columns[i]]:null;if(projected[i]!=expected)throw new Exception("Selective CSV must preserve quoted, reordered, repeated and missing fields");}
+        }
+        foreach(string text in new[]{"",",",",,", "\"a,b\",c", "\"a\"\"b\",c", "\"open,quote", "a,\"b\",", "\uFEFF\"Application\",ProcessID"}){var all=Csv(text);int[] columns={0,3,1,2};var projected=ProjectCsv(text,columns);for(int i=0;i<columns.Length;i++)if(projected[i]!=(columns[i]<all.Length?all[columns[i]]:null))throw new Exception("CSV edge-case compatibility");}
+        var sample=new FpsSamples(42);sample.Consume("\uFEFF\"Application\",Unused,TimeInSeconds,SwapChainAddress,ProcessID,Tail");for(int i=0;i<=90;i++)sample.Consume("AION2.exe,\"ignore,\"\"this\"\"\","+(i/90.0).ToString("R",CultureInfo.InvariantCulture)+",0x4,42,end");if(sample.Read()!=90)throw new Exception("Projected reordered CSV retains exact presentation timing");sample.Consume("Application,Unknown");sample.Consume("AION2.exe,42,0x4,100");if(sample.Read()!=90)throw new Exception("Missing required columns cannot inherit a previous header map");
+    }
+    internal static void Verify(){VerifyProjection();var s=new FpsSamples(42);s.Consume("Application,ProcessID,SwapChainAddress,TimeInSeconds");for(int i=0;i<=120;i++)s.Consume("\"AION,2.exe\",42,0x1,"+(i/120.0).ToString("R",CultureInfo.InvariantCulture));if(s.Read()!=120)throw new Exception("Actual presentation timestamps must give 120 FPS");for(int i=0;i<=30;i++)s.Consume("AION2.exe,42,0x2,"+(i/30.0).ToString("R",CultureInfo.InvariantCulture));if(s.Read()!=120)throw new Exception("Swap chains must not be added together");s.Consume("Other.exe,43,0x1,10");s.Consume("AION2.exe,42,0x1,NaN");s.Consume("AION2.exe,42,0x1,0.1");if(s.Read()!=120)throw new Exception("Foreign, invalid and out-of-order rows must be ignored");s.Consume("AION2.exe,42,0x1,100");if(s.Read()!=30)throw new Exception("A long pause must discard old frames");var empty=new FpsSamples(42);if(empty.Read()!=null)throw new Exception("No frames must not invent a reading");var names=new FpsSamples(0);names.Consume("Application,ProcessID,SwapChainAddress,TimeInSeconds");for(int i=0;i<=60;i++)names.Consume("AION2.exe,42,0x1,"+(i/60.0).ToString("R",CultureInfo.InvariantCulture));for(int i=0;i<=30;i++)names.Consume("Aion2.exe,84,0x1,"+(i/30.0).ToString("R",CultureInfo.InvariantCulture));names.Consume("Other.exe,99,0x1,10");if(names.Read()!=60)throw new Exception("Pre-armed name filtering must isolate game processes with matching swap-chain addresses");}
 }
 
 // The worker is the only process which may request elevation. Parent and worker

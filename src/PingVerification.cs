@@ -16,6 +16,7 @@ internal static class PingVerification {
     }
     internal static void Run(string root){
         VerifyLifecycle();
+        var identity=new TcpPingReader.Connection{Family=2,Row=new byte[20]};string key=identity.Key;for(int n=0;n<10000;n++)if(!object.ReferenceEquals(key,identity.Key))throw new Exception("Polling immutable endpoints must reuse their cached identity");var same=new TcpPingReader.Connection{Family=2,Row=new byte[20]};var other=new TcpPingReader.Connection{Family=23,Row=new byte[52]};if(key!=same.Key||key==other.Key)throw new Exception("Cached identities must preserve exact endpoint and address-family isolation");var changedRow=(byte[])same.Row.Clone();changedRow[4]=1;var different=new TcpPingReader.Connection{Family=2,Row=changedRow};if(different.Key==key)throw new Exception("A new endpoint gets an independent identity");
         var stats=new byte[160];Put(stats,108,153);Put(stats,128,4);
         if(TcpPingReader.Decode(false,stats).HasValue||TcpPingReader.Decode(true,new byte[4]).HasValue||TcpPingReader.Decode(true,stats)!=153)throw new Exception("RTT requires enabled collection, full native struct and samples");
         Put(stats,128,0);if(TcpPingReader.Decode(true,stats).HasValue)throw new Exception("No samples must not invent ping");Put(stats,128,1);Put(stats,108,uint.MaxValue);if(TcpPingReader.Decode(true,stats).HasValue)throw new Exception("Uninitialized RTT must be ignored");Put(stats,108,0);if(TcpPingReader.Decode(true,stats)!=0)throw new Exception("A measured sub-ms RTT rounded to zero is valid");

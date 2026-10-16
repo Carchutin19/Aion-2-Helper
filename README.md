@@ -9,11 +9,15 @@ on broader coverage and validation.** Behavior may vary between PCs and game
 updates. Please report
 problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
 
+Aion 2 Helper is a community project that brings useful game information into
+movable, customizable overlays: progress bars, combat analysis, FPS/ping and
+notifications, with optional startup and visual settings.
+
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.13.1 release — Experimental Distance Recovery](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.13.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.13.1/Aion-2-Helper-v1.13.1-windows-x64.zip).
+The [v1.14.0 release — Notification Redesign & Performance Improvements](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.14.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.14.0/Aion-2-Helper-v1.14.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for Energy/Stagger bars, DPS Meter and invitation notifications;
@@ -26,10 +30,37 @@ a saved/default reference that may affect auto-hide. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
 
-Aion 2 Helper is a community project designed to keep useful information visible
-while you play, with movable widgets, a clean interface, and a focus on low overhead.
-It starts with an independent dash and sprint energy bar and is intended to grow
-into a collection of useful overlays for Aion 2.
+## Discord
+
+Join the [Aion 2 Helper Discord community](https://discord.gg/yf7SDZMyd8) to stay
+up to date with new releases, share feedback, report issues and chat with other
+players. We'd love to hear your ideas and help shape the next updates together!
+
+## New in v1.14.0: Notification redesign & performance improvements
+
+- **New notification designs:** illustrated icons for party, dungeon and Shugo,
+  soft adjustable glow and a transparent black gradient fitted to each message.
+  All four alerts retain their independent switches.
+- **Your choice of style:** the optional **Simplified notifications** switch
+  restores the compact text-only appearance. It is off by default.
+- **Independent text and overall scale:** resize around the saved center,
+  control maximum width and preview each message before testing its sound.
+- **Less temporary work:** optimized FPS fallback CSV parsing, cached ping
+  endpoint keys and fewer temporary drawing objects for all progress bars.
+  Existing bar appearance and sampling behavior are preserved.
+- **Targeted recovery fixes:** retain validated early DPS player profiles per
+  connection; new distance sessions avoid obsolete lookup results/retry delays
+  and can revalidate the last successful allocation before a wider search.
+
+The notification designs were reviewed locally and automated/offline checks
+passed. **DPS remains Beta; enemy bars and metres remain experimental.** Late
+player names, missing target-health data, open-world boss party-DPS freezes and
+Energy PvP still need work. Recovery changes need more live instance testing;
+these optimizations are not a promise of higher in-game FPS.
+
+Update through **General → Application updates**, or use the ZIP above. Existing
+settings/history are preserved. See the [full release notes](RELEASE-NOTES.md)
+for details, isolated performance measurements, validation and remaining limits.
 
 ## New in v1.13.1: Experimental distance recovery
 
@@ -46,8 +77,9 @@ the optional exact-distance setting before launching the game. Older helper
 versions still require a manual ZIP download to get the updater.
 
 **Enemy bars and metres remain experimental.** The corrected reader passed a
-bounded live decoding/position test, but wider PCs, repeated instance changes
-and the first real two-PC in-app upgrade are still being validated. Missing
+bounded live decoding/position test, but more PCs and repeated instance changes
+still need testing. The in-app upgrade was subsequently confirmed working
+by the author and another user. Missing
 handshakes/profiles or unsupported layouts can still hide data. See the
 [complete release notes](RELEASE-NOTES.md) for evidence, limits and troubleshooting.
 
@@ -71,9 +103,9 @@ an optional locked-target-only filter.
 - Downloads use HTTPS, SHA-256 and checked package paths. Program files are
   backed up before replacement; install/check failures attempt restoration.
   Personal settings, combat history and game-tweak backups are preserved.
-- **Download v1.13.0 or newer manually once** to get the updater. The first real
-  v1.13.0 → v1.13.1 upgrade is now being tested; it is not yet a completed
-  two-PC live validation.
+- **Download v1.13.0 or newer manually once** to get the updater. The
+  v1.13.0 → v1.13.1 upgrade was subsequently confirmed working by the author
+  and another user.
 
 **Known limitations:** missing initial enemy/player profiles can hide either
 bar if the helper starts late; open it before Aion. The captured **Pesadilla**
@@ -523,9 +555,10 @@ Shugo alerts follow the hourly schedule reported for the game. They use the
 clock while Aion 2 is running and share notification sound, appearance and fades.
 They do not verify registration availability with the server. Start the helper
 before the alert time; it does not replay missed reminders after startup. Each
-Shugo alert has its own toggle and test button, independent of party invitations.
+Shugo alert has its own toggle, independent of party invitations. The preview
+selector shows both messages; one generic test button checks the configured sound.
 
-When another player invites you to a party, a dark on-screen notice displays
+When another player invites you to a party, an illustrated on-screen notice displays
 that player's name, with an optional notification sound and smooth fade in/out.
 Open **Settings → Notifications** to configure it:
 
@@ -537,12 +570,15 @@ Open **Settings → Notifications** to configure it:
   alerts also have separate switches.
 - **Common settings:** optional sound, volume, display duration, fade toggle
   and fade duration.
-- Shared text color and size, background opacity, position, width and height
-  for all notification types.
+- Illustrated icons, adjustable glow and a black transparent gradient by
+  default; **Simplified notifications** restores the compact text-only style.
+- Shared text color/size, background opacity, position and maximum width.
+  Whole-notification scale grows around its center; text size is independent.
 - Move/resize the notification area directly while widgets are unlocked.
   The editing sample is silent; locked notices let clicks pass through.
-- A generic sample preview and **Test notification** button for checking the
-  appearance and configured sound without receiving a game invitation.
+- A **Preview type** selector for all four alerts and a generic sample, plus
+  one **Test notification** button for checking the appearance and configured
+  sound without receiving a game invitation.
 - English/Spanish, automatic saving, shared lock and configuration undo/redo.
 
 Notifications and party invitation sounds are **enabled by default** for new
