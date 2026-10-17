@@ -9,8 +9,20 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
+        {"WHAT'S NEW · v1.15.1 · Hotfix","NOVEDADES · v1.15.1 · Hotfix"},
+        {"Hotfix: prevent a late first map announcement from clearing confirmed player HP/MP. Supported shields now appear as a gold layer over your health bar, with independent color, opacity, glow and preview controls. Shield capacity and absorption are excluded from DPS damage/healing. Existing preferences are preserved. Initial shield support covers two verified effects; overlapping shields show the largest confirmed amount while combined stacking is being tested. DPS remains Beta; enemy bars and distance remain experimental.","Hotfix: evita que un primer aviso de mapa tardío borre los datos confirmados de vida y MP. Los escudos compatibles aparecen como una capa dorada sobre la vida, con color, opacidad, brillo y vista previa independientes. La capacidad y la absorción del escudo no cuentan como daño ni curación del DPS. Se conservan los ajustes existentes. El soporte inicial incluye dos efectos comprobados; si coinciden varios escudos, se muestra la mayor cantidad confirmada mientras probamos su suma. El DPS sigue en Beta; las barras de enemigo y los metros siguen siendo experimentales."},
         {"WHAT'S NEW · v1.15.0","NOVEDADES · v1.15.0"},
         {"New independent Player health and Player MP bars with live current/max values and percentages. Customize each label, palette, outline, glow and whole-bar scale; preview any fill level from 0 to 100%. Narrow layouts avoid overlapping labels and high/low color controls follow Color by level. General now includes a shared Lock widgets switch; redundant HP/MP preview action buttons were removed. Settings, undo and display adaptation include both new bars. Open the helper before entering your character. DPS remains Beta; enemy bars and distance remain experimental.","Nuevas barras independientes de vida y MP del jugador con valores actuales, máximos y porcentajes en directo. Personaliza cada texto, colores, bordes, brillo y escala completa; prueba cualquier relleno del 0 al 100 %. Los textos se recolocan al estrechar la barra y los colores alto/bajo se desactivan sin Color según nivel. General incluye Bloquear widgets, sincronizado con el icono de la bandeja; se han quitado los botones redundantes de HP/MP. Ambas barras guardan sus ajustes, admiten deshacer y se adaptan a la pantalla. Abre el helper antes de entrar con tu personaje. El DPS sigue en Beta; las barras de enemigo y los metros siguen siendo experimentales."},
+        {"SHIELD","ESCUDO"},
+        {"Health preview","Vida en la vista previa"},
+        {"MP preview","MP en la vista previa"},
+        {"Shield preview","Escudo en la vista previa"},
+        {"Show shield","Mostrar escudo"},
+        {"Shield color","Color del escudo"},
+        {"Shield opacity","Opacidad del escudo"},
+        {"Shield emissive glow","Brillo emisivo del escudo"},
+        {"Shield glow intensity","Intensidad del brillo del escudo"},
+        {"Shows supported shields over health, from left to right. Overlapping shields currently show the largest confirmed amount; combined stacking is still being tested.","Muestra los escudos compatibles sobre la vida, de izquierda a derecha. Si coinciden varios escudos, por ahora se muestra la mayor cantidad confirmada; la suma de escudos sigue en pruebas."},
         {"Player health","Vida del jugador"},
         {"Player MP","MP del jugador"},
         {"Enable player health","Activar vida del jugador"},

@@ -16,8 +16,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.15.0 release — Player HP & MP Bars](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.15.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.15.0/Aion-2-Helper-v1.15.0-windows-x64.zip).
+The [v1.15.1 release — Hotfix: Player Bars & Shields](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.15.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.15.1/Aion-2-Helper-v1.15.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter and invitation notifications;
@@ -45,6 +45,26 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.15.1: Hotfix — Player bars & shields
+
+- **HP/MP visibility fix:** a late first map announcement no longer discards
+  confirmed character resources. Actual map/character changes still reset old
+  readings; the reported Beriutris entry needs a future live retest.
+- **Shields on your health bar:** a gold/yellow layer above the HP fill, without
+  its own border, shows confirmed remaining capacity from left to right and
+  stays within the saved width. Customize color, opacity and glow in **Player
+  health → Appearance → Shield**, with an independent 0–100% preview slider.
+- **Application through removal:** follows supported skill/on-hit shields,
+  absorption, depletion and expiration. A shield keeps full HP visible when
+  auto-hide is enabled. Shield capacity/absorption do not enter DPS damage/heals.
+
+The shield layer was confirmed working live and checked against controlled
+captures. Initial support covers two verified effects; overlapping shields show
+only the largest confirmed active amount until combined stacking is validated.
+Other shield effects and broader instance testing remain pending. Existing
+preferences/history are preserved; no additional polling timer is introduced.
+See the [full release notes](RELEASE-NOTES.md) for validation and remaining limits.
 
 ## New in v1.15.0: Player HP & MP bars
 

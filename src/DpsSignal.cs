@@ -85,6 +85,7 @@ internal sealed class DpsSignal {
         byte flags=b[p++];if(flags!=0&&flags!=1&&flags!=2&&flags!=8&&flags!=9&&flags!=10&&flags!=11)return false;
         if(!Var(b,ref p,end,out source)||!Var(b,ref p,end,out instance)||!U32(b,ref p,end,out effect))return false;
         if((flags&1)!=0&&!Var(b,ref p,end,out pendingValue)||(flags&2)!=0&&!Var(b,ref p,end,out amount)||(flags&8)!=0&&!U32(b,ref p,end,out skill)||p!=end)return false;
+        if(PlayerShieldSignal.IsTick(effect,skill))return false;
         // Exact skill/effect pairs checked against our own NPC HP changes.
         // The same envelope also carries healing, potions and resources.
         bool damage=(skill==15390002&&(effect==1539000011||effect==1539000012))||
@@ -108,6 +109,9 @@ internal sealed class DpsSignal {
         if(end-start<2||end-start>128||b[start]!=5||b[start+1]!=0x38||!Var(b,ref p,end,out target)||p>=end)return false;
         byte flags=b[p++];if(flags!=10&&flags!=11)return false;
         if(!Var(b,ref p,end,out source)||!Var(b,ref p,end,out instance)||!U32(b,ref p,end,out effect)||(flags&1)!=0&&!Var(b,ref p,end,out left)||!Var(b,ref p,end,out amount)||!U32(b,ref p,end,out skill)||p!=end)return false;
+        // Controlled shield captures identify these exact effects as remaining
+        // capacity/absorbed damage, even when their skill also has a healing tag.
+        if(PlayerShieldSignal.IsTick(effect,skill))return false;
         bool known=(skill==18120000&&effect==1812000011)||(skill==17090000&&effect==1709000011);
         if(!(known||flags==11&&effect>=1000000000&&SkillCatalogue.Shared.IsHealing(skill))||source==0||target==0||amount==0||amount>100000000)return false;
         hit=new Hit{Source=source,Target=target,Skill=skill,Amount=amount,Effect=effect,Instance=instance,Periodic=true};return true;

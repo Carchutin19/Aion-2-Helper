@@ -1,3 +1,83 @@
+# Aion 2 Helper v1.15.1 Alpha — Hotfix: Player Bars & Shields
+
+This hotfix corrects a confirmed HP/MP data-reset issue and adds the shield
+layer missing from the custom player health bar. Existing settings, layouts,
+combat history and game-tweak backups are preserved.
+
+## 1. Player HP/MP visibility correction
+
+- A late **first map announcement** on a connection no longer clears an already
+  confirmed character profile and its explicit HP/MP maxima. This fixes a
+  reproduced cause of player bars disappearing even though valid resource
+  updates were still arriving.
+- Actual changes between known maps, character replacement, connection resets
+  and stale data still clear or hide the previous readings. Maxima and identities
+  are not copied between connections or replaced with guessed values.
+- The correction was reproduced and verified with an earlier captured session.
+  The specific entry into the reported Beriutris aerial-assault instance was not
+  captured and still needs a live retest when that event returns; this is not a
+  claim that every instance-related visibility issue has been resolved.
+
+## 2. Shield support on the player health bar
+
+- Supported shields appear as a **gold/yellow fill over the HP bar**, without a
+  separate border. The fill runs left to right and stays inside the configured
+  bar length. It represents confirmed remaining shield relative to maximum HP,
+  capped visually at the bar width; actual HP numbers and maximum are unchanged.
+- Configure **Progress bar → Player health → Appearance → Shield**: enable or
+  disable the layer, choose its color, adjust opacity, emissive glow and glow
+  intensity. It follows the health widget's position and whole-widget scale.
+- A separate **Shield preview** slider lets you inspect 0–100% shield coverage
+  independently of the HP preview. These controls support English/Spanish,
+  automatic saving and undo/redo. The MP bar is unchanged.
+- The fill follows received application, remaining-capacity and removal data,
+  including absorption by enemy hits and natural expiration. The received
+  duration provides a safety cutoff; it never creates gradual numerical decay.
+  Missing remaining capacity is not automatically interpreted as zero.
+- A visible supported shield keeps the health bar available at full HP, even
+  with full-health auto-hide enabled. Normal auto-hide resumes after removal.
+- Exact verified shield effects are excluded from DPS damage/healing parsing,
+  so remaining capacity and absorbed damage cannot be counted as healing just
+  because the associated skill also has a healing tag.
+- Tracking uses the existing incoming receiver and shared timer, with bounded
+  state and cached rendering. No additional polling timer, game-memory access
+  or outgoing capture is introduced by HP/MP or shield tracking.
+
+## Validation and limits
+
+The author confirmed the new shield layer working in the game. Controlled tests
+and production-reader replays cover a skill shield and an attack-triggered
+shield: application, damage absorption, depletion and expiration. The replays
+also retain the previously checked HP/MP consumption, poison and equipment-max
+changes. Parser, rendering, settings and existing combat/progress checks pass.
+Raw captures and personal diagnostics remain private and are not bundled.
+
+**Initial support covers the two verified shield effects**, rather than every
+class or buff. Simultaneous shield stacking is not yet validated: if supported
+shields overlap, the widget shows the **largest confirmed active amount**, not
+an unverified sum. Other shield families need further capture-based validation.
+A shield already active before the helper receives its status and capacity may
+remain unavailable until new supported data arrives.
+
+Missing initial character profiles can still require character selection and
+reentry with the helper open. Wider classes, maps, death/respawn and MP-maximum
+changes still need testing. The application remains **Alpha**, DPS remains
+**Beta**, and enemy/target bars and exact distance remain **experimental**.
+Existing open-world boss party-DPS and Energy PvP issues remain unresolved.
+
+## Updating
+
+Use **General → Application updates → Check for updates → Download and update**,
+or download the Windows ZIP. Npcap is installed separately. Open the helper
+before entering your character; if initial HP/MP data is missing, return to
+character selection and enter again. For the optional exact-distance reader,
+restart Aion with the updated helper already open and the option enabled.
+
+Join the [Aion 2 Helper Discord](https://discord.gg/yf7SDZMyd8) for feedback,
+community discussion and future updates.
+
+---
+
 # Aion 2 Helper v1.15.0 Alpha — Player HP & MP Bars
 
 This release adds independent custom health and MP bars for your character,

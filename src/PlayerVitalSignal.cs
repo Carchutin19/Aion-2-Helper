@@ -5,15 +5,16 @@ using System.Collections.Generic;
 // observed resource messages update that actor on the same connection.
 internal sealed class PlayerVitalSignal {
     internal sealed class Sample {
-        internal uint Actor,Current,Maximum;
+        internal uint Actor,Current,Maximum,Shield;
         internal string Flow;
         internal double Time,Traffic;
     }
     sealed class Flow {
+        internal readonly PlayerShieldSignal Shields=new PlayerShieldSignal();
         internal uint Self,Map;
         internal uint? Hp,HpMaximum,Mp,MpMaximum;
         internal double Traffic,ProfileTime,HpTime,MpTime;
-        internal void Clear(){Self=0;Hp=HpMaximum=Mp=MpMaximum=null;ProfileTime=HpTime=MpTime=0;}
+        internal void Clear(){Self=0;Hp=HpMaximum=Mp=MpMaximum=null;ProfileTime=HpTime=MpTime=0;Shields.Clear();}
     }
     internal struct Points {
         internal uint Actor;
@@ -60,13 +61,21 @@ internal sealed class PlayerVitalSignal {
             if(op==0x3336){
                 EnemyTargetSignal.Player player;
                 if(EnemyTargetSignal.PlayerState(b,start,end,true,out player)&&time>=f.ProfileTime){
+                    if(f.Self!=player.Actor)f.Shields.Clear();
                     f.Self=player.Actor;f.Hp=player.Current;f.HpMaximum=player.Maximum;f.Mp=player.Mana;f.MpMaximum=player.ManaMaximum;
                     f.ProfileTime=f.HpTime=f.MpTime=time;active=key;changed=true;
                 }
             }else if(op==0x2136&&end-start==48&&BitConverter.ToUInt32(b,start+2)<=10000){
                 uint map=BitConverter.ToUInt32(b,start+6);
                 if(map>0&&map<10000000){
-                    if(f.Map!=map){if(f.ProfileTime==0||Math.Max(0,time-f.ProfileTime)>2)f.Clear();f.Map=map;active=key;changed=true;}
+                    if(f.Map!=map){
+                        if(f.Map!=0)f.Shields.Clear();
+                        // The first map announces metadata for this connection,
+                        // not a change away from an already established map.
+                        // Its confirmed own profile may precede it by minutes.
+                        if(f.Map!=0&&(f.ProfileTime==0||Math.Max(0,time-f.ProfileTime)>2))f.Clear();
+                        f.Map=map;active=key;changed=true;
+                    }
                 }
             }else if(op==0x008d){
                 Points points;
@@ -90,6 +99,8 @@ internal sealed class PlayerVitalSignal {
                 }
             }else if(op==0x4236){
                 int p=start+2;uint actor;if(DpsSignal.Var(b,ref p,end,out actor)&&end-p==2&&b[p]==0&&actor==f.Self){f.Clear();changed=true;}
+            }else if(op==0x2a38||op==0x2b38||op==0x0538||op==0x2c38){
+                changed=f.Shields.Consume(b,start,end,time,f.Self)||changed;
             }
         }
         if(changed&&Changed!=null)Changed();
@@ -98,7 +109,7 @@ internal sealed class PlayerVitalSignal {
         lock(gate){Flow f;if(!enabled||active==null||!flows.TryGetValue(active,out f)||f.Self==0||Math.Max(0,now-f.Traffic)>5)return null;
             uint? current=mana?f.Mp:f.Hp,max=mana?f.MpMaximum:f.HpMaximum;
             if(!current.HasValue||!max.HasValue||max.Value==0||current.Value>max.Value)return null;
-            return new Sample{Actor=f.Self,Current=current.Value,Maximum=max.Value,Flow=active,Time=mana?f.MpTime:f.HpTime,Traffic=f.Traffic};
+            return new Sample{Actor=f.Self,Current=current.Value,Maximum=max.Value,Shield=mana?0:f.Shields.Read(now),Flow=active,Time=mana?f.MpTime:f.HpTime,Traffic=f.Traffic};
         }
     }
 }
