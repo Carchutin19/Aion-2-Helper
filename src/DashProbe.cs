@@ -267,6 +267,8 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--enemy-target-test"){try{EnemyTargetVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-target-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--enemy-health-test"){try{EnemyHealthVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-health-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>1&&args[0]=="--enemy-health-replay-test"){try{EnemyHealthVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-health-replay-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--player-vitals-test"){try{PlayerVitalVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"player-vitals-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==2&&args[0]=="--player-vitals-replay-test"){try{PlayerVitalVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"player-vitals-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--progress-test"){try{ProgressVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"progress-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-test"){try{PingVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-live-test"){try{return PingVerification.Live(root);}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-live-test.txt"),"FAIL: "+ex);return 1;}}
@@ -294,6 +296,7 @@ internal static class Entry {
         if(args.Length==1&&args[0]=="--update-health-check"){try{UpdateInstaller.HealthCheck(root);return 0;}catch{return 1;}}
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
         if(args.Length==1&&args[0]=="--updated")UpdateManager.Shared.CheckAsync();
+        if(args.Length>0&&args[0]=="--player-health-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(delegate{helper.OpenPlayerVitalsSettings(false);}));};Application.Run(helper);return 0;}
         bool normalLaunch=args.Length==0||args[0]=="--overlay"||args[0]=="--settings";
         if(normalLaunch&&UpdateRuntime.Startup(root))return 0;
         if(args.Length>0&&args[0]=="--ui-preview"){Application.Run(new EnergyOverlay(root,true));return 0;}

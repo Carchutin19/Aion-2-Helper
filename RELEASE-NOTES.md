@@ -1,3 +1,102 @@
+# Aion 2 Helper v1.15.0 Alpha — Player HP & MP Bars
+
+This release adds independent custom health and MP bars for your character,
+with live received values, full visual settings and a shared widget-lock switch
+in General. The application remains Alpha, the DPS Meter remains **Beta**, and
+enemy bars and exact distance remain **experimental**.
+
+## Live Player health and Player MP
+
+- **Settings → Progress bar → Player health / Player MP:** two separate widgets,
+  each with its own enable switch, position, dimensions and whole-widget scale.
+  New installations start with both modules disabled; enable the ones you want.
+- Shows actual received current value, explicit maximum and percentage. HP
+  damage, periodic damage, recovery and equipment-related maximum changes were
+  checked locally; MP consumption and recovery were compared with the game.
+- The maximum is read from supported character/resource messages; it is never
+  inferred from the highest value seen. Other players' resource updates cannot
+  replace your character's readings.
+- The bars share the existing incoming Npcap receiver. HP/MP tracking does not
+  add game-memory access, outgoing packet capture or a second capture worker.
+  Capture remains active when an enabled HP/MP bar is the only module needing it.
+
+**Open the helper before entering your character.** If you enable the bars after
+entry or start the helper late and values are missing, keep the helper open,
+return to character selection and enter again. Locked bars hide when confirmed
+data is missing or stale; edit mode can show an illustrative sample instead.
+Preview sample values are never presented as confirmed live readings.
+
+## Appearance, preview and layout
+
+- Green HP and magenta MP capsule designs, with configurable colors, optional
+  emissive glow, glow intensity, dark track, opacity, frame and frame thickness.
+- Label, current value, maximum and percentage each have independent visibility,
+  font size, bold, color, above/below left/center/right position, horizontal and
+  vertical offsets, and optional black outline with thickness and opacity.
+- The maximum can follow the current value or use its own position. Whole-bar
+  scale includes text and outlines, with screen/reference adaptation preserving
+  individually authored settings.
+- **0–100% preview sliders** sit directly below each preview, letting you inspect
+  the fill and configured color transitions. Turning off **Color by level**
+  disables high/low color selectors; the medium color remains the fixed color.
+  Stored high/low colors are retained for when the option is enabled again.
+- Narrow bars reflow colliding labels rather than reducing chosen font sizes or
+  overwriting saved positions. Bitmap-DPI text measurement avoids inflated text
+  widths on scaled monitors. Free text positions remain configurable.
+- Auto-hide at full, hold delay, fade and smoothing use the existing progress-bar
+  animation model. Actual numbers update from received data while the fill can
+  interpolate smoothly. Static readings reuse cached images; both new bars use
+  the existing shared adaptive timer.
+- English/Spanish, automatic saving, undo/redo and display-layout migration
+  include both new modules. Progress bar now presents six modules in two rows.
+
+## Lock or unlock widgets from General
+
+- **General → Lock widgets** provides the shared lock directly inside Settings.
+  Turn it off to move and resize enabled widgets, then turn it on to restore
+  normal locked interaction. It is synchronized with the tray-menu lock command.
+- Removed the redundant **Show editing sample** and **Lock widgets** action
+  buttons from the Player health and Player MP preview cards. Their enable
+  switches, preview sliders and General's shared lock cover these actions.
+- README order is now description, Download, Discord, optional project support,
+  then the latest update notes.
+
+## Validation and current limits
+
+The author confirmed both live bars match the game after character reentry.
+A private bounded capture replay reproduced the reported initial HP/MP,
+MP consumption/recovery, consecutive poison HP values and the HP maximum
+decrease/restore from equipment changes. No raw captures are published or bundled.
+
+Tests cover own-actor/connection isolation, explicit maxima, zero resources,
+out-of-order and malformed/truncated input, map/transport resets, stale data,
+narrow layouts, DPI, real label values during smoothing, rendering caches and
+resource bounds. Existing progress, enemy/target, combat and settings checks
+remain part of release verification.
+
+Broader live testing across classes, zones, reconnects and death/respawn is still
+needed. A controlled MP-maximum equipment change was not observed: explicit
+MP maxima are read from supported character/party-vital messages; unsupported
+stat kinds are not guessed. Missing initial profiles can require character reentry.
+
+**Existing issues remain:** open-world boss party DPS can stop updating, Energy
+Bar PvP is unresolved, and some player names or target-health profiles may be
+late or missing. This release does not add world-boss tracking or Spacetime Rift
+alerts and makes no claim of improved in-game FPS.
+
+## Updating
+
+Use **General → Application updates → Check for updates → Download and update**,
+or download the Windows ZIP. Personal settings, combat history and tweak backups
+are preserved. Older versions before v1.13.0 need a manual ZIP to get the updater.
+Npcap is installed separately. For the optional exact-distance reader, restart
+Aion with the updated helper already open and exact distance enabled.
+
+Join the [Aion 2 Helper Discord](https://discord.gg/yf7SDZMyd8) for updates,
+community discussion and feedback.
+
+---
+
 # Aion 2 Helper v1.14.0 Alpha — Notification Redesign & Performance Improvements
 
 This release refreshes all four notification types and reduces unnecessary work

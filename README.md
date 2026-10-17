@@ -2,7 +2,7 @@
 
 **Customizable utility overlays for Aion 2.**
 
-**Alpha software — actively in development.** Energy/Stagger and experimental Enemy/Enemy-target progress bars, FPS/Ping widgets and a
+**Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Enemy/Enemy-target progress bars, FPS/Ping widgets and a
 DPS Meter in **Beta**, Notifications and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
@@ -16,16 +16,16 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.14.0 release — Notification Redesign & Performance Improvements](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.14.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.14.0/Aion-2-Helper-v1.14.0-windows-x64.zip).
+The [v1.15.0 release — Player HP & MP Bars](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.15.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.15.0/Aion-2-Helper-v1.15.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
-for Energy/Stagger bars, DPS Meter and invitation notifications;
+for player HP/MP, Energy/Stagger and enemy bars, DPS Meter and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
-This helps the helper receive your character's initial maximum-stamina stat when
-you enter the world. Opening it after character entry can miss that stat and leave
+This helps the helper receive your character's initial HP/MP and maximum-stamina
+stats when you enter the world. Opening it after character entry can miss that stat and leave
 a saved/default reference that may affect auto-hide. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
@@ -35,6 +35,48 @@ changes during play are still updated automatically when the game sends them.
 Join the [Aion 2 Helper Discord community](https://discord.gg/yf7SDZMyd8) to stay
 up to date with new releases, share feedback, report issues and chat with other
 players. We'd love to hear your ideas and help shape the next updates together!
+
+## Support the project ☕
+
+Enjoying Aion 2 Helper? Donations are welcome — coffee is our favorite buff! ☕
+
+Support is completely optional. The app is free to use, and feedback, bug reports,
+or a friendly thank-you are always appreciated too.
+
+You can support the project through **Donations** on the
+[Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.15.0: Player HP & MP bars
+
+- **Your own health and MP:** two independent widgets in **Progress bar →
+  Player health / Player MP**, showing live current/max values and percentages.
+  Enable either bar; both default off for new installations.
+- **Full visual controls:** independent colors, glow, opacity, frame, position,
+  dimensions and whole-bar scale. Customize label/current/max/percentage text
+  separately, including placement, offsets, font size and black outlines.
+- **Clear previews:** a 0–100% slider below each preview checks the fill and
+  colors. High/low selectors disable when Color by level is off; the medium
+  color remains available as the fixed color.
+- **Better narrow layouts:** colliding labels reflow without changing chosen
+  font sizes, and text measurement uses the bitmap's DPI.
+- **Lock from Settings:** **General → Lock widgets** lets you lock/unlock all
+  widgets without opening the tray menu, and stays synchronized with it.
+  Redundant sample/lock buttons were removed from the HP/MP cards.
+- **Integrated preferences:** auto-hide, hold, fade, smoothing, saving,
+  undo/redo, English/Spanish and display adaptation. Static drawings are cached;
+  the new bars share the existing receiver and adaptive timer.
+
+Both bars were confirmed working locally against the game. HP equipment-max
+changes, poison damage and MP consumption/recovery were replayed with the
+production reader. Broader classes/zone/death testing and controlled MP-max
+changes still need validation. Missing data is not replaced with guessed values.
+Open the helper before entering your character; if readings are missing, return
+to character selection and enter again with the helper running.
+
+Update through **General → Application updates**, or download the ZIP above.
+Existing preferences/history are preserved. **DPS remains Beta; enemy bars and
+metres remain experimental.** See the [full release notes](RELEASE-NOTES.md)
+for validation, requirements and known issues.
 
 ## New in v1.14.0: Notification redesign & performance improvements
 
@@ -607,8 +649,8 @@ These are development goals, **not features included in the current version**:
 - **Expanded combat data:** more supported event types and validated boss,
   stagger, buff/debuff and healing details for the experimental DPS Meter.
 - **Additional notifications:** on-screen reminders, for further supported game events beyond Shugo Festival.
-- **Custom status bars:** player health and mana, and target/enemy bars where
-  the required data is available.
+- **Ally actions menu:** contextual actions for selected allied or neutral characters.
+- **World-boss tracker:** supported active-boss information and optional alerts.
 - **More languages:** further translations beyond English and Spanish.
 
 The availability and scope of future modules depend on what can be reliably read
@@ -616,12 +658,12 @@ or measured. They are not included in the current build.
 
 ## Getting started
 
-This is a Windows desktop application. **Npcap** is required for Energy/Stagger
-bars, DPS Meter and invitation notifications; FPS uses Windows presentation events and Ping uses
+This is a Windows desktop application. **Npcap** is required for Player HP/MP,
+Energy/Stagger and enemy bars, DPS Meter and invitation notifications; FPS uses Windows presentation events and Ping uses
 per-connection Windows TCP statistics. The application was
 developed and tested with Aion 2 Global.
 
-### Install Npcap for Energy Bar, DPS Meter and Notifications
+### Install Npcap for progress bars, DPS Meter and Notifications
 
 Npcap is a separate requirement and is not bundled in the ZIP. Download the
 **Npcap Installer** from [the official Npcap site](https://npcap.com/#download),
@@ -683,7 +725,9 @@ DPS Meter and Notifications.
 
 **General**, above Progress bar, includes an **English /
 Español** language selector. Changes apply immediately to Settings, the tray menu,
-the color picker, and normal energy status messages, and persist across restarts.
+the color picker, and normal status messages, and persist across restarts.
+**General → Lock widgets** toggles the same shared lock as the tray menu.
+Uncheck it to position or resize enabled widgets, then check it to lock them.
 English is the default for new installations and preferences from earlier versions.
 Low-level diagnostic tools and native error messages remain in English.
 
@@ -691,8 +735,9 @@ Energy Bar has **Behavior**, **Appearance**, and **Position & size** tabs,
 with a persistent preview above them.
 
 **Progress bar** replaces the Energy Bar section.
-Choose **Energy bar** or **Stagger** before adjusting their independent settings;
-the Stagger tab also includes its separate countdown controls.
+Choose **Energy bar**, **Stagger**, **Enemy health**, **Enemy target**,
+**Player health** or **Player MP** before adjusting independent settings.
+The Stagger tab also includes its separate countdown controls.
 
 **Enable Energy Bar** controls the whole module. Disabling it hides the widget,
 dims and disables its controls and preview. Capture stays active if DPS Meter
@@ -752,8 +797,8 @@ the missing signal. Missing data is never treated as full energy.
 
 ## How it works
 
-The energy, combat and notification modules passively capture Aion TCP traffic through Npcap,
-reconstruct the stream, decode framed/LZ4 messages, and read supported energy,
+The progress-bar, combat and notification modules passively capture Aion TCP traffic through Npcap,
+reconstruct the stream, decode framed/LZ4 messages, and read supported HP/MP, energy,
 identity, party, incoming invitation and combat updates.
 By default these modules do not read game memory. The optional **Progress bar →
 Enemy health → Details → Exact distance (reads game memory)** setting is off by
@@ -815,6 +860,7 @@ are never included in the package.
 Existing checks:
 
 ~~~powershell
+.\DashProbe.exe --player-vitals-test
 .\DashProbe.exe --fps-test
 .\DashProbe.exe --dps-test
 .\DashProbe.exe --notifications-test
@@ -855,16 +901,6 @@ Combat coverage and research limitations are documented in
 observation are documented in **performance/README.md** with their scope. Earlier
 20-minute observations predate the combat/notification modules; no new long
 gameplay comparison or helper-on/off FPS measurement was performed for v1.4.0.
-
-## Support the project ☕
-
-Enjoying Aion 2 Helper? Donations are welcome — coffee is our favorite buff! ☕
-
-Support is completely optional. The app is free to use, and feedback, bug reports,
-or a friendly thank-you are always appreciated too.
-
-You can support the project through **Donations** on the
-[Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
 
 ## License status
 
