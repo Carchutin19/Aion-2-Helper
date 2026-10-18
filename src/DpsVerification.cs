@@ -76,7 +76,7 @@ internal static class DpsVerification {
         for(uint i=100;i<229;i++)send(EnemyTargetVerification.Player(i,"Player"+i,8000,9000,false),141,"bounded");send(Energy(52),142,"bounded");send(Npc(99),142.1,"bounded");send(Hit(228,100,false),142.2,"bounded");Check(signal.Read(142.2).Rows.Count==0,"Candidate identity batch has a fixed maximum of128 players");send(Hit(100,100,false),142.3,"bounded");Check(Find(signal.Read(142.3),100).Name=="Player100","Bounded staging retains validated identities without unrelated names");
         for(int i=0;i<5;i++)send(EnemyTargetVerification.Player(300,"Flow"+i,8000,9000,false),143+i,"candidate"+i);send(Energy(52),148,"candidate0");send(Npc(99),148.1,"candidate0");send(Hit(300,100,false),148.2,"candidate0");Check(signal.Read(148.2).Rows.Count==0,"Only four candidate connections are retained; oldest is evicted");
     }
-    internal static void Run(string root){VerifyStagedProfiles();VerifyCharacterNotice(root);VerifySkillCatalogue(root);VerifyAnalysis(root);
+    internal static void Run(string root){ResourceIdentityVerification.Run();VerifyStagedProfiles();VerifyCharacterNotice(root);VerifySkillCatalogue(root);VerifyAnalysis(root);
         DpsSignal.Hit e;byte[] hit=Hit(42,1263,true);Check(DpsSignal.Direct(hit,0,hit.Length,out e)&&e.Amount==1263&&e.Extras==2,"Included additional impacts must not be added twice");
         for(int end=0;end<hit.Length-2;end++)Check(!DpsSignal.Direct(hit,0,end,out e),"Truncated hit must fail closed");
         byte[] tick=Tick(98,10,15390002,194);Check(DpsSignal.Periodic(tick,0,tick.Length,out e)&&e.Amount==194,"Fire Wall current impact");

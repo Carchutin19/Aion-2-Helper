@@ -49,6 +49,7 @@ __pycache__/
 
 # Private game-tweak preferences and imported mod research
 /game-tweaks.json
+/game-launch.json
 /visual-tweaks.json
 /update-settings.json
 /intro-status.txt

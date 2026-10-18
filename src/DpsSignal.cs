@@ -215,10 +215,7 @@ internal sealed class DpsSignal {
             }
             if(selfInfo){PlayerIdentity(b,start,end,true,out identityActor,out identityName,out identityRole);if(stream!=flow)SelectStream(flow,timestamp,true);if(localActor!=0&&localActor!=identityActor)ClearEntities();localActor=identityActor;Bind(identityActor,identityName,identityRole);ResolveParty(timestamp);}
             // Energy kind3 identifies the local character and gameplay stream.
-            if(opcode==0x008d){int p=start+2;uint id;if(Var(b,ref p,end,out id)&&p<end){int flags=b[p++];bool energy=false,valid=(flags&~3)==0;
-                for(int width=4;width<=8&&valid;width+=4)if((flags&(width==4?1:2))!=0){if(p>=end){valid=false;break;}int count=b[p++];for(int k=0;k<count;k++){if(p+1+width>end){valid=false;break;}if(width==4&&b[p]==3)energy=true;p+=1+width;}}
-                if(valid&&energy&&p==end&&id>0){if(stream!=null&&stream!=flow)SelectStream(flow,timestamp,true);stream=flow;if(localActor!=0&&localActor!=id)ClearEntities();localActor=id;ResolveParty(timestamp);}
-            }}
+            if(opcode==0x008d){uint id;if(DashSignal.EnergyActor(b,start,end,out id)){if(stream!=null&&stream!=flow)SelectStream(flow,timestamp,true);stream=flow;if(localActor!=0&&localActor!=id)ClearEntities();localActor=id;ResolveParty(timestamp);}}
             if(stream==null)stream=flow;if(stream!=flow)return;
             if(localActor!=0)characterSkills.Bind(flow,localActor,timestamp);
             lastTraffic=timestamp;ReconcileIdentity(timestamp);

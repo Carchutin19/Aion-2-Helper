@@ -15,6 +15,9 @@ internal static class EnemyHealthVerification {
     static void Feed(EnemyHealthSignal signal,byte[] b,double time,string flow="A"){signal.Consume(b,0,b.Length,time,flow);}
     internal static void Run(string root){
         VerifyTextPresentation(root);
+        Check(EnemyNames.Name(2920619,"es")=="Atadura de Espinas de Vakron"&&EnemyNames.Name(2920618,"en")=="Vakron's Thorn Vines"&&EnemyNames.Name(2920364,"en")=="Gluttonous Tiere","Recorded expanded-range NPCs resolve from verified metadata in both languages");
+        Check(EnemyNames.Name(2980240,"es")=="Sangre venenosa de Fafnir"&&EnemyNames.Name(2920655,"es")=="Enemigo","Existing local override is preserved and unnamed reference IDs remain unknown");
+
         EnemyHealthSignal.Sample special;var nightmare=Spawn(23146,1200000,1200000,2980240);Check(EnemyHealthSignal.Spawn(nightmare,0,nightmare.Length,out special)&&special.Npc==2980240&&special.Maximum==1200000,"Pesadilla NPC namespace retains explicit current/max instead of dropping valid special-instance enemies");var unsupported=Spawn(23146,10,10,3000000);Check(!EnemyHealthSignal.Spawn(unsupported,0,unsupported.Length,out special),"Expanded namespace still rejects unsupported identifiers");
         var signal=new EnemyHealthSignal();signal.Configure(true);Feed(signal,Energy(1923),100);Feed(signal,Spawn(34411),100);Feed(signal,Spawn(21922),100);
         Check(signal.Read()==null,"Spawn alone cannot choose an enemy");Feed(signal,Aim(1923,34411,15110340),101);Check(signal.Read().Actor==34411&&signal.Read().Maximum==119700,"Primary area aim selects explicit max");

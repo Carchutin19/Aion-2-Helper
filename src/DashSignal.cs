@@ -56,6 +56,16 @@ internal sealed class DashSignal {
     static bool ReadVar(byte[] data,ref int position,int end,out uint value){
         value=0;for(int shift=0;shift<35;shift+=7){if(position>=end)return false;byte item=data[position++];if(shift==28&&(item&0xf0)!=0)return false;value|=(uint)(item&127)<<shift;if(item<128)return true;}return false;
     }
+    // Shared identity-only view of a global resource envelope. Unknown resource
+    // kinds remain uninterpreted; a bounded, single current-energy value is
+    // required before it can select the local character or gameplay stream.
+    internal static bool EnergyActor(byte[] data,int start,int end,out uint actor){
+        actor=0;if(data==null||start<0||end>data.Length||end-start<2||end-start>65536||data[start]!=0||data[start+1]!=0x8d)return false;
+        int p=start+2;uint id;if(!ReadVar(data,ref p,end,out id)||id==0||id>int.MaxValue||p>=end)return false;int flags=data[p++];if(flags>3)return false;bool energy=false;
+        for(int width=4;width<=8;width+=4)if((flags&(width==4?1:2))!=0){uint count;if(!ReadVar(data,ref p,end,out count)||count>(end-p)/(width+1))return false;
+            for(uint i=0;i<count;i++){if(width==4&&data[p]==3){if(energy||BitConverter.ToUInt32(data,p+1)>100000000)return false;energy=true;}p+=width+1;}}
+        if(p!=end||!energy)return false;actor=id;return true;
+    }
     static int Frame(byte[] data,int at,int limit,out int body,out int end){
         uint length;body=at;end=at;if(!ReadVar(data,ref body,limit,out length))return 0;
         if(length<6||length>65535)return -1;end=body+(int)length-4;return end<=limit?1:0;
@@ -67,7 +77,12 @@ internal sealed class DashSignal {
                 if(good){position=candidate;flow.Synced=true;break;}}
             if(!flow.Synced){if(flow.Count>65535){System.Buffer.BlockCopy(flow.Buffer,flow.Count-65535,flow.Buffer,0,65535);flow.Count=65535;}return;}
         }
-        while(position<flow.Count){if(flow.Buffer[position]==0){position++;continue;}int body,end,result=Frame(flow.Buffer,position,flow.Count,out body,out end);if(result==0)break;if(result<0){position++;errors++;continue;}
+        while(position<flow.Count){if(flow.Buffer[position]==0){position++;continue;}int body,end,result=Frame(flow.Buffer,position,flow.Count,out body,out end);if(result==0)break;if(result<0){
+                // A broken boundary also invalidates the following offsets.
+                // Keep the remaining bytes and reacquire the existing three-
+                // frame sync on the next segment instead of decoding arbitrary
+                // payload bytes as actor/profile messages.
+                position++;errors++;flow.Synced=false;break;}
             Decode(flow.Buffer,body,end,ts,0,stream);position=end;}
         if(position>0){flow.Count-=position;if(flow.Count>0)System.Buffer.BlockCopy(flow.Buffer,position,flow.Buffer,0,flow.Count);}
         if(flow.Count>65535){errors++;System.Buffer.BlockCopy(flow.Buffer,flow.Count-65535,flow.Buffer,0,65535);flow.Count=65535;flow.Synced=false;}
@@ -93,7 +108,7 @@ internal sealed class DashSignal {
         int cursor=start+2;uint actor;if(!ReadVar(data,ref cursor,end,out actor)||cursor>=end)return;int flags=data[cursor++];if((flags&~3)!=0)return;
         uint? candidate=null,maximum=null;
         for(int width=4;width<=8;width+=4){if((flags&(width==4?1:2))==0)continue;uint count;if(!ReadVar(data,ref cursor,end,out count)||count>(end-cursor)/(width+1))return;
-            for(int n=0;n<count;n++){int kind=data[cursor];if(width==4&&kind==3)candidate=BitConverter.ToUInt32(data,cursor+1);if(width==4&&kind==10)maximum=BitConverter.ToUInt32(data,cursor+1);cursor+=1+width;}}
+            for(int n=0;n<count;n++){int kind=data[cursor];if(width==4&&kind==3){if(candidate.HasValue)return;candidate=BitConverter.ToUInt32(data,cursor+1);}if(width==4&&kind==10){if(maximum.HasValue)return;maximum=BitConverter.ToUInt32(data,cursor+1);}cursor+=1+width;}}
         if(cursor!=end||actor==0||actor>int.MaxValue||candidate.HasValue&&candidate.Value>100000000||maximum.HasValue&&(maximum.Value==0||maximum.Value>100000000))return;
         // Global 008D u32 kind10 is the server's maximum energy, independent of
         // current kind3. It can precede the first dash or arrive by itself on a
@@ -124,6 +139,7 @@ internal sealed class DashSignal {
         rejected=false;try{Lz4(new byte[]{0x50,104,101,108,108,111},0,5,5);}catch(InvalidDataException){rejected=true;}if(!rejected)throw new Exception("LZ4 must not read past its containing frame");
         VerifyContainers(root);
         VerifyEnergyMaximum(root);
+        VerifyResynchronization(root);
         byte[] frame=new byte[]{14,0,0x8d,1,1,1,3,100,0,0,0},data=new byte[44];for(int n=0;n<4;n++)System.Buffer.BlockCopy(frame,0,data,n*frame.Length,frame.Length);
         foreach(uint sequence in new uint[]{100,uint.MaxValue-4}){
             var decoder=new DashSignal(root);Func<int,int,Segment> segment=delegate(int offset,int count){var payload=new byte[count];System.Buffer.BlockCopy(data,offset,payload,0,count);return new Segment{Src="test",Dst="self",SrcPort=13328,DstPort=1234,Seq=unchecked(sequence+(uint)offset),Data=payload};};
@@ -132,6 +148,19 @@ internal sealed class DashSignal {
             decoder.Consume(segment(0,44),1);if(decoder.Samples!=4)throw new Exception("TCP retransmissions must not duplicate readings");
             decoder.Reset();if(decoder.Current!=null)throw new Exception("Restarted capture must discard the old reading");var resumed=segment(0,44);resumed.Seq=unchecked(sequence+1000u);decoder.Consume(resumed,2);
             if(decoder.Samples!=8||decoder.Errors!=0||decoder.Current.Timestamp!=2)throw new Exception("Capture restart must resume at a new TCP sequence without waiting for missing old packets");
+        }
+    }
+    static void VerifyResynchronization(string root){
+        Func<byte,uint,byte[]> frame=delegate(byte actor,uint value){var b=new byte[]{14,0,0x8d,actor,1,1,3,0,0,0,0};Buffer.BlockCopy(BitConverter.GetBytes(value),0,b,7,4);return b;};
+        var bytes=new List<byte>();for(int i=0;i<3;i++)bytes.AddRange(frame(1,100));
+        bytes.Add(1); // An impossible frame length invalidates the boundary.
+        bytes.AddRange(frame(99,999));bytes.Add(1); // Plausible isolated payload is not a new boundary.
+        for(int i=0;i<3;i++)bytes.AddRange(frame(1,200));
+        foreach(uint sequence in new uint[]{100,uint.MaxValue-20}){
+            var decoder=new DashSignal(root);var actors=new List<int>();decoder.OnReading=delegate(Reading r){actors.Add(r.Actor);};
+            decoder.Consume(new Segment{Src="recovery",Dst="self",SrcPort=13328,DstPort=1234,Seq=sequence,Data=bytes.ToArray()},1);
+            decoder.Consume(new Segment{Src="recovery",Dst="self",SrcPort=13328,DstPort=1234,Seq=unchecked(sequence+(uint)bytes.Count),Data=new byte[]{0}},2);
+            if(decoder.Samples!=6||decoder.Current==null||decoder.Current.Actor!=1||decoder.Current.Value!=200||actors.Contains(99)||decoder.Errors!=1)throw new Exception("Invalid framing must reacquire confirmed boundaries without dispatching an isolated false actor");
         }
     }
     static void VerifyEnergyMaximum(string root){

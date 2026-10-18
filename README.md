@@ -16,8 +16,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.15.1 release — Hotfix: Player Bars & Shields](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.15.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.15.1/Aion-2-Helper-v1.15.1-windows-x64.zip).
+The [v1.16.0 release — Game Launcher, Bar Fixes & Performance](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.16.0/Aion-2-Helper-v1.16.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter and invitation notifications;
@@ -45,6 +45,31 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.16.0: Game launcher, bar fixes & performance
+
+- **Launch from the helper:** General detects your installation and launcher,
+  shows its path and lets you choose a folder or launcher manually. The sidebar
+  shows when the game is missing. Steam starts Aion 2; PURPLE opens its launcher.
+  Existing game shortcuts can be selected, and your choice survives updates.
+- **Resource fixes:** reads confirmed MP-maximum changes and recovers after a
+  malformed packet boundary that previously hid HP/MP following a recorded
+  dungeon exit. Stronger resource validation prevents invalid identity changes.
+- **Enemy information:** supported higher levels such as 54 are preserved;
+  4,803 NPC names were added. Unnamed enemy targets now say **Unknown target**
+  rather than implying a confirmed identity.
+- **Lighter HP/MP rendering:** reusable text resources reduced measured drawing
+  time by about 44% and temporary managed allocations by about 90% in an internal
+  benchmark, with 112 identical image fixtures. These are not equivalent total
+  RAM reductions or a guarantee of better game FPS.
+- **Cleaner notification settings:** removed the schedule note above Test
+  notification and shortened the text below it.
+
+Existing preferences/history are preserved. Initial missing profiles and other
+instance-related issues still need broader testing; **DPS remains Beta and enemy
+bars/metres remain experimental**. PURPLE opens its launcher rather than
+promising direct game startup. See the [full release notes](RELEASE-NOTES.md)
+for validation and known limitations.
 
 ## New in v1.15.1: Hotfix — Player bars & shields
 

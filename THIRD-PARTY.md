@@ -93,3 +93,11 @@ retained in `assets/licenses/Aion2ProtocolResearch-MIT.txt` and embedded in the
 executable. This optional module is implemented in C#; no external application
 or Python runtime is required. Keys are held only in memory and are not logged
 or saved. The default mode remains passive server packet reading.
+
+
+Additional NPC display names in the already supported 2,900,000–2,999,999 range
+are transformed from SkeeveAN/Aion-DPS-Meter revision
+`2ef71759738ffe902f72535ba8702e9e68d3b105`,
+`Client/assets/aion2/npcs/npc_names.json`. English and available Spanish labels
+are retained; existing local entries are preserved. The upstream MIT notice is
+included in `assets/npcs/LICENSE-MIT.txt`. Game names remain NCSOFT content.

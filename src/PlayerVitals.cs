@@ -48,25 +48,48 @@ internal sealed class PlayerVitalOptions {
 }
 
 internal static class PlayerVitalDesign {
-    internal sealed class Caption {internal Rectangle Bounds;internal VitalTextOptions Options;internal string Text;internal int Size,Outline;}
+    internal sealed class Caption {internal Rectangle Bounds;internal VitalTextOptions Options;internal string Text;internal int Size,Outline,Index;}
     internal sealed class Layout {internal Rectangle Core,Surface;internal readonly List<Caption> Captions=new List<Caption>();internal double Scale;}
     internal sealed class Surface:IDisposable {internal Bitmap Bitmap;internal Rectangle Core;public void Dispose(){if(Bitmap!=null)Bitmap.Dispose();}}
+    // Four bounded caption workspaces belong to the bar, rather than to an
+    // animation frame. Each is resized when its actual glyph bounds change.
+    internal sealed class Workspace:IDisposable {
+        Bitmap measurement;Graphics graphics;readonly Font[] fonts=new Font[4];readonly int[] sizes=new int[4];readonly bool[] weights=new bool[4];
+        readonly CrispOverlayText[] captions={new CrispOverlayText(),new CrispOverlayText(),new CrispOverlayText(),new CrispOverlayText()};
+        readonly string[] measuredText=new string[4];readonly int[] measuredWidth=new int[4];
+        sealed class Raster {internal bool Valid,Bold;internal string Text,Color;internal int Width,Height,Size,Padding,Opacity;}
+        readonly Raster[] raster={new Raster(),new Raster(),new Raster(),new Raster()};
+        internal Graphics Measurement {get{if(graphics==null){measurement=new Bitmap(1,1);graphics=Graphics.FromImage(measurement);}return graphics;}}
+        internal Font FontFor(int index,int size,bool bold){if(fonts[index]==null||sizes[index]!=size||weights[index]!=bold){if(fonts[index]!=null)fonts[index].Dispose();fonts[index]=new Font("Segoe UI",size,bold?FontStyle.Bold:FontStyle.Regular,GraphicsUnit.Pixel);sizes[index]=size;weights[index]=bold;measuredText[index]=null;}return fonts[index];}
+        internal int TextWidth(int index,string text,int size,bool bold){var font=FontFor(index,size,bold);if(measuredText[index]!=text){measuredWidth[index]=TextRenderer.MeasureText(Measurement,text,font,Size.Empty,TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine).Width+3;measuredText[index]=text;}return measuredWidth[index];}
+        internal void DrawCaption(Graphics destination,Caption caption){int i=caption.Index;var cached=raster[i];var o=caption.Options;int pad=o.Outline.Enabled&&o.Outline.Opacity>0?Math.Min(8,caption.Outline):0;
+            // Very large user-selected fonts still render at their requested
+            // size, but their glyph buffers must not become a permanent cache.
+            bool retain=(long)(caption.Bounds.Width+2*pad)*(caption.Bounds.Height+2*pad)<=65536;if(!retain)cached.Valid=false;
+            if(!cached.Valid||cached.Text!=caption.Text||cached.Color!=o.Color||cached.Width!=caption.Bounds.Width||cached.Height!=caption.Bounds.Height||cached.Size!=caption.Size||cached.Bold!=o.Bold||cached.Padding!=pad||cached.Opacity!=o.Outline.Opacity){
+                var outline=o.Outline.Copy();outline.Width=Math.Min(8,caption.Outline);captions[i].Draw(destination,caption.Text,caption.Size,o.Bold,ColorTranslator.FromHtml(o.Color),caption.Bounds,0,false,outline);
+                cached.Valid=retain;cached.Text=caption.Text;cached.Color=o.Color;cached.Width=caption.Bounds.Width;cached.Height=caption.Bounds.Height;cached.Size=caption.Size;cached.Bold=o.Bold;cached.Padding=pad;cached.Opacity=o.Outline.Opacity;if(!retain)captions[i].Dispose();
+            }else captions[i].Present(destination,caption.Bounds,pad);
+        }
+        internal void Clear(){for(int i=0;i<4;i++){captions[i].Dispose();raster[i].Valid=false;measuredText[i]=null;if(fonts[i]!=null){fonts[i].Dispose();fonts[i]=null;}}}
+        public void Dispose(){Clear();if(graphics!=null){graphics.Dispose();graphics=null;}if(measurement!=null){measurement.Dispose();measurement=null;}}
+    }
     static Color Mix(Color a,Color b,double f){return Color.FromArgb((int)Math.Round(a.R+(b.R-a.R)*f),(int)Math.Round(a.G+(b.G-a.G)*f),(int)Math.Round(a.B+(b.B-a.B)*f));}
     static int Metric(int value,double scale){return (int)Math.Round(value*scale);}
     static Rectangle CaptionArea(Caption caption){var area=caption.Bounds;int pad=(caption.Options.Outline.Enabled?Math.Min(8,caption.Outline):0)+2;area.Inflate(pad,pad);return area;}
-    internal static Layout Measure(PlayerVitalOptions o,bool mana,double ratio,uint? actualValue=null,uint? actualMaximum=null){
+    internal static Layout Measure(PlayerVitalOptions o,bool mana,double ratio,uint? actualValue=null,uint? actualMaximum=null,Workspace workspace=null){
+        var work=workspace??new Workspace();try{
         var result=new Layout{Core=new Rectangle(Point.Empty,o.EffectiveBounds.Size),Scale=o.Factor*o.DisplayScale};int glow=Math.Max(8,Metric(10,result.Scale));result.Surface=result.Core;result.Surface.Inflate(glow,glow);
         uint maximum=actualMaximum??(mana?5000u:15000u),current=actualValue??(uint)Math.Round(maximum*Math.Max(0,Math.Min(1,ratio)));double textRatio=actualValue.HasValue&&maximum>0?(double)current/maximum:ratio;string[] words={mana?"MP":"HP",current.ToString("N0",CultureInfo.InvariantCulture).Replace(","," "),"/ "+maximum.ToString("N0",CultureInfo.InvariantCulture).Replace(","," "),(100*textRatio).ToString("0",CultureInfo.InvariantCulture)+"%"};var texts=o.Texts;int row=0;
         foreach(var text in texts)if(text.Enabled&&text.Position>=3)row=Math.Max(row,Math.Max(6,Math.Min(384,Metric(text.FontSize,result.Scale)))+8);
         Caption actual=null;
         // Measure on the same bitmap DPI as CrispOverlayText, not the desktop DC:
         // monitor scaling must not inflate the caption width a second time.
-        using(var measurement=new Bitmap(1,1))using(var graphics=Graphics.FromImage(measurement)){
-        for(int i=0;i<texts.Length;i++){var t=texts[i];if(!t.Enabled)continue;int size=Math.Max(6,Math.Min(384,Metric(t.FontSize,result.Scale))),height=size+8,width;using(var font=new Font("Segoe UI",size,t.Bold?FontStyle.Bold:FontStyle.Regular,GraphicsUnit.Pixel))width=TextRenderer.MeasureText(graphics,words[i],font,Size.Empty,TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine).Width+3;
+        for(int i=0;i<texts.Length;i++){var t=texts[i];if(!t.Enabled)continue;int size=Math.Max(6,Math.Min(384,Metric(t.FontSize,result.Scale))),height=size+8;int width=work.TextWidth(i,words[i],size,t.Bold);
             int x=t.Position%3==0?0:t.Position%3==1?(result.Core.Width-width)/2:result.Core.Width-width;int y=t.Position<3?-height-5:result.Core.Height+5+row-height;x+=Metric(t.OffsetX,result.Scale);y+=Metric(t.OffsetY,result.Scale);
             if(i==2&&o.MaximumBesideCurrent&&actual!=null){x=actual.Bounds.Right+Metric(8+t.OffsetX,result.Scale);y=actual.Bounds.Bottom-height+Metric(t.OffsetY,result.Scale);}
             else if(i==2&&o.MaximumBesideCurrent&&!o.Current.Enabled&&t.Position%3==0)x=Math.Max(x,Metric(o.Current.OffsetX,result.Scale));
-            var caption=new Caption{Bounds=new Rectangle(x,y,width,height),Options=t,Text=words[i],Size=size,Outline=Math.Max(1,Math.Min(24,Metric(t.Outline.Width,result.Scale)))};
+            var caption=new Caption{Bounds=new Rectangle(x,y,width,height),Options=t,Text=words[i],Size=size,Outline=Math.Max(1,Math.Min(24,Metric(t.Outline.Width,result.Scale))),Index=i};
             bool above=t.Position<3;int gap=Math.Max(2,Metric(3,result.Scale));
             // Keep authored positions when they fit. Narrow bars wrap captions instead
             // of shrinking their chosen fonts or persisting automatic adjustments.
@@ -82,10 +105,12 @@ internal static class PlayerVitalDesign {
                 if(shift==0)break;caption.Bounds.Offset(0,shift);
             }
             result.Captions.Add(caption);if(i==1)actual=caption;
-        }}foreach(var caption in result.Captions)result.Surface=Rectangle.Union(result.Surface,CaptionArea(caption));return result;
+        }foreach(var caption in result.Captions)result.Surface=Rectangle.Union(result.Surface,CaptionArea(caption));return result;
+        }finally{if(workspace==null)work.Dispose();}
     }
-    internal static Surface Render(PlayerVitalOptions o,bool mana,double ratio,bool editing,uint? actual=null,uint? maximum=null,double shieldRatio=0){
-        ratio=Math.Max(0,Math.Min(1,ratio));var layout=Measure(o,mana,ratio,actual,maximum);int width=Math.Max(1,Math.Min(8192,layout.Surface.Width)),height=Math.Max(1,Math.Min(2048,layout.Surface.Height));var result=new Surface{Bitmap=new Bitmap(width,height,PixelFormat.Format32bppPArgb),Core=new Rectangle(-layout.Surface.X,-layout.Surface.Y,layout.Core.Width,layout.Core.Height)};
+    internal static Surface Render(PlayerVitalOptions o,bool mana,double ratio,bool editing,uint? actual=null,uint? maximum=null,double shieldRatio=0,Workspace workspace=null){
+        var work=workspace??new Workspace();try{
+        ratio=Math.Max(0,Math.Min(1,ratio));var layout=Measure(o,mana,ratio,actual,maximum,work);int width=Math.Max(1,Math.Min(8192,layout.Surface.Width)),height=Math.Max(1,Math.Min(2048,layout.Surface.Height));var result=new Surface{Bitmap=new Bitmap(width,height,PixelFormat.Format32bppPArgb),Core=new Rectangle(-layout.Surface.X,-layout.Surface.Y,layout.Core.Width,layout.Core.Height)};
         using(var g=Graphics.FromImage(result.Bitmap)){g.SmoothingMode=SmoothingMode.AntiAlias;g.TranslateTransform(-layout.Surface.X,-layout.Surface.Y);if(editing)using(var brush=new SolidBrush(Color.FromArgb(1,0,0,0)))g.FillRectangle(brush,layout.Surface);
             var core=layout.Core;var color=BarDesign.EnergyColor(ratio,o.Bar);int border=o.Border?Math.Min(Math.Max(1,core.Height/3),Math.Max(1,Metric(o.BorderWidth,layout.Scale))):0;float inset=Math.Max(1,Math.Min(core.Height/3f,Math.Max(2,border+1)));var inner=new RectangleF(inset,inset,Math.Max(1,core.Width-2*inset),Math.Max(1,core.Height-2*inset));
             if(o.Bar.Emissive&&ratio>0&&o.Bar.GlowPercent>0)for(int i=Math.Max(2,Metric(8,layout.Scale));i>=1;i--){var halo=new RectangleF(-i,-i,(float)(core.Width*ratio)+2*i,core.Height+2*i);int alpha=Math.Max(1,Math.Min(45,(int)(o.Bar.GlowPercent*.12/(1+i*.3))));using(var brush=new SolidBrush(Color.FromArgb(alpha,color)))using(var shape=FpsDesign.Round(halo.X,halo.Y,halo.Width,halo.Height,halo.Height/2))g.FillPath(brush,shape);}
@@ -102,26 +127,27 @@ internal static class PlayerVitalDesign {
                 }
             }
             if(o.Border)using(var pen=new Pen(Color.FromArgb(o.BorderOpacity*255/100,ColorTranslator.FromHtml(o.BorderColor)),border))using(var shape=FpsDesign.Round(border/2f,border/2f,core.Width-border,core.Height-border,(core.Height-border)/2f))g.DrawPath(pen,shape);
-            using(var text=new CrispOverlayText())foreach(var caption in layout.Captions){var outline=caption.Options.Outline.Copy();outline.Width=Math.Min(8,caption.Outline);text.Draw(g,caption.Text,caption.Size,caption.Options.Bold,ColorTranslator.FromHtml(caption.Options.Color),caption.Bounds,0,false,outline);}
+            foreach(var caption in layout.Captions)work.DrawCaption(g,caption);
             if(editing)using(var pen=new Pen(Color.FromArgb(100,170,180,185))){pen.DashStyle=DashStyle.Dot;g.DrawRectangle(pen,-2,-2,core.Width+4,core.Height+4);}
         }return result;
+        }finally{if(workspace==null)work.Dispose();}
     }
 }
 
 internal sealed class PlayerVitalOverlay:Form {
-    readonly BarMotion motion=new BarMotion();string painted,identity;bool hasData;uint? currentValue,maximumValue;uint shieldValue;EnergyBarOptions shieldVisible;
+    readonly BarMotion motion=new BarMotion();readonly PlayerVitalDesign.Workspace workspace=new PlayerVitalDesign.Workspace();string identityFlow;uint identityActor;bool identitySet,identityKnown,hasData;uint? currentValue,maximumValue,paintedCurrent,paintedMaximum;uint shieldValue;int paintedFill,paintedColor,paintedShield;bool paintedEditing;EnergyBarOptions shieldVisible;
     readonly EnergyOverlay owner;readonly bool mana,preview;readonly LayeredImage image=new LayeredImage();PlayerVitalOptions options;bool editing,released,dragging,valid;string key;Rectangle original,coreInSurface;Point mouse,presented;int hit;long nextRaise;byte alpha;
     internal PlayerVitalOverlay(EnergyOverlay owner,bool mana,bool preview){this.owner=owner;this.mana=mana;this.preview=preview;options=PlayerVitalOptions.Defaults(mana);FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;Text="Aion 2 Helper - Player "+(mana?"MP":"HP")+" preview";}
-    internal object Status {get{return new{enabled=options.Bar.Enabled,visible=Visible,editing=editing,visualPreviewOnly=editing&&!hasData,hasGameData=hasData,current=currentValue,maximum=maximumValue,shield=mana?(uint?)null:shieldValue,timer=false,uploads=image.Uploads};}}
+    internal object Status {get{return new{enabled=options.Bar.Enabled,visible=Visible,editing=editing,visualPreviewOnly=editing&&!hasData,hasGameData=hasData,current=currentValue,maximum=maximumValue,shield=mana?(uint?)null:shieldValue,dataState=owner.PlayerVitals.Diagnostics(mana,DpsHistory.UtcNow()),timer=false,uploads=image.Uploads};}}
     internal string StatusKey {get{return options.Bar.Enabled+"/"+Visible+"/"+editing+"/"+hasData+"/"+currentValue+"/"+maximumValue+"/"+shieldValue;}}
     internal int NextInterval {get{if(!options.Bar.Enabled)return int.MaxValue;if(motion.Animating)return 16;if(motion.FullSince.HasValue&&motion.Opacity>0){double remaining=options.Bar.HoldSeconds-(Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency-motion.FullSince.Value);if(remaining>0)return Math.Min(250,Math.Max(1,(int)Math.Ceiling(remaining*1000)));}return 250;}}
-    internal void Configure(PlayerVitalOptions next,bool locked){options=next.Copy();options.Normalize();shieldVisible=options.Bar.Copy();shieldVisible.AutoHide=false;editing=!locked;int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);var appearance=options.Copy();appearance.Bounds=new Rectangle(Point.Empty,appearance.Bounds.Size);appearance.Opacity=100;string nextKey=new JavaScriptSerializer().Serialize(appearance);if(nextKey!=key){key=nextKey;valid=false;}Maintain();}
+    internal void Configure(PlayerVitalOptions next,bool locked){options=next.Copy();options.Normalize();shieldVisible=options.Bar.Copy();shieldVisible.AutoHide=false;editing=!locked;int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);var appearance=options.Copy();appearance.Bounds=new Rectangle(Point.Empty,appearance.Bounds.Size);appearance.Opacity=100;string nextKey=new JavaScriptSerializer().Serialize(appearance);if(nextKey!=key){key=nextKey;valid=false;workspace.Clear();}Maintain();}
     internal void Maintain(){if(released)return;double utc=DpsHistory.UtcNow(),now=Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;var sample=owner.PlayerVitals.Read(mana,utc);hasData=sample!=null;currentValue=hasData?(uint?)sample.Current:null;maximumValue=hasData?(uint?)sample.Maximum:null;shieldValue=hasData&&!mana?sample.Shield:0;double shieldRatio=mana||!options.Shield.Enabled?0:hasData?(double)shieldValue/sample.Maximum:editing?options.Shield.PreviewPercent/100.0:0;
-        double ratio=hasData?(double)sample.Current/sample.Maximum:options.PreviewPercent/100.0;uint actual=hasData?sample.Current:(uint)Math.Round(ratio*100),max=hasData?sample.Maximum:100;string nextIdentity=hasData?sample.Flow+"/"+sample.Actor:"sample";
-        if(identity!=nextIdentity){identity=nextIdentity;motion.SnapValue(ratio);}motion.Step(now,editing,hasData||editing,ratio,actual,max,shieldRatio>0&&options.Shield.Opacity>0?shieldVisible:options.Bar,hasData?Math.Max(0,utc-sample.Time):0);
+        double ratio=hasData?(double)sample.Current/sample.Maximum:options.PreviewPercent/100.0;uint actual=hasData?sample.Current:(uint)Math.Round(ratio*100),max=hasData?sample.Maximum:100;string nextFlow=hasData?sample.Flow:null;uint nextActor=hasData?sample.Actor:0;
+        if(!identitySet||identityKnown!=hasData||identityFlow!=nextFlow||identityActor!=nextActor){identitySet=true;identityKnown=hasData;identityFlow=nextFlow;identityActor=nextActor;motion.SnapValue(ratio);}motion.Step(now,editing,hasData||editing,ratio,actual,max,shieldRatio>0&&options.Shield.Opacity>0?shieldVisible:options.Bar,hasData?Math.Max(0,utc-sample.Time):0);
         byte opacity=(byte)Math.Round(motion.Opacity*options.Opacity*255/100);if(!options.Bar.Enabled||opacity==0||DpsDesign.ShellUiActive()){if(Visible)Hide();return;}
-        var core=options.EffectiveBounds;string paint=(int)Math.Round(motion.Value*core.Width)+"/"+BarDesign.EnergyColor(motion.Value,options.Bar).ToArgb()+"/"+currentValue+"/"+maximumValue+"/"+editing+"/"+(int)Math.Round(Math.Min(1,shieldRatio)*core.Width);
-        if(!valid||painted!=paint){using(var surface=PlayerVitalDesign.Render(options,mana,motion.Value,editing,currentValue,maximumValue,shieldRatio)){coreInSurface=surface.Core;Bounds=new Rectangle(core.X-coreInSurface.X,core.Y-coreInSurface.Y,surface.Bitmap.Width,surface.Bitmap.Height);image.Upload(surface.Bitmap);}valid=true;painted=paint;alpha=0;}
+        var core=options.EffectiveBounds;int fill=(int)Math.Round(motion.Value*core.Width),color=BarDesign.EnergyColor(motion.Value,options.Bar).ToArgb(),shield=(int)Math.Round(Math.Min(1,shieldRatio)*core.Width);
+        if(!valid||paintedFill!=fill||paintedColor!=color||paintedCurrent!=currentValue||paintedMaximum!=maximumValue||paintedEditing!=editing||paintedShield!=shield){using(var surface=PlayerVitalDesign.Render(options,mana,motion.Value,editing,currentValue,maximumValue,shieldRatio,workspace)){coreInSurface=surface.Core;Bounds=new Rectangle(core.X-coreInSurface.X,core.Y-coreInSurface.Y,surface.Bitmap.Width,surface.Bitmap.Height);image.Upload(surface.Bitmap);}valid=true;paintedFill=fill;paintedColor=color;paintedCurrent=currentValue;paintedMaximum=maximumValue;paintedEditing=editing;paintedShield=shield;alpha=0;}
         var at=new Point(core.X-coreInSurface.X,core.Y-coreInSurface.Y);if(Location!=at)Location=at;if(alpha!=opacity||presented!=at||!preview&&!Visible){image.Present(Handle,Left,Top,opacity);alpha=opacity;presented=at;}if(!preview&&!Visible)Show();long tick=Stopwatch.GetTimestamp();if(!preview&&tick>=nextRaise){nextRaise=tick+Stopwatch.Frequency;OverlayNative.RaiseWithoutFocus(Handle);}
     }
     internal void VerifySafety(){var o=PlayerVitalOptions.Defaults(mana);o.Bar.Enabled=true;Configure(o,true);if(Visible||image.Uploads!=0)throw new Exception("Locked bar cannot fabricate game values");Configure(o,false);int count=image.Uploads;for(int i=0;i<1000;i++)Maintain();if(image.Uploads!=count)throw new Exception("Static editing samples must not redraw on unchanged ticks");Configure(o,true);if(Visible)throw new Exception("Locking clears unknown sample");o.Bar.Enabled=false;Configure(o,false);if(Visible)throw new Exception("Disabled sample stays hidden");
@@ -142,5 +168,5 @@ internal sealed class PlayerVitalOverlay:Form {
         if(m.Msg==0x200&&dragging){var delta=new Point(Cursor.Position.X-mouse.X,Cursor.Position.Y-mouse.Y);if(hit==2)options.Bounds=new Rectangle(original.X+delta.X,original.Y+delta.Y,original.Width,original.Height);else{var start=options.Copy();start.Bounds=original;var effective=start.EffectiveBounds;var resized=BarDesign.ResizeBounds(effective,delta,hit);int w=Math.Max(80,Math.Min(1600,(int)Math.Round(resized.Width/options.Factor))),h=Math.Max(6,Math.Min(80,(int)Math.Round(resized.Height/options.Factor)));options.Bounds=new Rectangle(resized.X+resized.Width/2-w/2,resized.Y+resized.Height/2-h/2,w,h);}if(hit!=2)valid=false;Maintain();m.Result=IntPtr.Zero;return;}
         if((m.Msg==0x202||m.Msg==0xa2||m.Msg==0x215)&&dragging){dragging=false;Capture=false;var c=owner.Configuration;if(mana)c.PlayerMana=options.Copy();else c.PlayerHealth=options.Copy();owner.ApplyConfiguration(c);m.Result=IntPtr.Zero;return;}base.WndProc(ref m);
     }
-    protected override void Dispose(bool disposing){if(disposing&&!released){released=true;image.Dispose();}base.Dispose(disposing);}
+    protected override void Dispose(bool disposing){if(disposing&&!released){released=true;workspace.Dispose();image.Dispose();}base.Dispose(disposing);}
 }

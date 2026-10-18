@@ -37,6 +37,21 @@ internal static class GameInstallation {
         if(key.Equals("path",StringComparison.OrdinalIgnoreCase)||int.TryParse(key,out number))try{if(Path.IsPathRooted(value)){paths.Add(value);if(paths.Count>=64)break;}}catch(ArgumentException){}
     }return paths.ToArray();}
     static string InstallDir(string text){foreach(Match pair in Pair.Matches(text))if(pair.Groups["key"].Value.Equals("installdir",StringComparison.OrdinalIgnoreCase))return Unquote(pair.Groups["value"].Value);return "";}
+    internal static bool IsSteamGame(string folder){try{
+        if(!IsValid(folder))return false;var game=new DirectoryInfo(Path.GetFullPath(folder));var common=game.Parent;var apps=common==null?null:common.Parent;
+        if(apps==null||!common.Name.Equals("common",StringComparison.OrdinalIgnoreCase)||!apps.Name.Equals("steamapps",StringComparison.OrdinalIgnoreCase))return false;
+        string text=ReadMetadata(Path.Combine(apps.FullName,"appmanifest_3393110.acf"));bool id=false;foreach(Match pair in Pair.Matches(text))if(pair.Groups["key"].Value=="appid"&&pair.Groups["value"].Value=="3393110")id=true;
+        return id&&InstallDir(text).Equals(game.Name,StringComparison.OrdinalIgnoreCase);
+    }catch(IOException){return false;}catch(ArgumentException){return false;}catch(UnauthorizedAccessException){return false;}catch(SecurityException){return false;}}
+    internal static string FindPurpleLauncher(){var candidates=new List<string>();foreach(var hive in new[]{Registry.CurrentUser,Registry.LocalMachine}){
+        candidates.Add(RegistryValue(hive,@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\Purple.exe",""));
+        foreach(string path in new[]{@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",@"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"})try{using(var key=hive.OpenSubKey(path)){if(key==null)continue;int scanned=0;foreach(string name in key.GetSubKeyNames()){
+            if(++scanned>1024)break;if(!RegistryValue(hive,path+"\\"+name,"DisplayName").Equals("PURPLE",StringComparison.OrdinalIgnoreCase))continue;string folder=RegistryValue(hive,path+"\\"+name,"InstallLocation");if(!string.IsNullOrWhiteSpace(folder))candidates.Add(Path.Combine(folder,"Purple.exe"));
+        }}}catch(IOException){}catch(SecurityException){}catch(UnauthorizedAccessException){}catch(ArgumentException){}
+    }
+        foreach(string program in new[]{Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)})candidates.Add(Path.Combine(program,"NC","Purple","Purple.exe"));
+        foreach(string path in candidates)if(GameLaunchService.ValidLauncher(path))return path;return "";
+    }
     internal static string FindSteam(IEnumerable<string> steamRoots){var libraries=new List<string>();var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach(string steam in steamRoots){if(string.IsNullOrWhiteSpace(steam))continue;try{
             string full=Path.GetFullPath(steam);if(seen.Add(full))libraries.Add(full);

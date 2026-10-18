@@ -27,7 +27,8 @@ internal sealed class CrispOverlayText:IDisposable {
         try{Marshal.Copy(data.Scan0,pixels,0,length);for(int y=0;y<height;y++)for(int x=0;x<width;x++){int at=y*stride+x*4;byte alpha=(byte)((pixels[at]+pixels[at+1]+pixels[at+2]+1)/3);pixels[at]=color.B;pixels[at+1]=color.G;pixels[at+2]=color.R;pixels[at+3]=alpha;}Marshal.Copy(pixels,0,data.Scan0,length);}finally{mask.UnlockBits(data);}
         var shade=shadow.LockBits(area,ImageLockMode.WriteOnly,PixelFormat.Format32bppArgb);
         try{if(pad>0)Outline(stride,pad,outline.Opacity);else for(int at=0;at<length;at+=4){pixels[at]=pixels[at+1]=pixels[at+2]=0;pixels[at+3]=(byte)(pixels[at+3]*.85);}Marshal.Copy(pixels,0,shade.Scan0,length);}finally{shadow.UnlockBits(shade);}
-        destination.DrawImageUnscaled(shadow,bounds.X-pad,bounds.Y-pad+(pad==0?1:0));destination.DrawImageUnscaled(mask,bounds.X-pad,bounds.Y-pad);
+        Present(destination,bounds,pad);
     }
+    internal void Present(Graphics destination,Rectangle bounds,int pad){destination.DrawImageUnscaled(shadow,bounds.X-pad,bounds.Y-pad+(pad==0?1:0));destination.DrawImageUnscaled(mask,bounds.X-pad,bounds.Y-pad);}
     public void Dispose(){if(graphics!=null)graphics.Dispose();if(mask!=null)mask.Dispose();if(shadow!=null)shadow.Dispose();if(font!=null)font.Dispose();graphics=null;mask=shadow=null;font=null;pixels=coverage=horizontal=null;}
 }

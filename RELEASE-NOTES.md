@@ -1,3 +1,127 @@
+# Aion 2 Helper v1.16.0 Alpha — Game Launcher, Bar Fixes & Performance
+
+This release adds game-launch controls in General, optimizes player HP/MP
+rendering, and includes corrections verified during dungeon-data analysis.
+Existing widget layouts, preferences, combat history and game-tweak backups are
+preserved. The application remains Alpha, the DPS Meter remains **Beta**, and
+enemy bars and exact distance remain **experimental**.
+
+## Launch the game from the helper
+
+- The sidebar now has **Play Aion 2**. **General → Game launch** shows the
+  detected installation and provides **Detect game**, **Select game folder**,
+  **Choose launcher** and **Automatic launcher**.
+- Discovery checks validated game folders, registered installations and Steam
+  libraries. Steam launches require the matching Aion 2 app manifest; the game
+  folder is not assumed to be at a fixed path.
+- Supported Steam installations use Steam's normal game-launch command. For a
+  detected non-Steam game with an available PURPLE executable, **Open PURPLE**
+  opens the launcher; start Aion 2 inside it. Direct PURPLE game startup is not
+  claimed. Other installations can use a manually selected launcher or existing
+  game shortcut (.exe, .lnk or .url).
+- If the game is missing, the sidebar says **Game not found** and opens General
+  for configuration. A found game with no usable launcher shows **Select
+  launcher**. Missing or moved files and launch failures have explicit messages.
+- Manual folder/launcher choices are saved separately and survive updates.
+  Opening the original shortcut preserves its own launch arguments. Selecting
+  a different game folder clears a launcher associated with the old folder.
+- Discovery runs outside the UI thread when Settings opens, when requested and
+  before launching. It adds no recurring detection timer or drive-wide scan.
+  Files are checked again before opening; an already running game is not
+  launched again. Steam is started through its launcher, rather than by running
+  the raw game executable directly.
+
+## Player resources and connection recovery
+
+- **MP maximum changes:** now reads an additional confirmed resource update,
+  including decreases during an instance. The new maximum was compared with
+  the game and a subsequent character profile. It is not inferred from the
+  highest MP value seen.
+- **Recovery after a malformed packet boundary:** the incoming reader stops
+  decoding at an invalid boundary and resynchronizes before dispatching more
+  messages. In a recorded Vakron exit this recovered a character profile and
+  the HP/MP readings previously missed on the new connection. This fixes that
+  confirmed failure; it does not establish that every missing-bar incident has
+  the same cause or that every dungeon transition is now resolved.
+- **Resource identity validation:** bounded, complete resource messages with
+  duplicate or invalid energy fields cannot replace the confirmed local actor
+  and clear its data. DPS and stagger share the validated identity reader.
+  Valid zero energy remains supported; connection and actor isolation remain.
+- Local HP/MP diagnostics now retain the last data-clear reason and distinguish
+  stale connections, unknown actor, missing current value and missing explicit
+  maximum. No packet contents or session keys are added to that diagnostic.
+
+## Enemy levels and names
+
+- Corrected supported enemy-profile tails so confirmed higher levels such as
+  **54** are retained instead of being shown as 45. Known base-level display,
+  such as 45(18), remains available. Unsupported metadata stays unknown instead
+  of being guessed; it does not invalidate otherwise supported health data.
+- Added **4,803** available NPC names to the embedded English/Spanish catalogue,
+  including more dungeon enemies and objects. Existing names and local
+  translations are preserved; entries without a confirmed name remain unknown.
+- The enemy-target bar uses **Unknown target / Objetivo desconocido** when no
+  confirmed name exists, instead of the misleading generic Enemy caption.
+  Known NPC and player names continue to appear normally. No target owner or
+  player identity is invented from an unnamed entity.
+
+## HP/MP rendering and notification cleanup
+
+- HP/MP bars reuse measurement fonts, text widths and glyph buffers. Unchanged
+  captions reuse their existing drawing; typed state comparisons avoid
+  rebuilding temporary strings on each maintenance tick. Cached glyph surfaces
+  are bounded, invalidated with configuration changes and released on disposal.
+  Very large fonts keep their requested appearance without retaining oversized
+  glyph buffers permanently. No additional animation/polling timer is added.
+- In five internal repetitions of 500 changing HP+MP updates, median maintenance
+  and drawing time fell from799 ms to446 ms (**about 44% less**) and temporary
+  managed allocation fell by **about 90%**. These are offscreen development
+  measurements, not 90% less total RAM or a promise of higher game FPS.
+- **112** before/after image fixtures matched pixel for pixel. A 45-second
+  visual stress test completed 4,519 redraws with constant GDI/USER handle counts;
+  this is short-run evidence, not a guarantee against all long-session leaks.
+  Real FPS/ping/capture workers and game FPS were not included in that benchmark.
+- Removed the schedule paragraph above **Test notification**, shortened the
+  text below it to **Choose which notifications to receive**, and replaced the
+  sidebar widget-positioning explanation with the game-launch button.
+
+## Validation and remaining limits
+
+Native checks cover player vitals/shields, DPS, enemy health/target/details,
+stagger/progress, distance/session handling, settings, notifications, FPS/ping
+fixtures, intro/visual tweaks and updating. HP/MP and shield recorded replays
+are included in release verification. A previous regression comparison covered
+803,986 saved decoded frames across four sessions with identical intermediate
+DPS results after identity validation. Raw captures, personal settings and
+private reports are not included in the download.
+
+Steam discovery was checked on the author's installation. PURPLE and manual
+launcher behavior are covered by isolated fixtures; live alternate-launcher
+startup still needs testing. This release does not add new memory access or
+outgoing packet capture. The existing optional exact-distance mode still has
+its previously documented session-key memory-read behavior.
+
+Some initial character profiles can still be missed; entering your character
+again with the helper open may be necessary. The original Beriutris failure
+still needs a live retest when that event returns. Enemy/target metadata,
+unsupported shields and overlapping shield stacking need broader validation.
+The previously reported open-world boss party-DPS and Energy PvP issues remain
+unresolved. Missing metres or other readings must not be treated as zero or
+replaced with invented values.
+
+## Updating
+
+Use **General → Application updates → Check for updates → Download and update**,
+or download the Windows ZIP. Keep your existing personal settings files.
+Npcap remains a separate requirement for game-data widgets. Open the helper
+before launching Aion 2. For the optional exact-distance reader, restart Aion
+with the updated helper already open and that option enabled.
+
+Join the [Aion 2 Helper Discord](https://discord.gg/yf7SDZMyd8) for news, feedback
+and community discussion.
+
+---
+
 # Aion 2 Helper v1.15.1 Alpha — Hotfix: Player Bars & Shields
 
 This hotfix corrects a confirmed HP/MP data-reset issue and adds the shield
