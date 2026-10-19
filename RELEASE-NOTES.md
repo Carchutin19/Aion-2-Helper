@@ -1,3 +1,78 @@
+# Aion 2 Helper v1.16.2 Alpha — Selection Outline & DPS Text Size
+
+This update adds control over the game's selection outline and an independent
+text-size setting for the DPS overlay. Existing layouts, preferences and combat
+history are preserved.
+
+## Selection outline
+
+- **Game Tweaks → Visuals → Selection outline** controls the contour around
+  selected targets. Disabling it was confirmed locally both with a target
+  locked using **Tab** and with the game's selection without target lock.
+- The initial helper choice is **on**, matching the game when no override
+  exists. Existing explicit INI settings are respected. Nothing is written
+  automatically: **close Aion 2 and click Apply visual changes**, then launch
+  the game again. Opening Settings or refreshing status does not edit the INI.
+- Disabling writes `r.CustomDepth=0` under `[SystemSettings]` in the selected
+  `Engine.ini`. Enabling removes the disable override
+  without forcing an arbitrary rendering mode. This is not an opacity control.
+- **This affects Custom Depth globally:** other outlines or highlights that use
+  the same rendering feature may also disappear. It is not an enemy-only filter.
+- The helper edits individual supported keys, preserves unrelated settings and
+  keeps the file writable. Verified backups support exact restoration or a
+  merge that retains unrelated later edits. Backups from earlier versions remain
+  usable and do not take ownership of a later outline choice.
+- Steam and other launcher profiles retain automatic configuration discovery
+  and manual file selection. The existing four visual-effect controls retain
+  their defaults and behavior.
+
+## Independent DPS text size
+
+- **DPS Meter → Configuration → Appearance → Text size** adjusts text from
+  **50% to 200%** without changing the widget's saved width, height or position.
+  **100% preserves the previous appearance**, including existing installations.
+- Names, values, headings and combat tabs use the selected size. Text is drawn
+  at its final size rather than enlarged from an existing bitmap.
+- The preview updates immediately and provides extra height for larger text.
+  Row spacing and tab input areas follow the new text size; increase the live
+  widget's height if larger text leaves room for fewer rows. Long labels still
+  fit within their columns.
+- The setting is saved and supports undo/redo. Changing it does not reset the
+  encounter or alter recorded damage/healing totals.
+
+## Performance and validation
+
+No additional capture process or polling timer is introduced. Fonts remain
+cached, changing text size invalidates the panel once, and unchanged frames
+reuse the existing drawing. Checks cover 1,000 idle updates without additional
+panel uploads, font reuse and bounded GDI resources.
+
+Native verification covers DPS rendering and interactions, Settings and UI,
+visual tweaks, startup tweaks and the updater. It includes text sizes at four
+widget widths across damage/healing/received views, native tab clicks, preview
+layout, persistence, migration and undo/redo. INI tests cover default choices,
+both supported Custom Depth scopes, encodings/newlines, concurrent edits,
+game-running protection, verified restoration and older backup compatibility.
+The packaged application and the previous published client's update staging
+are also checked. These checks do not establish compatibility with every game
+version or every Custom Depth effect.
+
+## Updating
+
+Restart **Aion 2 Helper as administrator** and accept the update prompt. If
+startup checks are disabled, use **General → Application updates → Check for
+updates**. Settings, layouts, history and launcher preferences are preserved.
+
+For the outline change, keep Aion 2 closed while applying the visual setting,
+then launch it again with the helper already running. DPS text-size changes
+apply immediately and do not require restarting the game.
+
+The application remains **Alpha**, the DPS Meter **Beta**, and enemy bars and
+distance **experimental**. Known gameplay-data limitations remain under
+investigation.
+
+---
+
 # Aion 2 Helper v1.16.1 Alpha — Quick Widget Polish
 
 A small visual-polish update that makes the Energy and Stagger widgets easier

@@ -16,8 +16,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.16.1 release — Quick Widget Polish](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.16.1/Aion-2-Helper-v1.16.1-windows-x64.zip).
+The [v1.16.2 release — Selection Outline & DPS Text Size](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.2)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.16.2/Aion-2-Helper-v1.16.2-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter and invitation notifications;
@@ -45,6 +45,23 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.16.2: Selection Outline & DPS Text Size
+
+- **Selection outline:** control it in **Game Tweaks → Visuals**. The initial
+  helper choice is on, matching the game; existing settings are respected. Close Aion 2,
+  click **Apply visual changes**, then relaunch. Disabling also affects other
+  highlights that use Custom Depth. Verified backups and restoration remain.
+- **DPS text size:** adjust names, values, headings and tabs from **50–200%** in
+  **DPS Meter → Configuration → Appearance**, without resizing the widget.
+  The **100%** default preserves its existing appearance. Preview, saved settings
+  and undo/redo are supported; larger text may need a taller widget.
+- **Cached rendering:** fonts and unchanged panels are reused. No additional
+  capture or polling timer is added, and combat totals are not reset.
+
+Restart the helper **as administrator** to check for updates, or check manually
+in **General → Application updates**. Existing settings and history are preserved.
+See the [full release notes](RELEASE-NOTES.md) for details and validation.
 
 ## New in v1.16.1: Quick Widget Polish
 
