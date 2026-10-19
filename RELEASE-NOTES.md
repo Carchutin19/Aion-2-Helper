@@ -1,3 +1,59 @@
+# Aion 2 Helper v1.16.1 Alpha — Quick Widget Polish
+
+A small visual-polish update that makes the Energy and Stagger widgets easier
+to position and style while unlocked. Existing preferences and layouts are
+preserved.
+
+## Better unlocked editing previews
+
+- When unlocked without usable live data, **Energy** and **Stagger** now show
+  a colored **65% editing sample** instead of the grey missing-data pattern.
+  Your configured palette, glow, text settings, position and dimensions apply.
+- The Stagger sample includes an illustrative **4.0-second countdown** so its
+  position and text styling can be adjusted without waiting for a real stagger.
+  This is a static editing example, not a live countdown or a server reading.
+- A missing, stale, inactive or expired stagger phase can still be edited.
+  Confirmed live readings take over immediately; a real zero is not replaced
+  with the sample. Existing stagger refill/countdown behavior is retained.
+- Switching between an editing sample and real readings snaps the display to
+  the new source, avoiding an animation from the example's 65% value.
+- **Locking the widgets removes missing-data examples.** Locked visibility,
+  real values, automatic hiding and disabled-module behavior remain unchanged.
+
+## Data and performance
+
+Samples are display-only: they do not populate resource receivers, replace
+actual current/max values or change character identity, combat data or saved
+calibration. Local diagnostics distinguish visual previews from real readings.
+
+The change reuses existing timers and native image caches. Unchanged samples
+reuse their bitmap, and the static countdown example does not add an animation
+loop. No additional capture, game-memory access or game-file edits are added.
+
+## Validation
+
+Native regression tests cover unlocked missing-data samples, labels/countdown,
+locking/unlocking, disabled widgets, actual partial/zero stagger values, inactive
+phases and stale retained readings. They also check 500 unchanged updates without
+additional bitmap uploads. The missing colored sample was reproduced with the
+previous rendering and passes with the corrected implementation.
+
+Progress, UI, Settings, player HP/MP, enemy-health and enemy-target checks are
+included in release verification. The author confirmed the local visual change.
+Private tests and personal data are excluded from the download.
+
+## Updating
+
+Use **General → Application updates → Check for updates → Download and update**,
+or download the Windows ZIP. Existing settings, layouts, history and launcher
+preferences are preserved.
+
+The application remains **Alpha**, the DPS Meter remains **Beta**, and enemy
+bars/distance remain **experimental**. This visual update does not claim to fix
+the previously documented gameplay-data limitations.
+
+---
+
 # Aion 2 Helper v1.16.0 Alpha — Game Launcher, Bar Fixes & Performance
 
 This release adds game-launch controls in General, optimizes player HP/MP

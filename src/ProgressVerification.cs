@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Reflection;
 using System.Web.Script.Serialization;
 
 internal static class ProgressVerification {
@@ -11,6 +12,38 @@ internal static class ProgressVerification {
     static byte[] Energy(uint actor){var b=new List<byte>(new byte[]{0,0x8d});V(b,actor);b.AddRange(new byte[]{1,1,3});b.AddRange(BitConverter.GetBytes(1000));return b.ToArray();}
     static byte[] Hit(uint source,uint target){var b=new List<byte>(new byte[]{4,0x38});V(b,target);V(b,6);V(b,0);V(b,source);b.AddRange(BitConverter.GetBytes(15210000));b.Add(1);V(b,2);b.AddRange(new byte[]{128,0,1,85,102,119,136,1,0,0,0});V(b,10817);V(b,400);b.AddRange(new byte[]{1,0});return b.ToArray();}
     static void Send(StaggerSignal s,byte[] b,double time,string flow="game"){s.Consume(b,0,b.Length,time,flow);}
+    const BindingFlags Instance=BindingFlags.Instance|BindingFlags.NonPublic;
+    static object Field(object value,string name){return value.GetType().GetField(name,Instance).GetValue(value);}
+    static void Invoke(object value,string name){value.GetType().GetMethod(name,Instance).Invoke(value,null);}
+    static void VerifyEditingSamples(string root){
+        string source=Path.Combine(root,"protocol","sync-opcodes.json");root=Path.Combine(root,"editing-samples");Directory.CreateDirectory(Path.Combine(root,"protocol"));File.Copy(source,Path.Combine(root,"protocol","sync-opcodes.json"),true);
+        using(var owner=new EnergyOverlay(root,true)){
+            var cfg=owner.Configuration;cfg.Bounds=new Rectangle(-20000,-20000,420,4);cfg.Options.Enabled=true;cfg.Options.Fade=cfg.Options.Smooth=false;cfg.Options.CurrentText=cfg.Options.MaximumText=cfg.Options.PercentageText=true;cfg.Fps.Enabled=cfg.Ping.Enabled=cfg.Dps.Enabled=cfg.Notifications.Enabled=cfg.Stagger.Bar.Enabled=cfg.EnemyHealth.Bar.Enabled=cfg.EnemyTarget.Bar.Enabled=cfg.PlayerHealth.Bar.Enabled=cfg.PlayerMana.Bar.Enabled=false;owner.ApplyConfiguration(cfg);
+            owner.Show();System.Windows.Forms.Application.DoEvents();((System.Windows.Forms.Timer)Field(owner,"timer")).Stop();
+            // Only the renderer changes mode. The test receiver remains closed;
+            // no capture, game process or memory reader is started.
+            owner.GetType().GetField("preview",Instance).SetValue(owner,false);Invoke(owner,"UpdateBar");
+            var motion=(BarMotion)Field(owner,"motion");var data=(DashSignal)Field(owner,"signal");var image=(LayeredImage)Field(owner,"image");
+            Check(data.ReadSnapshot().Reading==null&&data.ReadSnapshot().DetectedMaximum==0,"Editing does not seed current/max energy into the receiver");
+            Check(Math.Abs(motion.Value-.65)<.000001&&(bool)Field(owner,"imageFresh")&&(int)Field(owner,"imageFilled")==Math.Round(owner.Configuration.Bounds.Width*.65),"Unlocked energy uses colored65% sample instead of missing-data dashes");
+            Check(((ProgressTextOverlay)Field(owner,"energyTexts")).Visible,"Unlocked energy shows configured sample labels");int uploads=image.Uploads;for(int i=0;i<500;i++)Invoke(owner,"UpdateBar");Check(image.Uploads==uploads,"Unchanged editing sample reuses its native bitmap");
+            owner.InteractionLock.Locked=true;Check(!owner.Visible&&motion.Opacity==0&&data.ReadSnapshot().Reading==null,"Locking missing energy hides the sample and leaves actual data unknown");owner.InteractionLock.Locked=false;Check(owner.Visible&&Math.Abs(motion.Value-.65)<.000001,"Unlocking restores the sample without stale animation");
+            ((EnergyBarOptions)Field(owner,"options")).Enabled=false;Invoke(owner,"UpdateBar");Check(!owner.Visible&&!((ProgressTextOverlay)Field(owner,"energyTexts")).Visible,"Disabled energy stays hidden even unlocked");
+            using(var signalOwner=new EnergyOverlay(root,true)){
+                var signal=new StaggerSignal();using(var bar=new StaggerOverlay(signalOwner,signal,false)){
+                    var options=new StaggerOptions();options.Bar.Enabled=true;options.Bar.Fade=options.Bar.Smooth=false;options.Bounds=new Rectangle(-20000,-20000,400,6);bar.Configure(options,false);var staggerMotion=(BarMotion)Field(bar,"motion");
+                    Check(bar.Visible&&Math.Abs(staggerMotion.Value-.65)<.000001&&signal.Read()==null,"Unlocked unknown stagger shows sample without inventing a gauge");Check(((ProgressTextOverlay)Field(bar,"texts")).Visible,"Stagger sample includes editable numeric labels and countdown");
+                    var native=(LayeredImage)Field(bar,"image");uploads=native.Uploads;for(int i=0;i<500;i++)Invoke(bar,"Pulse");Check(native.Uploads==uploads,"Static stagger sample does not redraw continuously");bar.Configure(options,true);Check(!bar.Visible&&signal.Read()==null,"Locked unknown stagger hides its editing sample");
+                    bar.Configure(options,false);double now=DpsHistory.UtcNow();Send(signal,Gauge(99,37,150),now);Invoke(bar,"Pulse");Check(Math.Abs(staggerMotion.Value-37.0/150)<.000001&&signal.Read().Current==37,"Actual partial gauge immediately replaces the sample");
+                    Send(signal,Gauge(99,0,150),DpsHistory.UtcNow());Invoke(bar,"Pulse");Check(signal.Read().Current==0&&staggerMotion.Value<.05,"Confirmed zero uses actual stagger/refill, not the editing65% sample");
+                    Send(signal,Gauge(99,150,150,false,0),DpsHistory.UtcNow()+.001);Invoke(bar,"Pulse");Check(signal.Read().State==0&&signal.Read().Current==150&&Math.Abs(staggerMotion.Value-.65)<.000001,"Unavailable phase can be edited without changing its actual state");bar.Configure(options,true);Check(!bar.Visible,"Locking unavailable phase cannot reveal its illustrative fill");
+                    signal.Reset();Send(signal,Gauge(99,27,150),DpsHistory.UtcNow()-11);bar.Configure(options,false);Check(bar.Visible&&Math.Abs(staggerMotion.Value-.65)<.000001&&signal.Read().Current==27,"Stale gauge gets an editing sample without replacing retained readings");bar.Configure(options,true);Check(!bar.Visible,"Stale gauge sample disappears on lock");
+                    options.Bar.Enabled=false;bar.Configure(options,false);Check(!bar.Visible&&!((ProgressTextOverlay)Field(bar,"texts")).Visible,"Disabled stagger does not show editing examples");
+                }
+            }
+            owner.Close();
+        }
+    }
     static void VerifyVisualRefill(){
         var signal=new StaggerSignal();signal.Configure(true);Send(signal,Gauge(99,150,150),10);Send(signal,Gauge(99,0,0,true),11);
         var sample=signal.Read();foreach(double elapsed in new[]{0.0,1.25,2.5,4.999,5.0}){
@@ -32,6 +65,7 @@ internal static class ProgressVerification {
         Check(!StaggerSignal.DisplayAvailable(sample,16),"Estimated full bar cannot bypass five-second zero guard");
     }
     internal static void Run(string root){
+        VerifyEditingSamples(root);
         VerifyVisualRefill();
         VerifyLabelCache();
         var s=new StaggerSignal();int wakes=0;s.Changed=delegate{wakes++;};Send(s,Gauge(99,150,150),1);Check(s.Read()==null&&wakes==0,"Disabled reader must do no work");s.Configure(true);

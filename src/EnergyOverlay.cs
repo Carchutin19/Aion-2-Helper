@@ -308,7 +308,7 @@ internal sealed class EnergyOverlay:Form {
     EnergyBarOptions options=new EnergyBarOptions();HelperSettings settingsWindow;HelperTrayMenu trayMenu;
     internal event Action SettingsChanged;
     bool closing,ready,rendering;double lastSaved;string status="No data · dash once to start";string startError="";
-    string renderKey="",statusKey="";bool preview;double previewRatio;
+    string renderKey="",statusKey="";bool preview,editingSample;double previewRatio;
     System.Drawing.Size initialSize=new System.Drawing.Size(BarDesign.DefaultWidth,BarDesign.DefaultHeight);
     bool resizing;int resizeHit;Rectangle resizeStart;System.Drawing.Point resizeMouseStart;
     Rectangle CoreBounds {
@@ -426,25 +426,29 @@ internal sealed class EnergyOverlay:Form {
         if(!preview)characterNotice.UpdateNotice(now,recorder.Active&&recorder.HasGameConnection&&(dpsOptions.Enabled||options.Enabled),(dpsOptions.Enabled&&!combat.CharacterIdentified)||(options.Enabled&&r==null),!locked,dpsOptions.Bounds,language,TrayMenuOpen);
         if(!preview&&fresh&&snapshot.DetectedMaximum>0&&lastAutomaticMaximum!=snapshot.DetectedMaximum){lastAutomaticMaximum=snapshot.DetectedMaximum;SaveSettings(false);}
         uint maximum=EnergyMaximum(snapshot);double ratio=preview?previewRatio:r==null?0:(double)r.Value/maximum;
+        // Missing live data gets a visual sample only while unlocked. Keep the
+        // receiver, freshness, actual values and status separate from this fill.
+        bool sample=!locked&&!fresh;uint visualCurrent=preview||sample?65u:r==null?0:r.Value,visualMaximum=preview||sample?100u:maximum;double visualRatio=sample?.65:ratio;
+        if(sample!=editingSample){editingSample=sample;motion.SnapValue(visualRatio);}
         string nextStatus=!options.Enabled?"Energy Bar disabled":fresh?ratio.ToString("P0")+(!preview&&snapshot.DetectedMaximum==0?" · waiting for maximum energy stats":""):(startError.Length>0?startError:"No data · dash once to start");
         if(nextStatus!=status)status=nextStatus;string localized=ReadingStatus;
         if(stateItem.Text!=localized){stateItem.Text=localized;string tooltip="Aion 2 Helper · "+localized;tray.Text=tooltip.Substring(0,Math.Min(63,tooltip.Length));}
-        motion.Step(now,!locked,fresh,ratio,preview?(uint)(previewRatio*100):r==null?0:r.Value,preview?100:maximum,options,preview?-1:fresh&&r!=null?Math.Max(0,utcNow-r.Timestamp):0);
+        motion.Step(now,!locked,fresh||sample,visualRatio,preview?(uint)(previewRatio*100):visualCurrent,visualMaximum,options,preview||sample?-1:fresh&&r!=null?Math.Max(0,utcNow-r.Timestamp):0);
         bool show=options.Enabled&&motion.Opacity>0;
         if(show&&!Visible){RenderNow(true);Show();OverlayNative.RaiseWithoutFocus(Handle);}else if(!show&&Visible)Hide();
         if(Visible)RenderNow();
-        energyTexts.Update(CoreBounds,options,fresh,preview?65:r==null?0:r.Value,preview?100:maximum,show?(byte)Math.Round(motion.Opacity*255):(byte)0);
+        energyTexts.Update(CoreBounds,options,fresh||sample,visualCurrent,visualMaximum,show?(byte)Math.Round(motion.Opacity*255):(byte)0);
         if(!preview&&now>=nextStatusWrite){nextStatusWrite=now+.5;string meta=Width+"/"+Height+"/"+Left+"/"+Top+"/"+locked+"/"+fresh+"/"+Visible+"/"+status+"/"+snapshot.Errors+"/"+notifications.Received+"/"+fpsWidget.Value+"/"+fpsWidget.ReadingStatus+"/"+pingWidget.Value+"/"+pingWidget.ReadingStatus+"/"+enemyWidget.StatusKey+"/"+targetWidget.StatusKey+"/"+clientPositions.ReadingStatus+"/"+healthWidget.StatusKey+"/"+manaWidget.StatusKey;
             if(meta!=statusKey||(r!=null&&r.Timestamp>lastSaved)){if(r!=null)lastSaved=r.Timestamp;statusKey=meta;WriteStatus(snapshot,fresh);}}
         int interval=motion.Animating?16:options.Enabled?250:1000;
         if(!motion.Animating&&motion.FullSince.HasValue&&motion.Opacity>0){double remaining=options.HoldSeconds-(now-motion.FullSince.Value);if(remaining>0)interval=Math.Min(interval,Math.Max(1,(int)Math.Ceiling(remaining*1000)));}
         interval=Math.Min(interval,Math.Min(healthWidget.NextInterval,manaWidget.NextInterval));if(timer.Interval!=interval)timer.Interval=interval;
     }
-    void WriteStatus(DashSignal.Snapshot snapshot,bool fresh){var core=CoreBounds;var r=snapshot.Reading;statusWriter.Publish(new {ts=r==null?0:r.Timestamp,actor=r==null?0:r.Actor,value=r==null?0:r.Value,maximum=EnergyMaximum(snapshot),detectedMaximum=snapshot.DetectedMaximum,automaticMaximum=true,percentage=(r==null?0:(double)r.Value/EnergyMaximum(snapshot))*100,displayedPercentage=motion.Value*100,opacity=motion.Opacity,enabled=options.Enabled,autoHide=options.AutoHide,fullHoldSeconds=options.HoldSeconds,fadeSeconds=options.Fade?options.FadeSeconds:0,smoothingSeconds=options.Smooth?options.SmoothingSeconds:0,samples=snapshot.Samples,errors=snapshot.Errors,fresh=fresh,editing=options.Enabled&&!locked,visible=Visible,width=core.Width,height=core.Height,x=core.X,y=core.Y,status=status,fpsValue=fpsWidget.Value,fpsStatus=fpsWidget.ReadingStatus,pingValue=pingWidget.Value,pingStatus=pingWidget.ReadingStatus,notifications=notifications.Status,notificationWindow=notificationWidget.WindowStatus,stagger=staggerWidget.Status,exactDistance=clientPositions.Status,enemyHealth=enemyWidget.Status,enemyTarget=targetWidget.Status,playerHealth=healthWidget.Status,playerMana=manaWidget.Status,dpsWindow=dpsWidget.WindowStatus,characterNotice=characterNotice.Status,dps=dpsOptions.Enabled?DpsSignal.Export(combat.Read((DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds)):null,style="slim-v2",emissive=options.Emissive});}
+    void WriteStatus(DashSignal.Snapshot snapshot,bool fresh){var core=CoreBounds;var r=snapshot.Reading;statusWriter.Publish(new {ts=r==null?0:r.Timestamp,actor=r==null?0:r.Actor,value=r==null?0:r.Value,maximum=EnergyMaximum(snapshot),detectedMaximum=snapshot.DetectedMaximum,automaticMaximum=true,percentage=(r==null?0:(double)r.Value/EnergyMaximum(snapshot))*100,displayedPercentage=motion.Value*100,opacity=motion.Opacity,enabled=options.Enabled,autoHide=options.AutoHide,fullHoldSeconds=options.HoldSeconds,fadeSeconds=options.Fade?options.FadeSeconds:0,smoothingSeconds=options.Smooth?options.SmoothingSeconds:0,samples=snapshot.Samples,errors=snapshot.Errors,fresh=fresh,editing=options.Enabled&&!locked,visualPreviewOnly=options.Enabled&&!locked&&!fresh,visible=Visible,width=core.Width,height=core.Height,x=core.X,y=core.Y,status=status,fpsValue=fpsWidget.Value,fpsStatus=fpsWidget.ReadingStatus,pingValue=pingWidget.Value,pingStatus=pingWidget.ReadingStatus,notifications=notifications.Status,notificationWindow=notificationWidget.WindowStatus,stagger=staggerWidget.Status,exactDistance=clientPositions.Status,enemyHealth=enemyWidget.Status,enemyTarget=targetWidget.Status,playerHealth=healthWidget.Status,playerMana=manaWidget.Status,dpsWindow=dpsWidget.WindowStatus,characterNotice=characterNotice.Status,dps=dpsOptions.Enabled?DpsSignal.Export(combat.Read((DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds)):null,style="slim-v2",emissive=options.Emissive});}
     void RenderNow(bool includeHidden=false){
         if(!ready||closing||rendering||!options.Enabled||(!Visible&&!includeHidden))return;rendering=true;
         try {float scale=1;try{scale=OverlayNative.GetDpiForWindow(Handle)/96f;}catch(EntryPointNotFoundException){}double ratio=motion.Value;byte alpha=(byte)Math.Round(motion.Opacity*255);
-            var core=CoreBounds;bool fresh=IsFresh;int filled=(int)Math.Round(Math.Max(0,Math.Min(1,ratio))*core.Width),color=BarDesign.EnergyColor(ratio,options).ToArgb();
+            var core=CoreBounds;bool fresh=IsFresh||!locked;int filled=(int)Math.Round(Math.Max(0,Math.Min(1,ratio))*core.Width),color=BarDesign.EnergyColor(ratio,options).ToArgb();
             bool changed=renderKey.Length==0||imageWidth!=core.Width||imageHeight!=core.Height||imageFilled!=filled||imageColor!=color||imageEditing!=!locked||imageFresh!=fresh||imageScale!=scale;
             if(changed){using(var bitmap=BarDesign.RenderEmissive(core.Width,core.Height,ratio,!locked,fresh,scale,options,glowWorkspace))image.Upload(bitmap);
                 imageWidth=core.Width;imageHeight=core.Height;imageFilled=filled;imageColor=color;imageEditing=!locked;imageFresh=fresh;imageScale=scale;renderKey="valid";}

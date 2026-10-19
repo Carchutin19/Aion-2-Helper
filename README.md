@@ -16,8 +16,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.16.0 release — Game Launcher, Bar Fixes & Performance](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.16.0/Aion-2-Helper-v1.16.0-windows-x64.zip).
+The [v1.16.1 release — Quick Widget Polish](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.16.1/Aion-2-Helper-v1.16.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter and invitation notifications;
@@ -45,6 +45,19 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.16.1: Quick Widget Polish
+
+- **Easier Energy/Stagger editing:** unlocked widgets show a colored 65% sample
+  with your configured glow and numeric labels when live data is unavailable.
+- **Stagger countdown preview:** a static example helps position and style the
+  countdown without waiting for an enemy's stagger phase.
+- **Real data stays real:** confirmed readings, including zero, take over
+  immediately. Missing-data samples disappear when locked; disabled widgets
+  stay hidden. Existing timers and drawing caches are reused.
+
+Your settings and layouts are preserved. See the [full release notes](RELEASE-NOTES.md)
+for details and validation.
 
 ## New in v1.16.0: Game launcher, bar fixes & performance
 
