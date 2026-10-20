@@ -3,24 +3,24 @@
 **Customizable utility overlays for Aion 2.**
 
 **Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Enemy/Enemy-target progress bars, FPS/Ping widgets and a
-DPS Meter in **Beta**, Notifications and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
+DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
 updates. Please report
 problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
 
 Aion 2 Helper is a community project that brings useful game information into
-movable, customizable overlays: progress bars, combat analysis, FPS/ping and
+movable, customizable overlays: progress bars, combat analysis, FPS/ping, pet tracking and
 notifications, with optional startup and visual settings.
 
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.16.2 release — Selection Outline & DPS Text Size](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.2)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.16.2/Aion-2-Helper-v1.16.2-windows-x64.zip).
+The [v1.17.0 release — Pets, Atlas & Spacetime Rift](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.17.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.17.0/Aion-2-Helper-v1.17.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
-for player HP/MP, Energy/Stagger and enemy bars, DPS Meter and invitation notifications;
+for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
@@ -45,6 +45,16 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.17.0: Pets, Atlas & Spacetime Rift
+
+- **Pets collection:** automatic synchronization on character login, a name/type/region search, filters, saved character/server records and clear **Completed / MAX** status.
+- **Soul cards:** real soul gains appear in customizable translucent cards with portraits, stars and remaining counts. Each card expires independently; pin unfinished pets to keep them visible. Completed pets stay in the registry. Repeated gains preserve opacity, and quiet traffic no longer hides synchronized pins.
+- **Offline atlas:** six maps, zoom/pan, recorded locations, portrait markers and acquisition information. These are reference locations, not live spawns; pets without coordinates retain their source information.
+- **Spacetime Rift:** optional advance, opening and closing notifications plus an independent ten-minute entry countdown, configured under **Notifications**. Automatic supported server-region detection, manual fallback and daylight-saving conversion. **Schedule-based availability, not live portal detection; the first local event-time comparison is pending.**
+- **HP/MP recovery:** fixes a confirmed packet-length decoding stall during an instance transition. Cached card drawing, a virtualized registry and on-demand map loading reuse the existing capture and overlay clock.
+
+Open the helper **as administrator before entering your character** so the collection can synchronize. Already playing? Return to character selection and enter again. Existing preferences/history are preserved. Catalogue names and acquisition facts remain in English; DPS remains Beta. See the [full release notes](RELEASE-NOTES.md) for details and limitations.
 
 ## New in v1.16.2: Selection Outline & DPS Text Size
 
@@ -734,7 +744,7 @@ or measured. They are not included in the current build.
 ## Getting started
 
 This is a Windows desktop application. **Npcap** is required for Player HP/MP,
-Energy/Stagger and enemy bars, DPS Meter and invitation notifications; FPS uses Windows presentation events and Ping uses
+Energy/Stagger and enemy bars, DPS Meter, pet collection and invitation notifications; FPS uses Windows presentation events and Ping uses
 per-connection Windows TCP statistics. The application was
 developed and tested with Aion 2 Global.
 

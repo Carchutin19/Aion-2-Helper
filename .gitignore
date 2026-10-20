@@ -1,4 +1,4 @@
-# Local packet captures and reference checkouts
+﻿# Local packet captures and reference checkouts
 /captures/
 /research/
 
@@ -54,3 +54,9 @@ __pycache__/
 /update-settings.json
 /intro-status.txt
 /assets/startup/black.bmp
+
+# Local bounded Rift notification deduplication state
+/rift-alert-state.json*
+
+# Private per-character pet collection and pins
+/pets-state.json*

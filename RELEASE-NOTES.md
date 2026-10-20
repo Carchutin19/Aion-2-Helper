@@ -1,3 +1,52 @@
+# Aion 2 Helper v1.17.0 Alpha — Pets, Atlas & Spacetime Rift
+
+Track your pet collection, see real soul gains and browse recorded farming locations in a new Pets section. This release also adds scheduled Spacetime Rift notifications and improves recovery from a confirmed HP/MP decoding delay.
+
+## Pets: collection, soul cards and pins
+
+- **Pets → Collection** synchronizes from your character's collection when you enter the world. You do not need to earn every pet again. Open the helper before character entry; if already playing, return to character selection and enter again.
+- Search by pet name, type or recorded region, and filter by progress, completion, pins or missing locations. Choose a previously recorded character/server to inspect its saved collection; saved records remain historical until synchronized.
+- Real soul gains display translucent white cards with portraits, stars, stage counts and remaining souls. New cards appear at the top and expire independently after five seconds by default. Repeated gains update the same visible card and extend only its duration.
+- Pin unfinished pets to keep their cards visible. Confirmed three-star pets show **Completed / MAX** in the collection and are excluded from automatic and pinned cards.
+- Stage targets are **5 / 25 / 75 souls**, totaling **105** for level 3. Crystal messages and ordinary kills are not counted as pet souls.
+- Configure card duration, visible rows, scale, text size, colors, opacity, glow, outline, optional Windows backdrop blur and position. Use **General → Lock widgets** to edit layout; floating-button explanations appear only while unlocked.
+- Cards preserve opacity on repeated gains and reverse a fade-out smoothly. Synchronized pinned cards no longer disappear merely because incoming traffic is quiet. Session/character resets still invalidate live collection state.
+
+## Separate offline pet atlas
+
+- Open the map button beside a pet to see its recorded locations. When several maps are available, prefer the current game region if it matches, or choose another recorded map.
+- Includes six offline maps, zoom/pan, portrait or point markers, pinned-pet locations and acquisition information. Map images load on demand, one at a time.
+- **Recorded locations are reference positions, not live spawns.** Pets without coordinates keep their acquisition information rather than displaying an invented location. Special pets such as Black Dragon may come from chests or packs and have no farming map.
+- The catalogue contains 207 IDs, including seven special entries; this is not a claim of 207 regular collection pets. The source snapshot contains coordinates for 160 pets. Catalogue names and acquisition facts remain in English.
+- Compact zoom controls, a single close button and clean registry rows keep the new interface consistent with the helper.
+
+## Spacetime Rift notifications and countdown
+
+- **Notifications** now includes independently switchable advance, opening and closing alerts, with the same shared appearance and sound settings as other notifications.
+- Rift-specific settings live lower on the same Notifications page. Configure the advance reminder and an independently movable/scalable countdown for the fixed **ten-minute entry window**.
+- Automatic region selection uses a supported character-server identity, with a manual server-region fallback. Regional time zones and daylight saving are handled automatically; unsupported automatic identities wait for selection rather than guessing.
+- Reminder delivery is saved to avoid duplicates after restarting. Opening the helper during the entry window shows the scheduled time remaining instead of starting a new ten-minute timer.
+- **These alerts follow a community timetable, not a detected live portal.** The first local event-time comparison is still pending. The countdown describes entry availability, not time remaining inside the event.
+
+## HP/MP recovery and performance
+
+- Corrected a confirmed decoder stall at an already invalid packet-length prefix. Recovery preserves incomplete valid messages and avoids treating frame-like bytes inside a compressed message as independent updates.
+- In the recorded affected transition, the validated profile can be decoded about **9.1 seconds earlier**. This is one captured case, not a guarantee that every missing HP/MP case is solved.
+- Pets use the existing incoming capture and shared overlay clock. Portraits and unchanged card images are cached, the registry is virtualized, and maps are loaded on demand. No separate capture or per-card polling timer is added.
+- Native tests cover collection/gain parsing, character/flow isolation, saved records, completion, fading, idle stability, settings, atlas rendering and existing overlay features. Recorded soul gains and HP/MP/shield cases are replayed against the production reader. Offline checks are not a guarantee of in-game FPS or RAM usage.
+
+## Updating
+
+Restart **Aion 2 Helper as administrator** and accept the update, or use **General → Application updates → Check for updates**. Existing preferences, layouts, combat history and saved pet records are preserved. Extract the complete ZIP for a manual installation.
+
+For collection synchronization, keep the helper running before entering your character. If already in the world, return to character selection and enter again; a full game restart is not required solely for these features.
+
+The application remains **Alpha** and the DPS Meter **Beta**. The known open-world boss party-damage issue remains unresolved. Enemy bars and distance remain experimental. Windows backdrop blur depends on composition support and falls back to transparent white cards.
+
+Pet-data provenance, retained licenses and NCSOFT/respective-owner artwork credits are documented in [PET-ASSETS.md](https://github.com/Carchutin19/Aion-2-Helper/blob/main/PET-ASSETS.md).
+
+---
+
 # Aion 2 Helper v1.16.2 Alpha — Selection Outline & DPS Text Size
 
 This update adds control over the game's selection outline and an independent

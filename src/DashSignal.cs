@@ -6,7 +6,7 @@ using System.Web.Script.Serialization;
 
 internal sealed class DashSignal {
     sealed class Flow {
-        internal uint Next;internal bool Started,Synced;
+        internal uint Next;internal bool Started,Synced,PrefixRecovery;
         internal byte[] Buffer=new byte[8192];internal int Count,PendingBytes;
         internal readonly Dictionary<uint,byte[]> Pending=new Dictionary<uint,byte[]>();
         internal void Append(byte[] data,int offset){
@@ -67,14 +67,27 @@ internal sealed class DashSignal {
         if(p!=end||!energy)return false;actor=id;return true;
     }
     static int Frame(byte[] data,int at,int limit,out int body,out int end){
-        uint length;body=at;end=at;if(!ReadVar(data,ref body,limit,out length))return 0;
+        // A uint prefix that already fails with five bytes cannot be
+        // completed by later TCP segments. Only shorter prefixes may wait.
+        uint length;body=at;end=at;if(!ReadVar(data,ref body,limit,out length))return limit-at>=5?-1:0;
         if(length<6||length>65535)return -1;end=body+(int)length-4;return end<=limit?1:0;
+    }
+    static bool IncompleteContainer(byte[] data,int body,int limit,int end){
+        if(end<=limit||body>limit-6||data[body]!=255||data[body+1]!=255)return false;
+        int expected=BitConverter.ToInt32(data,body+2);return expected>0&&expected<=1000000;
     }
     void Cut(Flow flow,double ts,string stream){
         int position=0;
         if(!flow.Synced){for(int candidate=0;candidate<flow.Count;candidate++){int at=candidate;bool good=true;
-                for(int k=0;k<3;k++){int body,end;if(Frame(flow.Buffer,at,flow.Count,out body,out end)!=1||!known.Contains((flow.Buffer[body]<<8)|flow.Buffer[body+1])){good=false;break;}at=end;}
-                if(good){position=candidate;flow.Synced=true;break;}}
+                for(int k=0;k<3;k++){int body,end;int result=Frame(flow.Buffer,at,flow.Count,out body,out end);
+                    // An earlier confirmed boundary followed by a partial LZ4
+                    // envelope must not sync to literal-looking frames inside it.
+                    if(flow.PrefixRecovery&&k>0&&result==0&&end-candidate<=65535&&IncompleteContainer(flow.Buffer,body,flow.Count,end)){
+                        if(candidate>0){flow.Count-=candidate;System.Buffer.BlockCopy(flow.Buffer,candidate,flow.Buffer,0,flow.Count);}
+                        return;
+                    }
+                    if(result!=1||!known.Contains((flow.Buffer[body]<<8)|flow.Buffer[body+1])){good=false;break;}at=end;}
+                if(good){position=candidate;flow.Synced=true;flow.PrefixRecovery=false;break;}}
             if(!flow.Synced){if(flow.Count>65535){System.Buffer.BlockCopy(flow.Buffer,flow.Count-65535,flow.Buffer,0,65535);flow.Count=65535;}return;}
         }
         while(position<flow.Count){if(flow.Buffer[position]==0){position++;continue;}int body,end,result=Frame(flow.Buffer,position,flow.Count,out body,out end);if(result==0)break;if(result<0){
@@ -82,7 +95,7 @@ internal sealed class DashSignal {
                 // Keep the remaining bytes and reacquire the existing three-
                 // frame sync on the next segment instead of decoding arbitrary
                 // payload bytes as actor/profile messages.
-                position++;errors++;flow.Synced=false;break;}
+                flow.PrefixRecovery=body-position==5;position++;errors++;flow.Synced=false;break;}
             Decode(flow.Buffer,body,end,ts,0,stream);position=end;}
         if(position>0){flow.Count-=position;if(flow.Count>0)System.Buffer.BlockCopy(flow.Buffer,position,flow.Buffer,0,flow.Count);}
         if(flow.Count>65535){errors++;System.Buffer.BlockCopy(flow.Buffer,flow.Count-65535,flow.Buffer,0,65535);flow.Count=65535;flow.Synced=false;}
@@ -140,6 +153,7 @@ internal sealed class DashSignal {
         VerifyContainers(root);
         VerifyEnergyMaximum(root);
         VerifyResynchronization(root);
+        VerifyPrefixRecovery(root);
         byte[] frame=new byte[]{14,0,0x8d,1,1,1,3,100,0,0,0},data=new byte[44];for(int n=0;n<4;n++)System.Buffer.BlockCopy(frame,0,data,n*frame.Length,frame.Length);
         foreach(uint sequence in new uint[]{100,uint.MaxValue-4}){
             var decoder=new DashSignal(root);Func<int,int,Segment> segment=delegate(int offset,int count){var payload=new byte[count];System.Buffer.BlockCopy(data,offset,payload,0,count);return new Segment{Src="test",Dst="self",SrcPort=13328,DstPort=1234,Seq=unchecked(sequence+(uint)offset),Data=payload};};
@@ -161,6 +175,34 @@ internal sealed class DashSignal {
             decoder.Consume(new Segment{Src="recovery",Dst="self",SrcPort=13328,DstPort=1234,Seq=sequence,Data=bytes.ToArray()},1);
             decoder.Consume(new Segment{Src="recovery",Dst="self",SrcPort=13328,DstPort=1234,Seq=unchecked(sequence+(uint)bytes.Count),Data=new byte[]{0}},2);
             if(decoder.Samples!=6||decoder.Current==null||decoder.Current.Actor!=1||decoder.Current.Value!=200||actors.Contains(99)||decoder.Errors!=1)throw new Exception("Invalid framing must reacquire confirmed boundaries without dispatching an isolated false actor");
+        }
+    }
+    static void VerifyPrefixRecovery(string root){
+        int body,end;
+        for(int count=1;count<5;count++){var partial=Enumerable.Repeat((byte)0x80,count).ToArray();if(Frame(partial,0,partial.Length,out body,out end)!=0)throw new Exception("Fragmented length prefixes must wait for their remaining bytes");}
+        foreach(var invalid in new[]{new byte[]{128,128,128,128,128},new byte[]{255,255,255,255,31},new byte[]{128,128,128,128,16}})
+            if(Frame(invalid,0,invalid.Length,out body,out end)>=0)throw new Exception("Invalid five-byte lengths must not wait until the TCP buffer fills");
+        var extended=new byte[]{134,128,128,128,0,0,141};if(Frame(extended,0,extended.Length,out body,out end)!=1||body!=5||end!=7)throw new Exception("A valid five-byte length must still decode");
+        Func<byte,uint,byte[]> frame=delegate(byte actor,uint value){var b=new byte[]{14,0,0x8d,actor,1,1,3,0,0,0,0};Buffer.BlockCopy(BitConverter.GetBytes(value),0,b,7,4);return b;};
+        Func<byte[],byte[]> wrap=delegate(byte[] payload){var b=new List<byte>();uint length=(uint)payload.Length+4;while(length>=128){b.Add((byte)((length&127)|128));length>>=7;}b.Add((byte)length);b.AddRange(payload);return b.ToArray();};
+        // Three frame-looking byte strings are data inside an unknown message,
+        // not independent energy updates. LZ4 literals retain those byte strings.
+        var opaque=new List<byte>{0x53,0x8d};for(int n=0;n<3;n++)opaque.AddRange(frame(99,999));opaque.AddRange(new byte[100]);
+        var raw=new List<byte>();raw.AddRange(wrap(opaque.ToArray()));raw.AddRange(frame(1,300));
+        var container=new List<byte>{255,255};container.AddRange(BitConverter.GetBytes(raw.Count));container.Add(0xf0);container.Add((byte)(raw.Count-15));container.AddRange(raw);
+        var packed=wrap(container.ToArray());var initial=new List<byte>();for(int n=0;n<3;n++)initial.AddRange(frame(1,100));
+        foreach(uint sequence in new uint[]{100,uint.MaxValue-40}){
+            var decoder=new DashSignal(root);var actors=new List<int>();decoder.OnReading=delegate(Reading r){actors.Add(r.Actor);};
+            uint next=sequence;Action<byte[],double> send=delegate(byte[] bytes,double ts){decoder.Consume(new Segment{Src="prefix-recovery",Dst="self",SrcPort=13328,DstPort=1234,Seq=next,Data=bytes},ts);next=unchecked(next+(uint)bytes.Length);};
+            send(initial.ToArray(),1);
+            send(new byte[]{128,128,128,128},2);
+            if(decoder.Errors!=0||decoder.Samples!=3)throw new Exception("Four partial prefix bytes must not discard synchronized state");
+            send(new byte[]{128},3);
+            if(decoder.Errors!=1||decoder.streams.Values.Single().Count>5)throw new Exception("The fifth invalid prefix byte must start bounded recovery immediately");
+            var partial=new List<byte>();partial.AddRange(frame(1,200));partial.AddRange(packed.Take(60));send(partial.ToArray(),4);
+            if(decoder.Samples!=3||actors.Contains(99))throw new Exception("Recovery must wait for a pending outer container rather than dispatch its literal-looking inner bytes");
+            var remainder=new List<byte>();remainder.AddRange(packed.Skip(60));remainder.AddRange(frame(1,400));send(remainder.ToArray(),5);
+            if(decoder.Errors!=1||decoder.Samples!=6||decoder.Current.Actor!=1||decoder.Current.Value!=400||actors.Contains(99))throw new Exception("Valid outer frames must recover promptly without losing or inventing contained readings");
         }
     }
     static void VerifyEnergyMaximum(string root){

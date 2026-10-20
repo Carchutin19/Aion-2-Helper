@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -16,13 +16,14 @@ internal sealed class NotificationOptions {
     public double DurationSeconds=6,FadeSeconds=.25;
     public string Color="#EEEEEE";
     public Rectangle Bounds=new Rectangle(740,120,440,90);
-    internal NotificationOptions Copy(){return (NotificationOptions)MemberwiseClone();}
-    internal bool NeedsCapture {get{return Enabled&&(PartyInvites||DungeonInvites);}}
+    public RiftOptions Rift=new RiftOptions();
+    internal NotificationOptions Copy(){var o=(NotificationOptions)MemberwiseClone();o.Rift=(Rift??new RiftOptions()).Copy();return o;}
+    internal bool NeedsCapture {get{return Enabled&&(PartyInvites||DungeonInvites)||Rift.NeedsIdentity(Enabled);}}
     internal static bool SameAppearance(NotificationOptions a,NotificationOptions b){return a.Simplified==b.Simplified&&a.IconGlow==b.IconGlow&&a.GlowPercent==b.GlowPercent&&a.BackgroundOpacity==b.BackgroundOpacity&&a.FontSize==b.FontSize&&a.Color==b.Color&&a.Bounds.Size==b.Bounds.Size;}
-    internal void Normalize(){BackgroundOpacity=Math.Max(0,Math.Min(255,BackgroundOpacity));FontSize=Math.Max(10,Math.Min(48,FontSize));Volume=Math.Max(0,Math.Min(100,Volume));GlowPercent=Math.Max(0,Math.Min(100,GlowPercent));DurationSeconds=Finite(DurationSeconds,6,1,60);FadeSeconds=Finite(FadeSeconds,.25,0,2);if(!EnergyBarOptions.ValidColor(Color))Color="#EEEEEE";Bounds=new Rectangle(Math.Max(-100000,Math.Min(100000,Bounds.X)),Math.Max(-100000,Math.Min(100000,Bounds.Y)),Math.Max(260,Math.Min(1600,Bounds.Width)),Math.Max(60,Math.Min(500,Bounds.Height)));}
+    internal void Normalize(){if(Rift==null)Rift=new RiftOptions();Rift.Normalize();BackgroundOpacity=Math.Max(0,Math.Min(255,BackgroundOpacity));FontSize=Math.Max(10,Math.Min(48,FontSize));Volume=Math.Max(0,Math.Min(100,Volume));GlowPercent=Math.Max(0,Math.Min(100,GlowPercent));DurationSeconds=Finite(DurationSeconds,6,1,60);FadeSeconds=Finite(FadeSeconds,.25,0,2);if(!EnergyBarOptions.ValidColor(Color))Color="#EEEEEE";Bounds=new Rectangle(Math.Max(-100000,Math.Min(100000,Bounds.X)),Math.Max(-100000,Math.Min(100000,Bounds.Y)),Math.Max(260,Math.Min(1600,Bounds.Width)),Math.Max(60,Math.Min(500,Bounds.Height)));}
     static double Finite(double value,double fallback,double min,double max){return double.IsNaN(value)||double.IsInfinity(value)?fallback:Math.Max(min,Math.Min(max,value));}
     internal static NotificationOptions Read(Dictionary<string,object> data){object value;var o=new NotificationOptions();if(data.TryGetValue("notifications",out value))try{o=new JavaScriptSerializer().ConvertToType<NotificationOptions>(value)??o;}catch{}o.Normalize();return o;}
-    internal static bool Same(NotificationOptions a,NotificationOptions b){return SameAppearance(a,b)&&a.Enabled==b.Enabled&&a.PartyInvites==b.PartyInvites&&a.DungeonInvites==b.DungeonInvites&&a.ShugoFestival==b.ShugoFestival&&a.ShugoOpening==b.ShugoOpening&&a.Sound==b.Sound&&a.Fade==b.Fade&&a.Volume==b.Volume&&a.DurationSeconds==b.DurationSeconds&&a.FadeSeconds==b.FadeSeconds&&a.Bounds==b.Bounds;}
+    internal static bool Same(NotificationOptions a,NotificationOptions b){return RiftOptions.Same(a.Rift,b.Rift)&&SameAppearance(a,b)&&a.Enabled==b.Enabled&&a.PartyInvites==b.PartyInvites&&a.DungeonInvites==b.DungeonInvites&&a.ShugoFestival==b.ShugoFestival&&a.ShugoOpening==b.ShugoOpening&&a.Sound==b.Sound&&a.Fade==b.Fade&&a.Volume==b.Volume&&a.DurationSeconds==b.DurationSeconds&&a.FadeSeconds==b.FadeSeconds&&a.Bounds==b.Bounds;}
 }
 
 // Hourly :00 schedule requested by the user. UTC keeps the reminder independent
@@ -135,8 +136,8 @@ internal static class NotificationArtwork {
 
 internal static class NotificationDesign {
     internal sealed class Layout {internal Size Size;internal Rectangle Title,Body,Icon,Background;internal int BodySize,TitleSize,Padding;internal string TitleText,BodyText,Artwork;internal bool Rich;}
-    static string Title(string name,string language,bool sample,bool shugo,bool dungeon){return UiLanguage.Text(sample?"Notification":shugo?"Shugo Festival":dungeon?"Dungeon party invitation":"Party invitation",language);}
-    static string Body(string name,string language,bool sample,bool shugo,bool opening,bool dungeon){return sample?UiLanguage.Text("This is a sample notification.",language):shugo?UiLanguage.Text(opening?"You can now sign up for Shugo Festival.":"Shugo Festival starts in 5 minutes.",language):string.Format(UiLanguage.Text(dungeon?"{0} is inviting you to a dungeon party.":"{0} is inviting you to a party.",language),name);}
+    static string Title(string name,string language,bool sample,bool shugo,bool dungeon,bool rift){return UiLanguage.Text(sample?"Notification":rift?"Spacetime Rift":shugo?"Shugo Festival":dungeon?"Dungeon party invitation":"Party invitation",language);}
+    static string Body(string name,string language,bool sample,bool shugo,bool opening,bool dungeon,bool rift,int lead,bool closing){return sample?UiLanguage.Text("This is a sample notification.",language):rift?(closing?UiLanguage.Text("The portal has closed. Entry is no longer available.",language):opening?UiLanguage.Text("The portal is now open. You have 10 minutes to enter.",language):string.Format(UiLanguage.Text("Spacetime Rift opens in {0} minutes.",language),lead)):shugo?UiLanguage.Text(opening?"You can now sign up for Shugo Festival.":"Shugo Festival starts in 5 minutes.",language):string.Format(UiLanguage.Text(dungeon?"{0} is inviting you to a dungeon party.":"{0} is inviting you to a party.",language),name);}
     static string Wrap(string text,Font font,int width){
         var output=new StringBuilder();var line=new StringBuilder();var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine;
         foreach(string word in text.Split(new[]{' '},StringSplitOptions.RemoveEmptyEntries)){
@@ -147,9 +148,9 @@ internal static class NotificationDesign {
             while(elements.MoveNext()){string element=elements.GetTextElement();if(line.Length>0&&TextRenderer.MeasureText(line.ToString()+element,font,Size.Empty,flags).Width>width){output.AppendLine(line.ToString());line.Clear();}line.Append(element);}
         }return output.Append(line).ToString();
     }
-    internal static Layout Measure(int maximumWidth,int maximumHeight,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo=false,bool opening=false,bool dungeon=false){
-        bool sample=editing||name==null&&!shugo;string title=Title(name,language,sample,shugo,dungeon),text=Body(name,language,sample,shugo,opening,dungeon);
-        if(!o.Simplified)return MeasureRich(maximumWidth,maximumHeight,title,text,o,workspace,shugo?"shugo":dungeon?"dungeon":"party");
+    internal static Layout Measure(int maximumWidth,int maximumHeight,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo=false,bool opening=false,bool dungeon=false,bool rift=false,int lead=5,bool riftClosing=false){
+        bool sample=editing||name==null&&!shugo&&!rift;string title=Title(name,language,sample,shugo,dungeon,rift),text=Body(name,language,sample,shugo,opening,dungeon,rift,lead,riftClosing);
+        if(!o.Simplified)return MeasureRich(maximumWidth,maximumHeight,title,text,o,workspace,rift?"rift":shugo?"shugo":dungeon?"dungeon":"party");
         int limit=Math.Max(80,Math.Min(maximumWidth,o.Bounds.Width));double scale=o.Bounds.Height/90.0;int font=Math.Max(10,Math.Min(144,(int)Math.Round(o.FontSize*scale)));
         var flags=TextFormatFlags.NoPadding|TextFormatFlags.NoPrefix|TextFormatFlags.WordBreak;Layout result=null;
         for(int attempt=0;attempt<20;attempt++){
@@ -172,12 +173,12 @@ internal static class NotificationDesign {
             if(height<=maximumHeight||font==10)break;font=Math.Max(10,(int)Math.Floor(font*.85));
         }return result;
     }
-    internal static Bitmap RenderFitted(int maximumWidth,int maximumHeight,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo=false,bool opening=false,bool dungeon=false){var layout=Measure(maximumWidth,maximumHeight,name,language,o,editing,workspace,shugo,opening,dungeon);return RenderLayout(layout.Size.Width,layout.Size.Height,layout,o,editing,workspace);}
+    internal static Bitmap RenderFitted(int maximumWidth,int maximumHeight,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo=false,bool opening=false,bool dungeon=false,bool rift=false,int lead=5,bool riftClosing=false){var layout=Measure(maximumWidth,maximumHeight,name,language,o,editing,workspace,shugo,opening,dungeon,rift,lead,riftClosing);return RenderLayout(layout.Size.Width,layout.Size.Height,layout,o,editing,workspace);}
     internal static Bitmap Render(int width,int height,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace){
         return Render(width,height,name,language,o,editing,workspace,false);
     }
-    internal static Bitmap Render(int width,int height,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo,bool opening=false,bool dungeon=false){
-        var layout=Measure(width,height,name,language,o,editing,workspace,shugo,opening,dungeon);return RenderLayout(width,height,layout,o,editing,workspace);
+    internal static Bitmap Render(int width,int height,string name,string language,NotificationOptions o,bool editing,FpsDesign.Workspace workspace,bool shugo,bool opening=false,bool dungeon=false,bool rift=false,int lead=5,bool riftClosing=false){
+        var layout=Measure(width,height,name,language,o,editing,workspace,shugo,opening,dungeon,rift,lead,riftClosing);return RenderLayout(width,height,layout,o,editing,workspace);
     }
     static Bitmap RenderLayout(int width,int height,Layout layout,NotificationOptions o,bool editing,FpsDesign.Workspace workspace){
         workspace.Prepare(width,height);var image=new Bitmap(width,height,PixelFormat.Format32bppPArgb);var mask=workspace.Mask;var mg=workspace.MaskGraphics;mg.Clear(Color.Black);
@@ -201,15 +202,17 @@ internal static class NotificationDesign {
 
 internal sealed class NotificationOverlay:Form {
     readonly EnergyOverlay owner;readonly NotificationSignal signal;readonly NotificationAudio audio;readonly LayeredImage image=new LayeredImage();readonly FpsDesign.Workspace workspace=new FpsDesign.Workspace();readonly NotificationMotion motion=new NotificationMotion();readonly Stopwatch clock=Stopwatch.StartNew();readonly Timer animation=new Timer();
-    NotificationOptions options=new NotificationOptions();string name,language;bool editing,valid,disposed,dragging,isShugo,isShugoOpening,isDungeon;Rectangle dragStart;Point mouseStart;int hit,wakeQueued;byte shownAlpha;Point shownLocation;double nextMaintenance,lastRaise,dispatchedUtc,firstVisibleUtc,dispatchDelayMs;readonly bool preview;
+    NotificationOptions options=new NotificationOptions();string name,language;bool editing,valid,disposed,dragging,isShugo,isShugoOpening,isDungeon,isRift,isRiftOpening,isRiftClosing;int riftMinutes=5;readonly Queue<RiftAlertLedger.Notice> pendingRifts=new Queue<RiftAlertLedger.Notice>();sealed class PendingNotice {internal string Player;internal bool Sound,Shugo,Opening,Dungeon;internal double At;}readonly Queue<PendingNotice> pendingNotices=new Queue<PendingNotice>();Rectangle dragStart;Point mouseStart;int hit,wakeQueued;byte shownAlpha;Point shownLocation;double nextMaintenance,lastRaise,dispatchedUtc,firstVisibleUtc,dispatchDelayMs;readonly bool preview;
     readonly ShugoSchedule shugoSchedule=new ShugoSchedule();readonly Timer hourly=new Timer();long shugoReminders;DateTime lastShugoUtc;
     internal NotificationOverlay(EnergyOverlay parent,string root,NotificationSignal source,bool previewMode){owner=parent;signal=source;preview=previewMode;audio=new NotificationAudio(root);signal.OnPending=Wake;Text="Aion 2 Helper - Notifications";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;animation.Interval=16;animation.Tick+=delegate{Pulse();};hourly.Tick+=delegate{CheckShugo();};}
     void CheckShugo(){hourly.Stop();if(disposed||preview||!options.Enabled||!options.ShugoFestival&&!options.ShugoOpening)return;DateTime utc=DateTime.UtcNow;bool advance=options.ShugoFestival&&shugoSchedule.Due(utc),opening=options.ShugoOpening&&shugoSchedule.DueOpening(utc);if((advance||opening)&&!editing&&ShugoSchedule.GameOpen()){shugoReminders++;lastShugoUtc=utc;ShowNotice(null,true,true,true,opening);}hourly.Interval=ShugoSchedule.NextCheck(DateTime.UtcNow);hourly.Start();}
     void Wake(){if(!IsHandleCreated||IsDisposed||System.Threading.Interlocked.CompareExchange(ref wakeQueued,1,0)!=0)return;try{BeginInvoke((Action)delegate{System.Threading.Interlocked.Exchange(ref wakeQueued,0);if(!disposed)Pulse();});}catch(InvalidOperationException){System.Threading.Interlocked.Exchange(ref wakeQueued,0);}}
     internal string AudioError {get{return audio.Error;}}
-    internal object WindowStatus {get{return new{x=Left,y=Top,width=Width,height=Height,autoSize=true,simplified=options.Simplified,iconGlow=options.IconGlow,glowPercent=options.GlowPercent,maximumWidth=options.Bounds.Width,scalePercent=options.Bounds.Height/90.0*100,enabled=options.Enabled,partyInvites=options.PartyInvites,dungeonInvites=options.DungeonInvites,activeDungeonInvitation=isDungeon,shugoFestival=options.ShugoFestival,shugoOpening=options.ShugoOpening,shugoReminders=shugoReminders,lastShugoUtc=lastShugoUtc==DateTime.MinValue?null:lastShugoUtc.ToString("o"),sound=options.Sound,visible=Visible,opacity=motion.Opacity,editing=editing,animationTimer=animation.Enabled,audioError=audio.Error,dispatchedUtc=dispatchedUtc,firstVisibleUtc=firstVisibleUtc,dispatchDelayMs=dispatchDelayMs,firstVisibleDelayMs=firstVisibleUtc==0?0:Math.Max(0,(firstVisibleUtc-dispatchedUtc)*1000)};}}
+    internal object WindowStatus {get{return new{x=Left,y=Top,width=Width,height=Height,autoSize=true,simplified=options.Simplified,iconGlow=options.IconGlow,glowPercent=options.GlowPercent,maximumWidth=options.Bounds.Width,scalePercent=options.Bounds.Height/90.0*100,enabled=options.Enabled,partyInvites=options.PartyInvites,dungeonInvites=options.DungeonInvites,activeDungeonInvitation=isDungeon,activeRiftNotice=isRift,activeRiftClosing=isRift&&isRiftClosing,shugoFestival=options.ShugoFestival,shugoOpening=options.ShugoOpening,shugoReminders=shugoReminders,lastShugoUtc=lastShugoUtc==DateTime.MinValue?null:lastShugoUtc.ToString("o"),sound=options.Sound,visible=Visible,opacity=motion.Opacity,editing=editing,animationTimer=animation.Enabled,audioError=audio.Error,dispatchedUtc=dispatchedUtc,firstVisibleUtc=firstVisibleUtc,dispatchDelayMs=dispatchDelayMs,firstVisibleDelayMs=firstVisibleUtc==0?0:Math.Max(0,(firstVisibleUtc-dispatchedUtc)*1000)};}}
     internal void Configure(NotificationOptions value,bool locked){
-        bool stopInvite=(options.PartyInvites&&!value.PartyInvites&&!isShugo&&!isDungeon)||(options.DungeonInvites&&!value.DungeonInvites&&!isShugo&&isDungeon)||(options.ShugoFestival&&!value.ShugoFestival&&isShugo&&!isShugoOpening)||(options.ShugoOpening&&!value.ShugoOpening&&isShugoOpening);
+        bool stopInvite=(options.PartyInvites&&!value.PartyInvites&&!isShugo&&!isDungeon&&!isRift)||(options.DungeonInvites&&!value.DungeonInvites&&!isShugo&&isDungeon)||(options.ShugoFestival&&!value.ShugoFestival&&isShugo&&!isShugoOpening)||(options.ShugoOpening&&!value.ShugoOpening&&isShugoOpening);
+        if(options.Rift.Region!=value.Rift.Region){pendingRifts.Clear();stopInvite|=isRift;}
+        stopInvite|=isRift&&(isRiftClosing?!value.Rift.Closing:isRiftOpening?!value.Rift.Opening:!value.Rift.Warning);
         bool changed=!NotificationOptions.SameAppearance(options,value)||language!=owner.Language||editing==locked;
         bool timing=options.Fade!=value.Fade||options.FadeSeconds!=value.FadeSeconds||options.DurationSeconds!=value.DurationSeconds;
         options=value.Copy();options.Normalize();signal.Configure(options);language=owner.Language;editing=!locked;
@@ -217,7 +220,7 @@ internal sealed class NotificationOverlay:Form {
         if(changed)valid=false;
         if(stopInvite){motion.Clear();animation.Stop();audio.Close();if(Visible)Hide();}
         if(!options.Sound)audio.Close();
-        if(!options.Enabled){hourly.Stop();motion.Clear();animation.Stop();audio.Close();if(Visible)Hide();return;}
+        if(!options.Enabled){pendingRifts.Clear();pendingNotices.Clear();hourly.Stop();motion.Clear();animation.Stop();audio.Close();if(Visible)Hide();return;}
         if(!options.ShugoFestival&&!options.ShugoOpening)hourly.Stop();else if(!preview)CheckShugo();
         if(timing)animation.Stop();
         int style=OverlayNative.GetWindowLong(Handle,-20),next=editing?style&~0x20:style|0x20;if(next!=style)OverlayNative.SetWindowLong(Handle,-20,next);
@@ -226,6 +229,7 @@ internal sealed class NotificationOverlay:Form {
     internal void Test(){if(!options.Enabled)return;ShowNotice(null,true);}
     internal void TestShugo(){if(!options.Enabled||!options.ShugoFestival)return;ShowNotice(null,true,true,true);}
     internal void TestShugoOpening(){if(!options.Enabled||!options.ShugoOpening)return;ShowNotice(null,true,true,true,true);}
+    internal void VerifyRiftNative(){var o=new NotificationOptions{Sound=false,Fade=false};Configure(o,true);ShowNotice("Example",false);ShowRift(true,5);if(isRift||pendingRifts.Count!=1)throw new Exception("Rift alerts queue behind an active invitation");motion.Clear();nextMaintenance=0;Maintain(clock.Elapsed.TotalSeconds+1);if(!isRift||!isRiftOpening||pendingRifts.Count!=0)throw new Exception("Queued Rift opening follows the previous notice");o.Rift.Opening=false;Configure(o,true);if(motion.Opacity!=0)throw new Exception("Disabling Rift opening dismisses its active alert");ShowNotice("Example",false);o.Rift.Warning=false;Configure(o,true);if(motion.Opacity!=1||isRift)throw new Exception("Rift switches preserve normal party alerts");motion.Clear();o.Rift.Opening=true;Configure(o,true);ShowRift(true,5);ShowNotice(null,false,true,true,true);if(!isRift||pendingNotices.Count!=1)throw new Exception("Shugo must queue when Rift wins the same-hour race");motion.Clear();nextMaintenance=0;Maintain(clock.Elapsed.TotalSeconds+2);if(isRift||!isShugo||pendingNotices.Count!=0)throw new Exception("Queued Shugo opening follows Rift without being lost");motion.Clear();ShowRift(false,0,null,true);if(!isRiftClosing)throw new Exception("Closing uses the shared normal notification renderer");o.Rift.Closing=false;Configure(o,true);if(motion.Opacity!=0)throw new Exception("Closing switch dismisses only the closing notice");}
     internal void VerifyAutoSize(){
         var o=new NotificationOptions{Sound=false,Fade=false,FontSize=10};Configure(o,true);Test();Size small=Size;CheckAutoSize(small.Width<260&&small.Height<90,"Short locked notice must shrink below the old fixed minimum");
         ShowNotice(new string('W',48),false,true,false,false,true);CheckAutoSize(Width>small.Width||Height>small.Height,"New longer message must expand native bounds");CheckAutoSize(options.Bounds==o.Bounds,"Automatic fitting must not overwrite the saved reference geometry");
@@ -256,13 +260,15 @@ internal sealed class NotificationOverlay:Form {
         byte[] invitation=new byte[59];invitation[0]=9;invitation[1]=0x92;invitation[2]=1;invitation[10]=2;invitation[16]=0x15;invitation[17]=5;invitation[30]=5;Array.Copy(Encoding.UTF8.GetBytes("Edeln"),0,invitation,31,5);invitation[36]=0x15;invitation[37]=5;invitation[50]=1;invitation[51]=1;
         var worker=new System.Threading.Thread(delegate(){signal.Consume(invitation,0,invitation.Length,DpsHistory.UtcNow(),"wake-test");});worker.Start();worker.Join();double before=dispatchedUtc;Application.DoEvents();if(name!="Edeln"||dispatchedUtc<=before||dispatchDelayMs>1000)throw new Exception("Incoming capture event must wake the UI without a polling tick");
     }
-    void ShowNotice(string player,bool sound,bool pulse=true,bool shugo=false,bool opening=false,bool dungeon=false){name=player;isDungeon=dungeon;isShugo=shugo;isShugoOpening=opening;valid=false;dispatchedUtc=DpsHistory.UtcNow();firstVisibleUtc=0;dispatchDelayMs=shugo||signal.LastAccepted==0?0:Math.Max(0,(dispatchedUtc-signal.LastAccepted)*1000);motion.Show(clock.Elapsed.TotalSeconds);animation.Stop();if(sound&&options.Sound&&!preview)audio.Play(options.Volume);if(pulse)Pulse();}
+    void ShowNotice(string player,bool sound,bool pulse=true,bool shugo=false,bool opening=false,bool dungeon=false){if(!editing&&motion.Active&&isRift&&(player!=null||shugo||dungeon)){if(pendingNotices.Count<4)pendingNotices.Enqueue(new PendingNotice{Player=player,Sound=sound,Shugo=shugo,Opening=opening,Dungeon=dungeon,At=DpsHistory.UtcNow()});return;}name=player;isRift=isRiftOpening=isRiftClosing=false;isDungeon=dungeon;isShugo=shugo;isShugoOpening=opening;valid=false;dispatchedUtc=DpsHistory.UtcNow();firstVisibleUtc=0;dispatchDelayMs=shugo||signal.LastAccepted==0?0:Math.Max(0,(dispatchedUtc-signal.LastAccepted)*1000);motion.Show(clock.Elapsed.TotalSeconds);animation.Stop();if(sound&&options.Sound&&!preview)audio.Play(options.Volume);if(pulse)Pulse();}
+    internal void CancelRiftNotices(){pendingRifts.Clear();if(isRift){motion.Clear();animation.Stop();audio.Close();if(Visible)Hide();}}
+    internal void ShowRift(bool opening,int minutes,DateTimeOffset? scheduledOpening=null,bool closing=false){if(!options.Enabled||(closing?!options.Rift.Closing:opening?!options.Rift.Opening:!options.Rift.Warning))return;if(motion.Active&&!editing){if(pendingRifts.Count<4)pendingRifts.Enqueue(new RiftAlertLedger.Notice{Opening=opening,Closing=closing,Minutes=minutes,At=scheduledOpening??DateTimeOffset.MinValue});return;}ShowNotice(null,true,false);isRift=true;isRiftOpening=opening;isRiftClosing=closing;riftMinutes=minutes;dispatchDelayMs=0;Pulse();}
     // The shared energy timer can tick at 60 Hz. Idle notifications need no
     // decoding lock, clock or shell lookup; fades have their own short timer.
     internal void Maintain(double now){
-        if(disposed||!options.Enabled||!editing&&!motion.Active&&!signal.HasPending)return;
+        if(disposed||!options.Enabled||!editing&&!motion.Active&&!signal.HasPending&&pendingRifts.Count==0&&pendingNotices.Count==0)return;
         if(animation.Enabled&&animation.Interval==16&&!signal.HasPending)return;
-        if(now<nextMaintenance)return;nextMaintenance=now+.25;Pulse();
+        if(now<nextMaintenance)return;nextMaintenance=now+.25;if(!editing&&!motion.Active&&pendingRifts.Count>0){var notice=pendingRifts.Dequeue();DateTimeOffset utc=DateTimeOffset.UtcNow;if(notice.At!=DateTimeOffset.MinValue){if(notice.Closing?utc>notice.At.AddMinutes(11):notice.Opening?utc>notice.At.AddMinutes(1):utc>=notice.At)return;if(!notice.Opening&&!notice.Closing)notice.Minutes=Math.Max(1,(int)Math.Ceiling((notice.At-utc).TotalMinutes));}ShowRift(notice.Opening,notice.Minutes,notice.At,notice.Closing);return;}if(!editing&&!motion.Active&&pendingNotices.Count>0){var item=pendingNotices.Dequeue();bool allowed=item.Shugo?(item.Opening?options.ShugoOpening:options.ShugoFestival):item.Dungeon?options.DungeonInvites:options.PartyInvites;if(allowed&&DpsHistory.UtcNow()-item.At<60)ShowNotice(item.Player,item.Sound,true,item.Shugo,item.Opening,item.Dungeon);return;}Pulse();
     }
     void Schedule(bool active){
         if(!active){if(animation.Enabled)animation.Stop();return;}
@@ -279,7 +285,7 @@ internal sealed class NotificationOverlay:Form {
         double now=clock.Elapsed.TotalSeconds;bool active=motion.Step(now,options,editing);Schedule(active);
         bool shell=!preview&&DpsDesign.ShellUiActive();byte alpha=shell?(byte)0:(byte)Math.Round(motion.Opacity*255);
         if(alpha==0){if(Visible)Hide();return;}
-        if(!valid){var reference=DpsDesign.UsableBounds(options.Bounds);var area=Screen.FromRectangle(reference).WorkingArea;var layout=NotificationDesign.Measure(reference.Width,editing?reference.Height:area.Height,name,language,options,editing,workspace,isShugo,isShugoOpening,isDungeon);Bounds=editing?reference:FittedBounds(layout.Size);using(var bitmap=NotificationDesign.Render(Width,Height,name,language,options,editing,workspace,isShugo,isShugoOpening,isDungeon))image.Upload(bitmap);valid=true;shownAlpha=0;}
+        if(!valid){var reference=DpsDesign.UsableBounds(options.Bounds);var area=Screen.FromRectangle(reference).WorkingArea;var layout=NotificationDesign.Measure(reference.Width,editing?reference.Height:area.Height,name,language,options,editing,workspace,isShugo,isRift?isRiftOpening:isShugoOpening,isDungeon,isRift,riftMinutes,isRiftClosing);Bounds=editing?reference:FittedBounds(layout.Size);using(var bitmap=NotificationDesign.Render(Width,Height,name,language,options,editing,workspace,isShugo,isRift?isRiftOpening:isShugoOpening,isDungeon,isRift,riftMinutes,isRiftClosing))image.Upload(bitmap);valid=true;shownAlpha=0;}
         if(alpha!=shownAlpha||shownLocation!=Location||!preview&&!Visible){image.Present(Handle,Left,Top,alpha);shownAlpha=alpha;shownLocation=Location;}
         if(!preview&&!Visible)Show();if(firstVisibleUtc==0&&dispatchedUtc>0)firstVisibleUtc=DpsHistory.UtcNow();
         if(!preview&&now-lastRaise>=1){OverlayNative.RaiseWithoutFocus(Handle);lastRaise=now;}
