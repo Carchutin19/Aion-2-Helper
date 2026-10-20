@@ -1,4 +1,9 @@
-# References and attribution
+﻿# References and attribution
+
+Pet catalogue, portraits, offline maps, acquisition records and the MIT protocol
+reference are documented separately in [PET-ASSETS.md](https://github.com/Carchutin19/Aion-2-Helper/blob/main/PET-ASSETS.md). The
+original game artwork remains the property of NCSOFT and its respective owners;
+the source notices and applicable licenses are preserved in the pet asset pack.
 
 The intro placeholder in `assets/startup/blank-intro.bk2` was generated from our
 own black image using the existing Unreal Engine Bink encoder. No external mod
