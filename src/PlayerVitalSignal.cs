@@ -110,20 +110,19 @@ internal sealed class PlayerVitalSignal {
         }
         if(changed&&Changed!=null)Changed();
     }
-    internal Sample Read(bool mana,double now){
-        lock(gate){Flow f;if(!enabled||active==null||!flows.TryGetValue(active,out f)||f.Self==0||Math.Max(0,now-f.Traffic)>5)return null;
-            uint? current=mana?f.Mp:f.Hp,max=mana?f.MpMaximum:f.HpMaximum;
-            if(!current.HasValue||!max.HasValue||max.Value==0||current.Value>max.Value)return null;
-            return new Sample{Actor=f.Self,Current=current.Value,Maximum=max.Value,Shield=mana?0:f.Shields.Read(now),Flow=active,Time=mana?f.MpTime:f.HpTime,Traffic=f.Traffic};
-        }
+    // One receiver view belongs to one overlay update. The status writer must
+    // not combine the last rendered values with a newer asynchronous identity.
+    internal struct View {
+        internal Sample Value;internal string Reason,LastClear;internal uint Actor,Map;
+        internal uint? Current,Maximum;internal double Now,ProfileTime,ClearedAt;
+        internal object Diagnostics(){return new{reason=Reason,actor=Actor,map=Map,current=Current,maximum=Maximum,profileAgeSeconds=ProfileTime==0?(double?)null:Math.Max(0,Now-ProfileTime),lastClear=LastClear,clearedAt=ClearedAt==0?(double?)null:ClearedAt};}
     }
-    // Private status only: retain why data was cleared so a later report can be
-    // investigated even when packet capture began after the failing transition.
-    // No endpoint, name, packet contents or session key is exposed here.
-    internal object Diagnostics(bool mana,double now){
+    internal View ReadView(bool mana,double now){
         lock(gate){Flow f=null;if(active!=null)flows.TryGetValue(active,out f);uint? current=f==null?null:mana?f.Mp:f.Hp,max=f==null?null:mana?f.MpMaximum:f.HpMaximum;
             string reason=!enabled?"Disabled":f==null?"No active connection":f.Self==0?"Own actor unknown":Math.Max(0,now-f.Traffic)>5?"Connection stale":!current.HasValue?"Current value missing":!max.HasValue||max.Value==0?"Explicit maximum missing":current.Value>max.Value?"Current exceeds received maximum":"Live";
-            return new{reason=reason,actor=f==null?0:f.Self,map=f==null?0:f.Map,current=current,maximum=max,profileAgeSeconds=f==null||f.ProfileTime==0?(double?)null:Math.Max(0,now-f.ProfileTime),lastClear=f==null?null:f.LastClear,clearedAt=f==null||f.ClearedAt==0?(double?)null:f.ClearedAt};
+            return new View{Value=reason=="Live"?new Sample{Actor=f.Self,Current=current.Value,Maximum=max.Value,Shield=mana?0:f.Shields.Read(now),Flow=active,Time=mana?f.MpTime:f.HpTime,Traffic=f.Traffic}:null,Reason=reason,Actor=f==null?0:f.Self,Map=f==null?0:f.Map,Current=current,Maximum=max,Now=now,ProfileTime=f==null?0:f.ProfileTime,LastClear=f==null?null:f.LastClear,ClearedAt=f==null?0:f.ClearedAt};
         }
     }
+    internal Sample Read(bool mana,double now){return ReadView(mana,now).Value;}
+    internal object Diagnostics(bool mana,double now){return ReadView(mana,now).Diagnostics();}
 }

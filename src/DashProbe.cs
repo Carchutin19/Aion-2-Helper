@@ -275,6 +275,8 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--ping-test"){try{PingVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-live-test"){try{return PingVerification.Live(root);}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-live-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>1&&args[0]=="--pets-replay-test"){try{PetsVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"pets-replay-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==3&&args[0]=="--crafting-replay-test"){try{GatheringVerification.Replay(root,args[1],args[2]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"crafting-replay-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--crafting-test"){try{GatheringVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"crafting-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--pets-test"){try{PetsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"pets-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--rift-test"){try{RiftVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"rift-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--notifications-test"){try{NotificationVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"notifications-test.txt"),"FAIL: "+ex);return 1;}}
@@ -301,6 +303,7 @@ internal static class Entry {
         if(args.Length==1&&args[0]=="--update-health-check"){try{UpdateInstaller.HealthCheck(root);return 0;}catch{return 1;}}
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
         if(args.Length==1&&args[0]=="--updated")UpdateManager.Shared.CheckAsync();
+        if(args.Length>0&&args[0]=="--crafting-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenCraftingSettings));};Application.Run(helper);return 0;}
         if(args.Length>0&&args[0]=="--pets-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenPetsSettings));};Application.Run(helper);return 0;}
         if(args.Length>0&&args[0]=="--rift-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(helper.OpenRiftSettings));};Application.Run(helper);return 0;}
         if(args.Length>0&&args[0]=="--player-health-settings"){var helper=new EnergyOverlay(root);helper.Shown+=delegate{helper.BeginInvoke(new Action(delegate{helper.OpenPlayerVitalsSettings(false);}));};Application.Run(helper);return 0;}

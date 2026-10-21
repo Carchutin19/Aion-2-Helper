@@ -3,24 +3,24 @@
 **Customizable utility overlays for Aion 2.**
 
 **Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Enemy/Enemy-target progress bars, FPS/Ping widgets and a
-DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
+DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
 updates. Please report
 problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
 
 Aion 2 Helper is a community project that brings useful game information into
-movable, customizable overlays: progress bars, combat analysis, FPS/ping, pet tracking and
+movable, customizable overlays: progress bars, combat analysis, FPS/ping, pet tracking, gathering and
 notifications, with optional startup and visual settings.
 
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.17.0 release — Pets, Atlas & Spacetime Rift](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.17.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.17.0/Aion-2-Helper-v1.17.0-windows-x64.zip).
+The [v1.18.0 release — Crafting & Clearer Overlays](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.18.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.18.0/Aion-2-Helper-v1.18.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
-for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection and invitation notifications;
+for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
@@ -45,6 +45,15 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.18.0: Crafting & Clearer Overlays
+
+- **Crafting:** a separate settings section and a customizable three-segment gathering overlay with names, supported types and remaining uses. Preview each state and adjust colors, size, text, glow and position through the usual shared widget lock.
+- **Cleaner soul cards:** rounded Windows compositor blur removes the previous dark rectangular edge; unsupported systems use ordinary transparency.
+- **DPS blur:** optional dark background blur under **DPS Meter → Configuration → Appearance**, off by default.
+- **Connection reliability:** recognizes confirmed connection-start messages to prevent a reproduced compressed-data synchronization error. Resource and target diagnostics now match the last overlay update; moving Crafting reuses its cached image.
+
+**Some map transitions still have HP/MP loading gaps, and some special NPC targets remain unnamed.** These are not claimed fixed. Settings and history are preserved; DPS remains Beta. See the [full release notes](RELEASE-NOTES.md) for validation and limits.
 
 ## New in v1.17.0: Pets, Atlas & Spacetime Rift
 
@@ -744,7 +753,7 @@ or measured. They are not included in the current build.
 ## Getting started
 
 This is a Windows desktop application. **Npcap** is required for Player HP/MP,
-Energy/Stagger and enemy bars, DPS Meter, pet collection and invitation notifications; FPS uses Windows presentation events and Ping uses
+Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting and invitation notifications; FPS uses Windows presentation events and Ping uses
 per-connection Windows TCP statistics. The application was
 developed and tested with Aion 2 Global.
 
@@ -927,8 +936,11 @@ Source files are in **src/**. **Download-Dependencies.ps1** downloads the pinned
 PresentMon console into the project and checks its SHA-256 and Intel signature.
 **Build.ps1** runs that check automatically. **Build.ps1** uses the installed Windows .NET Framework
 compiler and runtime libraries: WinForms for the native overlay, WPF for Settings,
-and an embedded XAML theme. No additional SDK or NuGet package was needed on the
-development PC.
+and an embedded XAML theme. Building the optional GPU backdrop adapter also
+requires a Windows 10/11 SDK (1903 or newer); **Build-Compositor.ps1** finds its
+Windows metadata and embeds the small adapter into the executable. The SDK is
+a build dependency only. Unsupported runtime composition falls back to ordinary
+transparency; no SDK or separate backdrop DLL needs installing on player PCs.
 
 ~~~powershell
 .\Build.ps1

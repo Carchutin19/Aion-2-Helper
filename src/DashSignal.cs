@@ -151,6 +151,7 @@ internal sealed class DashSignal {
         bool rejected=false;try{Lz4(new byte[]{0,0,0},0,4);}catch(InvalidDataException){rejected=true;}if(!rejected)throw new Exception("Invalid LZ4 offset");
         rejected=false;try{Lz4(new byte[]{0x50,104,101,108,108,111},0,5,5);}catch(InvalidDataException){rejected=true;}if(!rejected)throw new Exception("LZ4 must not read past its containing frame");
         VerifyContainers(root);
+        VerifyConnectionStart(root);
         VerifyEnergyMaximum(root);
         VerifyResynchronization(root);
         VerifyPrefixRecovery(root);
@@ -233,6 +234,20 @@ internal sealed class DashSignal {
         if(decoder.Current!=null)throw new Exception("Maximum-only update must not reveal energy without a current sample");
         apply("008D01010103404B0100","a",12);
         if(decoder.Current==null||decoder.ReadSnapshot().DetectedMaximum!=114800)throw new Exception("New area actual sample must restore energy and automatic maximum");
+    }
+    static void VerifyConnectionStart(string root){
+        // Initial1136/1536 envelopes precede compressed gameplay messages in
+        // independently validated instance-entry streams. Keep the existing
+        // three-boundary requirement; never sync to literals inside a bundle.
+        var decoder=new DashSignal(root);var ops=new List<int>();decoder.OnFrame=delegate(byte[] b,int s,int e,double t,string flow){ops.Add((b[s]<<8)|b[s+1]);};
+        byte[] first=new byte[]{8,0x11,0x36,0,0},second=new byte[]{8,0x15,0x36,0,0};
+        var raw=new List<byte>();for(int n=0;n<3;n++)raw.AddRange(new byte[]{14,0,0x8d,1,1,1,3,100,0,0,0});
+        var bundle=new List<byte>{(byte)(raw.Count+12),255,255};bundle.AddRange(BitConverter.GetBytes(raw.Count));bundle.Add(0xf0);bundle.Add((byte)(raw.Count-15));bundle.AddRange(raw);
+        uint sequence=100;Action<byte[]> send=delegate(byte[] data){decoder.Consume(new Segment{Src="entry",SrcPort=13328,Dst="self",DstPort=1234,Seq=sequence,Data=data},1);sequence+=(uint)data.Length;};
+        send(first);send(second);if(ops.Count!=0)throw new Exception("Entry handshake still requires three boundaries");
+        send(bundle.Take(bundle.Count-1).ToArray());if(ops.Count!=0)throw new Exception("Partial third envelope cannot dispatch embedded literals");
+        send(bundle.Skip(bundle.Count-1).ToArray());
+        if(decoder.Errors!=0||decoder.Samples!=3||ops.Count!=5||ops[0]!=0x1136||ops[1]!=0x1536)throw new Exception("Confirmed connection-start envelopes must preserve complete compressed messages");
     }
     static void VerifyContainers(string root){
         Func<uint,byte[]> frame=delegate(uint value){var bytes=new byte[]{14,0,0x8d,1,1,1,3,0,0,0,0};System.Buffer.BlockCopy(BitConverter.GetBytes(value),0,bytes,7,4);return bytes;};

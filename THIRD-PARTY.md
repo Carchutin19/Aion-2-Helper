@@ -1,4 +1,4 @@
-﻿# References and attribution
+# References and attribution
 
 Pet catalogue, portraits, offline maps, acquisition records and the MIT protocol
 reference are documented separately in [PET-ASSETS.md](https://github.com/Carchutin19/Aion-2-Helper/blob/main/PET-ASSETS.md). The
@@ -106,3 +106,14 @@ are transformed from SkeeveAN/Aion-DPS-Meter revision
 `Client/assets/aion2/npcs/npc_names.json`. English and available Spanish labels
 are retained; existing local entries are preserved. The upstream MIT notice is
 included in `assets/npcs/LICENSE-MIT.txt`. Game names remain NCSOFT content.
+
+Gathering resource names and broad groups derive from SkeeveAN/Aion-DPS-Meter
+revision `14b06ef58611bbe7a670196cbfa39ad868de3ee3`,
+`Client/assets/aion2/maps/gather.json` (MIT, SkeeveTV). The retained notice and
+precise metadata provenance are in `assets/gathering/`; the source description
+is embedded as `GatheringSources.txt`. Game names remain NCSOFT content.
+Our gathering protocol reader and segmented renderer are original code validated
+against controlled local incoming captures; no upstream application code is copied.
+
+The Windows package retains the identical SkeeveTV MIT copyright and permission
+notice for both gathering and NPC metadata in `assets/npcs/LICENSE-MIT.txt`.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -8,10 +8,10 @@ using System.Web.Script.Serialization;
 internal static class DpsVerification {
     static void Check(bool value,string message){if(!value)throw new Exception(message);}
     static void VerifyTextScale(string root){
-        var json=new JavaScriptSerializer();var legacy=DpsOptions.Read(json.Deserialize<Dictionary<string,object>>("{\"dps\":{\"Enabled\":true}}"));Check(legacy.TextScalePercent==100,"Old DPS preferences preserve the original text size");
+        var json=new JavaScriptSerializer();var legacy=DpsOptions.Read(json.Deserialize<Dictionary<string,object>>("{\"dps\":{\"Enabled\":true}}"));Check(legacy.TextScalePercent==100,"Old DPS preferences preserve the original text size");Check(!legacy.BackgroundBlur,"Existing DPS layouts do not enable blur automatically");var glass=new DpsOptions{BackgroundBlur=true};var glassCopy=glass.Copy();Check(glassCopy.BackgroundBlur&&DpsOptions.Same(glass,glassCopy),"Backdrop option copies");glassCopy.BackgroundBlur=false;Check(!DpsOptions.Same(glass,glassCopy),"Backdrop changes are tracked in settings history");var glassSaved=DpsOptions.Read(json.Deserialize<Dictionary<string,object>>(json.Serialize(new{dps=glass})));Check(glassSaved.BackgroundBlur,"Backdrop preference persists");
         var o=new DpsOptions{TextScalePercent=150};var copy=o.Copy();Check(copy.TextScalePercent==150&&DpsOptions.Same(o,copy),"Text size copies with DPS settings");copy.TextScalePercent=100;Check(!DpsOptions.Same(o,copy),"Text size invalidates the existing panel cache");
         var saved=DpsOptions.Read(json.Deserialize<Dictionary<string,object>>(json.Serialize(new{dps=o})));Check(saved.TextScalePercent==150&&DpsOptions.Same(o,saved),"Independent text size persists");o.TextScalePercent=-10;o.Normalize();Check(o.TextScalePercent==50,"Text size lower limit");o.TextScalePercent=10000;o.Normalize();Check(o.TextScalePercent==200,"Text size upper limit");
-        var reader=new DpsSignal();o=new DpsOptions{Enabled=true,Scope="global"};reader.Configure(o);Feed(reader,Energy(42),1);Feed(reader,Identity(42,"Alpha"),1);Feed(reader,Npc(99),1);Feed(reader,Hit(42,300,false),2);o.TextScalePercent=175;reader.Configure(o);Check(reader.Read(2).Rows[0].Damage==300,"Text changes do not reset combat totals");
+        var reader=new DpsSignal();o=new DpsOptions{Enabled=true,Scope="global"};reader.Configure(o);Feed(reader,Energy(42),1);Feed(reader,Identity(42,"Alpha"),1);Feed(reader,Npc(99),1);Feed(reader,Hit(42,300,false),2);o.TextScalePercent=175;reader.Configure(o);Check(reader.Read(2).Rows[0].Damage==300,"Text changes do not reset combat totals");o.BackgroundBlur=true;reader.Configure(o);Check(reader.Read(2).Rows[0].Damage==300,"Backdrop changes cannot reset combat totals");
         string designs=Path.Combine(root,"designs");Directory.CreateDirectory(designs);
         using(var w=new DpsPaintWorkspace()){
             var sample=DpsDesign.Sample();o=new DpsOptions();using(var b=DpsDesign.Render(578,300,sample,o,false,"es",w))b.Save(Path.Combine(designs,"dps-text-100.png"));float original=w.Body.Size;var previous=w.Body;

@@ -1,3 +1,45 @@
+# Aion 2 Helper v1.18.0 Alpha â€” Crafting & Clearer Overlays
+
+This update adds a dedicated gathering overlay, repairs the dark rectangular backdrop around pet soul cards, and brings optional dark blur to the DPS meter. It also includes connection-start and diagnostic improvements based on the Arkanis and Deus recording sessions.
+
+## New Crafting section
+
+- Show the resource name and a green bar split into three segments, with remaining uses and a supported resource type. The overlay follows confirmed resource profiles and your own interactions; it does not count loot or other players' gathering as your actions.
+- Partially used nodes can appear with two or one remaining uses. Depleted or removed resources disappear; recorded cancellation/removal cases are handled without requiring a successful reward.
+- Configure visibility, position, scale, width, segment height and spacing, colors, opacity, glow, outline, font sizes and labels. Preview each remaining-use state without gathering. Edit the overlay through **General â†’ Lock widgets**, like the other widgets.
+- Moving the widget repositions its existing image; unchanged updates reuse the drawing cache. It shares the helper's existing overlay clock.
+- Includes display metadata for 122 gathering IDs with English/Spanish names. Exact native subtypes were checked for Kukuru (**Vegetable / Verdura**) and Inina (**Fish and shellfish / Peces y mariscos**). Other types may use broad catalogue groups or remain blank.
+- The supported three-use rule was checked in controlled gathering tests; it is not presented as a universal maximum field sent by the server. Unsupported profiles remain hidden rather than showing guessed counts.
+
+## Pet soul-card backdrop
+
+- Replaced the legacy blur path with a rounded Windows compositor backdrop, removing the dark rectangular edge confirmed in local visual testing.
+- Keeps the translucent light card style, portraits, blue text, independent fades, pins and existing settings.
+- Unsupported systems fall back to ordinary transparency. Appearance can vary with Windows composition and desktop settings.
+
+## Optional DPS blur
+
+- Enable **Background blur** in **DPS Meter â†’ Configuration â†’ Appearance** when the dark background is enabled.
+- The effect follows the dark meter panel and its rounded edges. Its default is off; the meter's existing dark appearance and saved settings remain available.
+- Backdrops reuse their composition resources; no screen capture or additional polling timer is introduced. This is not a promise of zero GPU cost or a measured in-game FPS improvement.
+
+## Connection and diagnostic improvements
+
+- Recognizes two confirmed connection-start messages so the existing three-message synchronization rule can establish the correct boundary before compressed gameplay data. This removes the reproduced Arkanis decoding error and restores initial messages that were previously missed or misread.
+- HP/MP diagnostic identity, values and clear reasons now come from the same receiver snapshot used by the overlay update. Enemy/target diagnostics likewise describe the last overlay update instead of mixing it with a newer asynchronous target.
+- **HP/MP loading gaps are not fully resolved.** The captured map transitions included roughly 4â€“8 seconds without bars while fresh identity/stat data became available. The helper continues to avoid displaying old values as current ones.
+- Some special NPC targets still have no verified catalogue name and display **Unknown target**. This release does not assign guessed names or claim complete NPC coverage.
+
+## Compatibility and validation
+
+Existing preferences, layouts, pet records and combat history are preserved. Restart Aion 2 Helper **as administrator** to check for the update, or use **General â†’ Application updates** if automatic checks are disabled. Open the helper before entering your character when initial collection/stat synchronization is needed.
+
+Validation covers the complete Arkanis and Deus captures, controlled gathering/HP/MP/shield replays, protocol regression checks, native widget/settings checks and package/update validation. Local/offline checks do not guarantee identical results on every PC or game version. **DPS remains Beta**, including the existing unresolved world-boss party-damage limitation.
+
+Gathering catalogue attribution and licenses are recorded in [THIRD-PARTY.md](THIRD-PARTY.md) and the embedded gathering source notice. Game content belongs to its respective rights holders, including NCSOFT. No private captures or personal configuration are included in the release.
+
+---
+
 # Aion 2 Helper v1.17.0 Alpha — Pets, Atlas & Spacetime Rift
 
 Track your pet collection, see real soul gains and browse recorded farming locations in a new Pets section. This release also adds scheduled Spacetime Rift notifications and improves recovery from a confirmed HP/MP decoding delay.
