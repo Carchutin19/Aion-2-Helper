@@ -2,6 +2,8 @@
 
 **Customizable utility overlays for Aion 2.**
 
+[🧭 Public roadmap](ROADMAP.md) · [Latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Report an issue](https://github.com/Carchutin19/Aion-2-Helper/issues)
+
 **Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Enemy/Enemy-target progress bars, FPS/Ping widgets and a
 DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, an experimental skill Hotbar with character presets, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
