@@ -3,24 +3,24 @@
 **Customizable utility overlays for Aion 2.**
 
 **Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Enemy/Enemy-target progress bars, FPS/Ping widgets and a
-DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
+DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, an experimental skill Hotbar with character presets, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
 updates. Please report
 problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
 
 Aion 2 Helper is a community project that brings useful game information into
-movable, customizable overlays: progress bars, combat analysis, FPS/ping, pet tracking, gathering and
+movable, customizable overlays: progress bars, combat analysis, FPS/ping, pet tracking, gathering, a skill Hotbar and
 notifications, with optional startup and visual settings.
 
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.18.0 release — Crafting & Clearer Overlays](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.18.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.18.0/Aion-2-Helper-v1.18.0-windows-x64.zip).
+The [v1.19.0 release — Hotbar & Character Presets](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.19.0/Aion-2-Helper-v1.19.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
-for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting and invitation notifications;
+for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Hotbar and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
@@ -45,6 +45,16 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.19.0: Hotbar & Character Presets
+
+- **Compact skill overlay:** detected skill icons without empty/item slots, optional glass blur, cooldown numbers and top-to-bottom recovery fill. Move/scale everything together or hide and adjust individual slots; optional four-sided snapping has configurable spacing.
+- **Received cooldown updates:** own casts start supported timers; later server corrections include reductions and resets. Corrected the tested third-stage chain and the validated Bittercold Wind / Blaze condition. Charge/reload and other contextual variants remain experimental.
+- **Character presets:** automatic name/server profiles retain layout, scale, appearance, labels and hidden slots. The header distinguishes detected, saved and missing identities. The initial existing layout is kept for the first identified character.
+- **Native hotbar hiding:** optional selective hiding of the three original skill bars, retaining other native UI. No manual HUD export is needed. Close AION 2 and leave the Helper open to apply/restore the pending change, with a verified backup first.
+- **Simpler controls:** one **Test hotbar / Stop test** button loops simulated cooldowns; default numbering needs no reset button. Clear a custom label to restore its number.
+
+**Hotbar is experimental.** Automatic character-switch and native-HUD close/apply/relaunch flows still need their first complete live comparison; isolated tests have passed. Keyboard labels are manual, not detected bindings. Read the [Hotbar guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/HOTBAR.md) and [release notes](RELEASE-NOTES.md) for setup and limits.
 
 ## New in v1.18.0: Crafting & Clearer Overlays
 
@@ -753,7 +763,7 @@ or measured. They are not included in the current build.
 ## Getting started
 
 This is a Windows desktop application. **Npcap** is required for Player HP/MP,
-Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting and invitation notifications; FPS uses Windows presentation events and Ping uses
+Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Hotbar and invitation notifications; FPS uses Windows presentation events and Ping uses
 per-connection Windows TCP statistics. The application was
 developed and tested with Aion 2 Global.
 

@@ -1,4 +1,16 @@
-# References and attribution
+﻿# References and attribution
+
+Skill-slot portraits, token mapping, protocol research and the limits of the
+experimental cooldown display are documented in
+[assets/skill-slots/README.md](assets/skill-slots/README.md). The upstream MIT
+notice is preserved beside the asset pack and embedded in the executable.
+NCSOFT retains rights to the game artwork; the software licence does not
+relicense that artwork. The slot renderer/editor and passive decoder are our
+own implementation.
+The additional cast/cooldown wire-field reference is Kuroukihime/AIon2-Dps-Meter
+(revision ada90dd2bfc9eff5d1d8bc0d8e3de846f6e80591, GPL-3.0). Only protocol facts
+are consulted; no code, binaries or assets from that project are copied, linked
+or executed. See the skill-slot source note for the independently validated layout.
 
 Pet catalogue, portraits, offline maps, acquisition records and the MIT protocol
 reference are documented separately in [PET-ASSETS.md](https://github.com/Carchutin19/Aion-2-Helper/blob/main/PET-ASSETS.md). The
@@ -117,3 +129,10 @@ against controlled local incoming captures; no upstream application code is copi
 
 The Windows package retains the identical SkeeveTV MIT copyright and permission
 notice for both gathering and NPC metadata in `assets/npcs/LICENSE-MIT.txt`.
+
+Selective native hotbar hiding uses an original local HUD-settings reader and
+writer. Format facts were checked against victoriousian/AION2_HUD_Editor_V2
+revision `ed41d138275e31c46ee8a232a3719e593ddd4e1e` (`constants.py`, `codec.py`):
+https://github.com/victoriousian/AION2_HUD_Editor_V2 . No upstream code or binary
+is copied or executed. Further provenance and limits are retained in the embedded
+`assets/skill-slots/README.md`. AION 2 and its HUD remain NCSOFT content.

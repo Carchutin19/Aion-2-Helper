@@ -60,3 +60,6 @@ __pycache__/
 
 # Private per-character pet collection and pins
 /pets-state.json*
+
+# Private per-character hotbar layouts and labels
+/hotbar-profiles.json*

@@ -1,4 +1,48 @@
-# Aion 2 Helper v1.18.0 Alpha â€” Crafting & Clearer Overlays
+﻿# Aion 2 Helper v1.19.0 Alpha — Hotbar & Character Presets
+
+Build a compact skill bar without empty item/skill slots, see received cooldowns and keep a different layout for each character and server. The new **Hotbar** section also includes an optional way to hide AION 2's original skill bars while retaining the rest of the native HUD.
+
+## Customizable Hotbar
+
+- Shows detected assigned skills with their icons and omits empty slots and items. A simple square glass design supports optional blur, tint, opacity and scaling.
+- Move and scale the whole bar with **All together**, or adjust and hide individual slots. Optional snapping works on all sides with configurable spacing and snap distance. Hidden slots remain selectable for restoration.
+- Slots receive consecutive labels by default. Custom labels can be entered manually; clearing a label restores its automatic number. These labels are not automatically detected keyboard bindings.
+- **Test hotbar** runs simulated cooldowns in a repeating loop until the same button, now **Stop test**, is pressed. It does not change received cooldown data or permanently enable a disabled module. Redundant preview and renumbering controls were removed; the countdown option is a single switch.
+
+## Cooldowns and changing skills
+
+- Cooldowns start from durations received when your own character casts a supported skill. Later server corrections update the remaining interval, including reductions and resets; the overlay counts down between messages.
+- Received intervals are interpreted in milliseconds. This fixes the earlier experimental missing cast-start path and incorrect unit conversion. Unknown cooldowns no longer display question marks or invented values.
+- Corrected the reproduced third-stage chain case: a previous chain-window close no longer returns the slot to its first skill while the third is available.
+- Added the validated Bittercold Wind / Blaze conditional pair: the assigned alternative requires the selected enemy's confirmed Fire Mark plus the primary skill being on cooldown. The alternative uses its own cooldown. This is a specific supported condition, not universal support for every class macro.
+- The reproduced bar flicker caused by a tiny packet/UI clock difference is corrected. Later updates reuse cached drawing and icons.
+
+## Automatic character presets
+
+- The header shows the character name and server, or a clear waiting/saved-profile state. Identity uses the same validated **name + server** combination as Pets, rather than the temporary actor ID.
+- Layout, scale, appearance, custom labels and hidden slots are saved automatically for that character. Returning to a known character restores its settings, including after restarting the Helper.
+- The initial existing layout is retained for the first identified character. Later new characters do not inherit another character's saved assignments, custom labels or hidden slots.
+- Unknown identities do not overwrite the previous character. Character switches also prevent Hotbar undo history from applying the former character's layout.
+
+## Optional native hotbar hiding
+
+- **Hide AION 2 hotbar** changes only the three original skill-bar visibility flags in supported populated saved HUD presets. Chat, minimap and other HUD settings are retained. No manual HUD export/import is required.
+- If the game is open, the change waits. **Close AION 2 and leave the Helper open** to apply it before relaunching. The exact source is backed up before each change; switching the option off restores previous visibility while preserving other later HUD edits.
+- Native-bar hiding is a global game setting and does not change when switching character presets. Unsupported formats, invalid restore records and settings changed during preparation are rejected.
+
+## Validation and current limits
+
+The core skill bar, cooldown reductions, stability and tested chain/conditional cases were compared in the local game session. Regression checks also cover received cast intervals, strict/truncated parsing, actor/flow isolation, chains, layout, preset separation, simulated loops and native HUD backup/restore on isolated files. The recorded skill replay covers 1,476 own casts and all 24 observed positive casts for the supported conditional pair.
+
+**Hotbar remains experimental.** Charge/reload skills, unmapped shared cooldown groups and other contextual variants are not universally supported. The final automatic character-switch workflow and automatic native-HUD close/apply/relaunch cycle still need their first complete live comparison; offline tests do not replace that check. The manually imported native visibility flags were confirmed locally.
+
+Open the Helper **as administrator before entering your character** to receive its initial identity and assigned bar. If those messages were missed, return to character selection and enter again. Existing settings and personal records are preserved. This release keeps the rounded pet-card blur, optional dark DPS blur and Crafting overlay introduced in v1.18.0.
+
+The application is Alpha and **DPS remains Beta**. Existing HP/MP map-loading gaps, unknown special targets and world-boss party-damage coverage are not claimed fixed by this update. Credits and artwork notices are in **THIRD-PARTY.md** and the embedded source notices; AION 2 artwork belongs to NCSOFT and the respective rights holders. No personal profiles, captures or session keys are bundled.
+
+---
+
+# Aion 2 Helper v1.18.0 Alpha — Crafting & Clearer Overlays
 
 This update adds a dedicated gathering overlay, repairs the dark rectangular backdrop around pet soul cards, and brings optional dark blur to the DPS meter. It also includes connection-start and diagnostic improvements based on the Arkanis and Deus recording sessions.
 
@@ -6,7 +50,7 @@ This update adds a dedicated gathering overlay, repairs the dark rectangular bac
 
 - Show the resource name and a green bar split into three segments, with remaining uses and a supported resource type. The overlay follows confirmed resource profiles and your own interactions; it does not count loot or other players' gathering as your actions.
 - Partially used nodes can appear with two or one remaining uses. Depleted or removed resources disappear; recorded cancellation/removal cases are handled without requiring a successful reward.
-- Configure visibility, position, scale, width, segment height and spacing, colors, opacity, glow, outline, font sizes and labels. Preview each remaining-use state without gathering. Edit the overlay through **General â†’ Lock widgets**, like the other widgets.
+- Configure visibility, position, scale, width, segment height and spacing, colors, opacity, glow, outline, font sizes and labels. Preview each remaining-use state without gathering. Edit the overlay through **General → Lock widgets**, like the other widgets.
 - Moving the widget repositions its existing image; unchanged updates reuse the drawing cache. It shares the helper's existing overlay clock.
 - Includes display metadata for 122 gathering IDs with English/Spanish names. Exact native subtypes were checked for Kukuru (**Vegetable / Verdura**) and Inina (**Fish and shellfish / Peces y mariscos**). Other types may use broad catalogue groups or remain blank.
 - The supported three-use rule was checked in controlled gathering tests; it is not presented as a universal maximum field sent by the server. Unsupported profiles remain hidden rather than showing guessed counts.
@@ -19,7 +63,7 @@ This update adds a dedicated gathering overlay, repairs the dark rectangular bac
 
 ## Optional DPS blur
 
-- Enable **Background blur** in **DPS Meter â†’ Configuration â†’ Appearance** when the dark background is enabled.
+- Enable **Background blur** in **DPS Meter → Configuration → Appearance** when the dark background is enabled.
 - The effect follows the dark meter panel and its rounded edges. Its default is off; the meter's existing dark appearance and saved settings remain available.
 - Backdrops reuse their composition resources; no screen capture or additional polling timer is introduced. This is not a promise of zero GPU cost or a measured in-game FPS improvement.
 
@@ -27,12 +71,12 @@ This update adds a dedicated gathering overlay, repairs the dark rectangular bac
 
 - Recognizes two confirmed connection-start messages so the existing three-message synchronization rule can establish the correct boundary before compressed gameplay data. This removes the reproduced Arkanis decoding error and restores initial messages that were previously missed or misread.
 - HP/MP diagnostic identity, values and clear reasons now come from the same receiver snapshot used by the overlay update. Enemy/target diagnostics likewise describe the last overlay update instead of mixing it with a newer asynchronous target.
-- **HP/MP loading gaps are not fully resolved.** The captured map transitions included roughly 4â€“8 seconds without bars while fresh identity/stat data became available. The helper continues to avoid displaying old values as current ones.
+- **HP/MP loading gaps are not fully resolved.** The captured map transitions included roughly 4–8 seconds without bars while fresh identity/stat data became available. The helper continues to avoid displaying old values as current ones.
 - Some special NPC targets still have no verified catalogue name and display **Unknown target**. This release does not assign guessed names or claim complete NPC coverage.
 
 ## Compatibility and validation
 
-Existing preferences, layouts, pet records and combat history are preserved. Restart Aion 2 Helper **as administrator** to check for the update, or use **General â†’ Application updates** if automatic checks are disabled. Open the helper before entering your character when initial collection/stat synchronization is needed.
+Existing preferences, layouts, pet records and combat history are preserved. Restart Aion 2 Helper **as administrator** to check for the update, or use **General → Application updates** if automatic checks are disabled. Open the helper before entering your character when initial collection/stat synchronization is needed.
 
 Validation covers the complete Arkanis and Deus captures, controlled gathering/HP/MP/shield replays, protocol regression checks, native widget/settings checks and package/update validation. Local/offline checks do not guarantee identical results on every PC or game version. **DPS remains Beta**, including the existing unresolved world-boss party-damage limitation.
 
