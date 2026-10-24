@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.19.0 release — Hotbar & Character Presets](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.19.0/Aion-2-Helper-v1.19.0-windows-x64.zip).
+The [v1.19.1 release — Hotbar Fixes & Clearer Settings](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.19.1/Aion-2-Helper-v1.19.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Hotbar and invitation notifications;
@@ -48,15 +48,33 @@ or a friendly thank-you are always appreciated too.
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
 
+## New in v1.19.1: Hotbar Fixes & Clearer Settings
+
+- **Hotbar detection:** corrected the reproduced missing assigned-skill bar on
+  an affected community PC; live skills and cooldowns were confirmed working.
+- **Keep your HUD, hide only the skill bars:** export your current HUD, choose it
+  in **Hotbar > Create HUD without hotbar**, then import/select the generated
+  `Helper_HiddenHotbar` copy in AION 2. **Save and leave the HUD editor.** Your
+  original export and other HUD settings are preserved. This works with the game
+  open and replaces automatic native-settings edits. Repeat only for a new HUD
+  layout you want to use. [Step-by-step guide](docs/HOTBAR.md).
+- **Clearer settings:** more separation between titles, cards and controls in
+  Hotbar/Pets Widget, plus a numbered HUD guide and highlighted Save instruction.
+  Collection and Atlas layouts are unchanged.
+- **Tray interaction:** a reusable native context menu handles Settings,
+  lock/unlock and Exit. See [release notes](RELEASE-NOTES.md) for validation.
+- **Fix tracking:** the [roadmap](ROADMAP.md) now lists recent corrections and
+  reliability issues still under investigation.
+
 ## New in v1.19.0: Hotbar & Character Presets
 
 - **Compact skill overlay:** detected skill icons without empty/item slots, optional glass blur, cooldown numbers and top-to-bottom recovery fill. Move/scale everything together or hide and adjust individual slots; optional four-sided snapping has configurable spacing.
 - **Received cooldown updates:** own casts start supported timers; later server corrections include reductions and resets. Corrected the tested third-stage chain and the validated Bittercold Wind / Blaze condition. Charge/reload and other contextual variants remain experimental.
 - **Character presets:** automatic name/server profiles retain layout, scale, appearance, labels and hidden slots. The header distinguishes detected, saved and missing identities. The initial existing layout is kept for the first identified character.
-- **Native hotbar hiding:** optional selective hiding of the three original skill bars, retaining other native UI. No manual HUD export is needed. Close AION 2 and leave the Helper open to apply/restore the pending change, with a verified backup first.
+- **Native hotbar hiding (updated in v1.19.1):** export your current HUD, choose it in the Helper to create a `Helper_HiddenHotbar` copy, then import/select that copy in AION 2, **Save and leave the HUD editor**. Only the three original skill bars are hidden; your layout and original export are retained. This works with the game open and replaces the previous automatic saved-settings edits.
 - **Simpler controls:** one **Test hotbar / Stop test** button loops simulated cooldowns; default numbering needs no reset button. Clear a custom label to restore its number.
 
-**Hotbar is experimental.** Automatic character-switch and native-HUD close/apply/relaunch flows still need their first complete live comparison; isolated tests have passed. Keyboard labels are manual, not detected bindings. Read the [Hotbar guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/HOTBAR.md) and [release notes](RELEASE-NOTES.md) for setup and limits.
+**Hotbar is experimental.** The automatic character-switch workflow still needs its complete live comparison. The native HUD export/import/save workflow was confirmed by a community tester. Isolated tests have passed. Keyboard labels are manual, not detected bindings. Read the [Hotbar guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/HOTBAR.md) and [release notes](RELEASE-NOTES.md) for setup and limits.
 
 ## New in v1.18.0: Crafting & Clearer Overlays
 

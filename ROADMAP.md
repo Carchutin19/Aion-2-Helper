@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated October 23, 2026.**
+**Built with the community. Updated October 24, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -25,12 +25,31 @@
 
 These highlights include community requests. Other existing modules and complete changes are documented in the [README](README.md) and [release notes](RELEASE-NOTES.md).
 
+## 🛠️ Fixes & reliability
+
+Community bug reports are tracked here alongside new features. A shipped change
+is described separately from cases that still need more testing.
+
+| Status | Report / correction | Update |
+| :--- | :--- | :---: |
+| ✅ Confirmed | **Hotbar not populating on an affected PC:** corrected a supported assigned-skill record being rejected. Live skills and cooldowns were confirmed by the community tester. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
+| ✅ Confirmed | **Original hotbar hiding did not persist:** replaced automatic saved-settings edits with an original-preserving exported HUD copy. Import/select it in game, **Save and leave the editor**. The game can stay open; the companion confirmed this workflow works. [Guide](docs/HOTBAR.md). | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
+| ✅ Reviewed | **Crowded Hotbar/Pets Widget settings:** clearer section spacing, aligned controls and numbered HUD instructions. Collection and Atlas layouts are retained. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
+| 🟡 Change shipped; feedback welcome | **Tray menu closing too quickly:** switched to a reusable native context menu. Local command/lifetime checks passed; further Windows hidden-icon-panel confirmation is welcome. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
+| 🟡 Investigating | **HP/MP gaps during some map transitions:** recovery still depends on supported fresh profile data. | Ongoing |
+| 🟡 Investigating | **World-boss party damage stops updating / incomplete combat coverage:** DPS remains Beta; totals and rankings can be incomplete. | Ongoing |
+
+For a new problem, [report an issue](https://github.com/Carchutin19/Aion-2-Helper/issues/new)
+with the Helper version, what happened and steps to reproduce it. Please keep
+personal logs and HUD exports out of public posts unless their contents have
+been reviewed.
+
 ## 🟡 Ongoing work
 
 | Area | Current focus |
 | :--- | :--- |
 | **FPS & GPU optimization** | Reuse drawing/composition resources, reduce unnecessary updates and continue validation under actual game load. Caching improvements are already included; this work is not marked complete or presented as a guaranteed FPS increase. |
-| **Hotbar compatibility & validation** | Validate more classes, charges/reloads, shared cooldown groups and contextual skill variants. Complete live comparisons of automatic character switching and native-HUD close/apply/relaunch behavior. |
+| **Hotbar compatibility & validation** | Validate more classes, charges/reloads, shared cooldown groups and contextual skill variants. Complete the automatic character-switch live comparison and validate further client/HUD variants of the new export/import workflow. |
 | **Data coverage & reliability** | Continue investigating HP/MP loading gaps, unknown special targets and partial combat coverage, including the existing world-boss party-damage limitation. |
 
 ## ⬜ Planned features
@@ -49,7 +68,7 @@ The list is **not a development order**. Feasibility depends on what can be reli
 <details>
 <summary><strong>Validation notes and current limits</strong></summary>
 
-- The core Hotbar and the tested cooldown/chain cases were compared locally. Automatic character switching and the native-HUD close/apply/relaunch workflow have passed isolated checks but still need their first complete live comparison.
+- The core Hotbar and tested cooldown/chain cases were compared locally. A community tester confirmed the missing-bar correction and the new HUD export/import/save workflow. The full automatic character-switch live comparison remains pending; this does not establish universal class/client support.
 - Charge/reload skills, unmapped shared cooldown groups and other contextual variants are not universally supported. Keyboard labels are manual.
 - Rift alerts follow a schedule; the first local event-time comparison remains pending.
 - Atlas markers are reference locations, not live pet spawns.

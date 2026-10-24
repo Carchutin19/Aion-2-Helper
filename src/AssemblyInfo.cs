@@ -3,5 +3,5 @@ using System.Reflection;
 [assembly: AssemblyTitle("Aion 2 Helper")]
 [assembly: AssemblyProduct("Aion 2 Helper")]
 [assembly: AssemblyDescription("Customizable utility overlays for Aion 2: player HP/MP, energy/stagger and enemy progress bars, FPS/ping, pet collection and offline atlas, customizable skill hotbars with character presets, gathering-resource overlays, scheduled Rift alerts, notifications, a beta combat meter and optional visual tweaks. Alpha application with a DPS Meter in beta.")]
-[assembly: AssemblyVersion("1.19.0.0")]
-[assembly: AssemblyFileVersion("1.19.0.0")]
+[assembly: AssemblyVersion("1.19.1.0")]
+[assembly: AssemblyFileVersion("1.19.1.0")]

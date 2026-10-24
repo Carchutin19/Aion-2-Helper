@@ -14,6 +14,14 @@ MIT licence for game artwork. This is an unofficial fan project, not endorsed
 by NCSOFT. No game archives, encryption keys, extractor or upstream executable
 are included or executed. Icons are embedded locally; no runtime requests.
 
+The final ten bytes of each fixed-size42-byte skill entry are treated as
+opaque metadata. They must not be required to be zero: a community diagnostic
+from Edeln showed a0056 rejected solely because byte32 of its second skill
+entry was192. No meaning is assigned to those bytes. Record boundaries, slot
+range/uniqueness, the skill marker and the mirrored primary ID are still checked.
+A synthetic665-byte regression reproduces that exact reported rejection;
+it is not the user's original packet, and live confirmation remains separate.
+
 Supported: validated 0056 active-bar entries, 0556 partial changes, 4738 partial
 cooldown updates, explicit 1838/1938 chain windows. Items and empty entries are
 omitted. A confirmed own 3336 profile binds state to its flow/map. Shared cooldown
@@ -90,24 +98,28 @@ switches rebase hotbar undo snapshots while retaining other modules' history.
 Native game-bar visibility is global and excluded from character presets.
 An incompatible/corrupt preset store is preserved instead of overwritten.
 
-Native hotbar hiding is a separate local-settings option under Hotbar. It reads
-DeviceSetting_V2.dat directly; users do not need to export or import a HUD.
-Only QuickSlotSkill1/QuickSlotSkill2/QuickSlotStigma Hide flags in populated saved
-presets are changed. The game must be closed, with the Helper left open to apply
-a pending change. Nullable/default-unset preferences never modify native files.
-Before every actual change, the exact source is backed up under
-LocalAppData/Aion2Helper/HotbarBackups. A per-record/preset journal restores the
-previous visibility without restoring old chat positions, graphics or other HUD
-fields. The writer validates lengths, UTF-8, JSON and exact semantic differences,
-preserves unrelated binary headers/text, and rejects unrecognized formats.
-Multiple game-settings branches require explicit selection if no selected game
-configuration identifies one. No process-memory writes or injected input are used.
+Native hotbar hiding now prepares a standalone, user-selected HUD export copy.
+The file is Base64 containing fixed-mask-obfuscated little-endian length + UTF8
+JSON. The original remains byte-for-byte intact. Only the three named skill-bar
+Hide booleans change; all other JSON text, names, coordinates and values remain
+unchanged. A strict span scan rejects duplicate keys and preserves formatting;
+length, UTF8, supported rows, exact semantic changes and output round-trip are
+verified. Existing unrelated files are never overwritten. No process-memory
+writes, injected input, active settings edits or background native-HUD writes
+are used. Legacy native settings/journals remain compatible as stored data but
+are disconnected from the application's configuration and timer paths.
+
+Users may keep the game open: export the current HUD, optionally name it, choose
+it in Helper, then import/select the generated Helper_HiddenHotbar copy in AION 2,
+SAVE and leave the HUD editor. Native bars may remain visible in the editor.
+Selecting/importing the original preset and saving restores the bars. Creating a
+copy is never presented as confirmation that it has been activated in game.
 
 HUD-format reference: victoriousian/AION2_HUD_Editor_V2, constants.py/codec.py,
 revision ed41d138275e31c46ee8a232a3719e593ddd4e1e:
 https://github.com/victoriousian/AION2_HUD_Editor_V2
 Consulted for format facts (fixed obfuscation mask and HUD tag names) only; no
-upstream code or executable is copied or run. The current UTF-8 V2 reader and
-lossless writer are original implementations. Native Hide flags were first
-validated through a user-imported copy; the automatic application/restoration
-flow still requires the first live close/relaunch check.
+upstream code or executable is copied or run. Readers and lossless text patchers
+are original implementations. Manually imported native Hide flags were confirmed
+locally; a community tester also confirmed the integrated export/import/save
+workflow in game. No private exports or community diagnostics are embedded.

@@ -46,6 +46,9 @@ internal static class SettingsVisual {
     internal static TextBlock Text(string text,double size=13,string color=null){return new TextBlock{Text=text,FontSize=size,Foreground=Brush(color??"#F0F1F5"),TextWrapping=TextWrapping.Wrap,VerticalAlignment=VerticalAlignment.Center};}
     internal static Button Button(string text,Action action,bool primary=false){var b=new Button{Content=text};if(primary)b.SetResourceReference(FrameworkElement.StyleProperty,"PrimaryButton");b.Click+=delegate{action();};AutomationProperties.SetName(b,text);return b;}
     internal static Border Card(UIElement content,Thickness padding){return new Border{CornerRadius=new CornerRadius(14),Background=Brush("#162E3542"),BorderBrush=Brush("#18FFFFFF"),BorderThickness=new Thickness(1),Padding=padding,Child=content,Margin=new Thickness(0,0,0,14)};}
+    // Match the section rhythm of FPS settings without changing collection or
+    // atlas layouts, which manage their own presentation.
+    internal static StackPanel Section(StackPanel parent,string title){var heading=Text(title,11,"#929CAD");heading.Margin=new Thickness(2,parent.Children.Count==0?5:10,0,10);parent.Children.Add(heading);var panel=new StackPanel();parent.Children.Add(Card(panel,new Thickness(16,12,16,12)));return panel;}
     internal static Border Shell(UIElement content){return new Border{CornerRadius=new CornerRadius(16),Background=Brush("#F2191C23"),BorderThickness=new Thickness(0),Child=content};}
     internal static BitmapSource Bitmap(Drawing.Bitmap bitmap){
         var rect=new Drawing.Rectangle(0,0,bitmap.Width,bitmap.Height);var data=bitmap.LockBits(rect,Drawing.Imaging.ImageLockMode.ReadOnly,Drawing.Imaging.PixelFormat.Format32bppPArgb);
@@ -77,15 +80,15 @@ internal static class SettingsVisual {
             var before=owner.Configuration;var settings=new HelperSettings(owner);try{
                 var actual=settings.ReadConfiguration();if(new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(before.Options)!=new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(actual.Options)||before.Bounds!=actual.Bounds||before.Maximum!=actual.Maximum)throw new Exception("Settings must preserve all energy preferences");
                 settings.VerifyHistory(root);settings.VerifyLayout();string designs=Path.Combine(root,"designs");Directory.CreateDirectory(designs);RenderPreview(settings,Path.Combine(designs,"settings-current.png"));var picker=new HelperColorPicker("#B85416","Medium level");try{if(picker.SelectedHex!="#B85416")throw new Exception("Picker initial color");RenderPreview(picker,Path.Combine(designs,"color-picker-current.png"));picker.VerifyColorInputs();}finally{picker.Close();}
-                var trayMenu=new HelperTrayMenu(owner);try{trayMenu.Verify();RenderPreview(trayMenu,Path.Combine(designs,"tray-menu-current.png"));}finally{trayMenu.Close();}
+                var trayMenu=new HelperTrayMenu(owner);try{trayMenu.Verify();trayMenu.RenderPreview(Path.Combine(designs,"tray-menu-current.png"));}finally{trayMenu.Dispose();}
             }finally{settings.Close();}
             var reopened=new HelperSettings(owner);try{reopened.VerifyReopenedHistory(before);}finally{reopened.Close();}
-            var commandMenu=new HelperTrayMenu(owner);try{commandMenu.VerifyLockCommand(owner);}finally{if(!commandMenu.IsDisposed)commandMenu.Close();}
+            var commandMenu=new HelperTrayMenu(owner);try{commandMenu.VerifyLockCommand(owner);commandMenu.VerifyLifetime(owner);}finally{commandMenu.Dispose();}
         }
         using(var owner=new EnergyOverlay(root,true)){var settings=new HelperSettings(owner);try{settings.VerifyLanguages(root);}finally{settings.Close();}}
         VerifyLanguagePersistence(root);
         using(var owner=new EnergyOverlay(root,true)){bool installed=false;var missing=new NpcapSupport(delegate{return installed;},delegate{});var settings=new HelperSettings(owner,missing);try{settings.VerifyNpcap(root,missing,delegate{installed=true;});}finally{settings.Close();}}
-        File.WriteAllText(Path.Combine(root,"settings-test.txt"),"PASS: HSV/HEX round-trip, decimal input without rounding unedited fields, settings preserve all options/geometry/maximum, every tab has controls, picker HEX/RGB validation; disabled module blocks controls/preview but retains its activation switch; bounded undo/redo, immutable snapshots, branch replacement, no-op saves preserve redo; overlay restoration, buttons and history across Settings reopening; tray menu screen bounds and shared lock command; live EN/ES selection, localized energy settings/tray/color picker, language undo/redo, independent general settings, persistence/restart and legacy/invalid language fallback.");
+        File.WriteAllText(Path.Combine(root,"settings-test.txt"),"PASS: HSV/HEX round-trip, decimal input without rounding unedited fields, settings preserve all options/geometry/maximum, every tab has controls, picker HEX/RGB validation; disabled module blocks controls/preview but retains its activation switch; bounded undo/redo, immutable snapshots, branch replacement, no-op saves preserve redo; overlay restoration, buttons and history across Settings reopening; native tray menu bounds, shared lock command, reusable lifetime and Escape dismissal; live EN/ES selection, localized energy settings/tray/color picker, language undo/redo, independent general settings, persistence/restart and legacy/invalid language fallback.");
     }
     static void VerifyLanguagePersistence(string root){
         if(UiLanguage.Read(new Dictionary<string,object>())!="en"||UiLanguage.Read(new Dictionary<string,object>{{"language","invalid"}})!="en")throw new Exception("Language migration/fallback");
@@ -210,8 +213,8 @@ internal sealed class HelperSettings : Window {
         var launchHelp=SettingsVisual.Text("Steam and PURPLE are detected automatically. If the game is not found, select its installation folder. For other launchers, choose your game shortcut or launcher.",11,"#8994A6");launchHelp.Margin=new Thickness(0,0,0,10);launch.Children.Add(launchHelp);
         var launchActions=new WrapPanel();detectGame=SettingsVisual.Button("Detect game",delegate{DetectGame();});chooseGameFolder=SettingsVisual.Button("Select game folder",ChooseLaunchFolder);chooseGameLauncher=SettingsVisual.Button("Choose launcher",ChooseGameLauncher);automaticGameLauncher=SettingsVisual.Button("Automatic launcher",delegate{ChangeGameLaunch(gameLaunch.AutomaticLauncher);});foreach(var button in new[]{detectGame,chooseGameFolder,chooseGameLauncher,automaticGameLauncher}){button.Margin=new Thickness(0,0,8,8);launchActions.Children.Add(button);}launch.Children.Add(launchActions);var launchCard=SettingsVisual.Card(launch,new Thickness(18,16,18,10));launchCard.Margin=new Thickness(0,20,0,0);generalPage.Children.Add(launchCard);
         updatePage=new UpdateSettingsPane(overlay,this);generalPage.Children.Add(updatePage);
-        var news=new StackPanel();news.Children.Add(SettingsVisual.Text("WHAT'S NEW · v1.18.0 · Crafting & Clearer Overlays",11,"#84B8AB"));
-        var details=SettingsVisual.Text("New Crafting section with a customizable three-segment gathering overlay: resource names, supported types and remaining uses from received game data. Soul cards now use a rounded Windows compositor backdrop to remove the previous dark rectangular edge. The DPS meter gains optional dark background blur. Improved connection-start recognition avoids a confirmed compressed-message synchronization error, and widget diagnostics now describe the same data used for drawing. Moving Crafting reuses its image. Some map transitions still wait for fresh HP/MP profiles; unnamed targets remain under investigation. Existing settings are preserved; DPS remains Beta.",12,"#A7ADBA");details.Margin=new Thickness(0,10,0,0);news.Children.Add(details);
+        var news=new StackPanel();news.Children.Add(SettingsVisual.Text("WHAT'S NEW · v1.19.1 · Hotbar Fixes & Clearer Settings",11,"#84B8AB"));
+        var details=SettingsVisual.Text("Fixed hotbar detection on an affected community PC. To hide only the original skill bars, export your current HUD and use Hotbar > Create HUD without hotbar. Import the generated copy in AION 2, select its preset, Save and leave the HUD editor. Your layout and original export are retained; the game can stay open. Hotbar and Pets settings have clearer spacing, and the tray uses a native context menu. Existing settings are preserved; Hotbar remains experimental and DPS Beta.",12,"#A7ADBA");details.Margin=new Thickness(0,10,0,0);news.Children.Add(details);
         var warning=SettingsVisual.Text("Known issue: party members' damage may stop updating during open-world bosses. This remains unresolved; DPS totals and rankings can be incomplete.",12,"#E4B986");warning.Margin=new Thickness(0,10,0,0);news.Children.Add(warning);
         var newsCard=SettingsVisual.Card(news,new Thickness(18,16,18,16));newsCard.Margin=new Thickness(0,20,0,0);generalPage.Children.Add(newsCard);
         var requirement=new StackPanel();requirement.Children.Add(SettingsVisual.Text("GAME DATA REQUIREMENT",10,"#929CAD"));npcMessage.Margin=new Thickness(0,10,0,0);requirement.Children.Add(npcMessage);
@@ -404,57 +407,11 @@ internal sealed class HelperSettings : Window {
         SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-general-es.png"));SelectSection(false);SelectTab(1);
         if(sectionTitle.Text!="Barras de progreso"||(string)tabs[1].Content!="Apariencia")throw new Exception("Energy section translations");
         SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-energy-es.png"));SelectTab(0);SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-energy-behavior-es.png"));
-        var menu=new HelperTrayMenu(overlay);try{menu.Verify();if(!menu.VerifyLanguage("Ajustes"))throw new Exception("Spanish tray menu");SettingsVisual.RenderPreview(menu,Path.Combine(designs,"tray-menu-es.png"));}finally{menu.Close();}
+        var menu=new HelperTrayMenu(overlay);try{menu.Verify();if(!menu.VerifyLanguage("Ajustes"))throw new Exception("Spanish tray menu");menu.RenderPreview(Path.Combine(designs,"tray-menu-es.png"));}finally{menu.Dispose();}
         var picker=new HelperColorPicker("#B85416","Medium level","es");try{if(!picker.VerifyLanguage("Elegir color"))throw new Exception("Spanish color picker");SettingsVisual.RenderPreview(picker,Path.Combine(designs,"color-picker-es.png"));}finally{picker.Close();}
         SelectSection(true);var disabled=spanish.Copy();disabled.Options.Enabled=false;overlay.ApplyConfiguration(disabled);if(!languagePicker.IsEnabled||generalPage.Opacity!=1)throw new Exception("Language must remain editable with the energy module disabled");
         overlay.UndoConfiguration();overlay.UndoConfiguration();if(!ConfigurationHistory.Same(english,overlay.Configuration)||languagePicker.SelectedIndex!=0||Title!="Aion 2 Helper · Settings"||(string)tabs[1].Content!="Appearance"||(string)sections[1].Content!="◉   Progress bar")throw new Exception("Undo language must restore all English labels");
         overlay.RedoConfiguration();if(!ConfigurationHistory.Same(spanish,overlay.Configuration)||languagePicker.SelectedIndex!=1)throw new Exception("Redo language");overlay.ApplyConfiguration(original);
-    }
-}
-
-internal sealed class HelperTrayMenu : Window {
-    [StructLayout(LayoutKind.Sequential)]struct NativeRect {internal int Left,Top,Right,Bottom;}
-    [DllImport("user32.dll")]static extern bool GetWindowRect(IntPtr window,out NativeRect rectangle);
-    readonly List<Button> actions=new List<Button>();readonly string lockLabel;readonly string menuLanguage;internal bool IsDisposed {get;private set;}
-    internal HelperTrayMenu(EnergyOverlay owner){
-        menuLanguage=owner.Language;
-        Title="Aion 2 Helper · Menu";SettingsVisual.Theme(this);Width=246;Height=194;ResizeMode=ResizeMode.NoResize;ShowInTaskbar=false;Topmost=true;WindowStartupLocation=WindowStartupLocation.Manual;
-        var content=new StackPanel{Margin=new Thickness(9,10,9,9)};Content=SettingsVisual.Shell(content);KeyboardNavigation.SetDirectionalNavigation(content,KeyboardNavigationMode.Cycle);
-        var title=SettingsVisual.Text("AION 2 HELPER",10,"#8895A8");title.Margin=new Thickness(12,2,0,9);content.Children.Add(title);
-        AddAction(content,"Settings","settings",owner.OpenSettings);
-        lockLabel=owner.Configuration.Locked?"Unlock":"Lock";AddAction(content,lockLabel,owner.Configuration.Locked?"unlock":"lock",owner.ToggleWidgetsLock);
-        content.Children.Add(new Border{Height=1,Background=SettingsVisual.Brush("#18FFFFFF"),Margin=new Thickness(11,7,11,7)});
-        AddAction(content,"Quit Aion 2 Helper","close",delegate{owner.Close();});
-        Deactivated+=delegate{if(IsVisible&&!IsDisposed)Close();};Closed+=delegate{IsDisposed=true;};KeyDown+=delegate(object sender,KeyEventArgs e){if(e.Key==Key.Escape){Close();e.Handled=true;}};UiLanguage.Apply(this,owner.Language);
-    }
-    void AddAction(StackPanel host,string label,string kind,Action action){
-        var button=SettingsVisual.Button("",delegate{Close();action();});button.Padding=new Thickness(12,9,12,9);button.BorderThickness=new Thickness(0);button.Background=Brushes.Transparent;button.Margin=new Thickness(0,1,0,1);AutomationProperties.SetName(button,label);
-        var layout=new Grid{Width=198};layout.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(28)});layout.ColumnDefinitions.Add(new ColumnDefinition());var icon=new Grid{Width=16,Height=16,HorizontalAlignment=HorizontalAlignment.Left};layout.Children.Add(icon);
-        string color=kind=="close"?"#DFA8A2":"#A4C9C1";var brush=SettingsVisual.Brush(color);
-        Action<string> stroke=delegate(string data){icon.Children.Add(new System.Windows.Shapes.Path{Data=Geometry.Parse(data),Stroke=brush,StrokeThickness=1.4,StrokeStartLineCap=PenLineCap.Round,StrokeEndLineCap=PenLineCap.Round,StrokeLineJoin=PenLineJoin.Round});};
-        if(kind=="settings"){stroke("M8,0.8 L8,3 M8,13 L8,15.2 M0.8,8 L3,8 M13,8 L15.2,8 M2.8,2.8 L4.3,4.3 M11.7,11.7 L13.2,13.2 M2.8,13.2 L4.3,11.7 M11.7,4.3 L13.2,2.8");icon.Children.Add(new System.Windows.Shapes.Ellipse{Width=10,Height=10,Stroke=brush,StrokeThickness=1.4});icon.Children.Add(new System.Windows.Shapes.Ellipse{Width=3,Height=3,Stroke=brush,StrokeThickness=1.2});}
-        else if(kind=="close")stroke("M4,4 L12,12 M12,4 L4,12");
-        else{stroke("M3.5,7 L12.5,7 L12.5,14 L3.5,14 Z M8,9.5 L8,11.5");stroke(kind=="unlock"?"M5,7 L5,4 C5,0.5 11,0.5 11,4":"M5,7 L5,4 C5,0.5 11,0.5 11,4 L11,7");}
-        var text=SettingsVisual.Text(label,12,kind=="close"?"#DFA8A2":"#E8ECF3");Grid.SetColumn(text,1);layout.Children.Add(text);button.Content=layout;
-        var style=new Style(typeof(Button),(Style)FindResource(typeof(Button)));style.Setters.Add(new Setter(Button.BackgroundProperty,Brushes.Transparent));var hover=new Trigger{Property=Button.IsMouseOverProperty,Value=true};hover.Setters.Add(new Setter(Button.BackgroundProperty,SettingsVisual.Brush("#183F7369")));style.Triggers.Add(hover);button.ClearValue(Button.BackgroundProperty);button.Style=style;host.Children.Add(button);actions.Add(button);
-    }
-    internal static Drawing.Point Position(Drawing.Point cursor,Drawing.Rectangle area,int width,int height){
-        int x=Math.Max(area.Left+8,Math.Min(cursor.X-width+16,area.Right-width-8));int y=cursor.Y-height-10;if(y<area.Top+8)y=cursor.Y+10;y=Math.Max(area.Top+8,Math.Min(y,area.Bottom-height-8));return new Drawing.Point(x,y);
-    }
-    internal void ShowAt(Drawing.Point cursor){
-        Opacity=0;Show();UpdateLayout();IntPtr handle=new WindowInteropHelper(this).Handle;var area=System.Windows.Forms.Screen.FromPoint(cursor).WorkingArea;
-        for(int pass=0;pass<2;pass++){NativeRect rectangle;GetWindowRect(handle,out rectangle);var location=Position(cursor,area,Math.Max(1,rectangle.Right-rectangle.Left),Math.Max(1,rectangle.Bottom-rectangle.Top));OverlayNative.SetWindowPos(handle,new IntPtr(-1),location.X,location.Y,0,0,0x0001|0x0010);}
-        Opacity=1;Activate();actions[0].Focus();
-    }
-    internal void Verify(){
-        if(actions.Count!=3||AutomationProperties.GetName(actions[1])!=UiLanguage.Text(lockLabel,menuLanguage))throw new Exception("Tray menu commands/lock label");
-        foreach(var area in new[]{new Drawing.Rectangle(0,0,1920,1040),new Drawing.Rectangle(-1920,0,1920,1040)})foreach(var cursor in new[]{new Drawing.Point(area.Left+2,area.Top+2),new Drawing.Point(area.Right-2,area.Bottom+30)})if(!area.Contains(new Drawing.Rectangle(Position(cursor,area,246,194),new Drawing.Size(246,194))))throw new Exception("Tray menu must fit the target monitor working area");
-    }
-    internal bool VerifyLanguage(string settingsLabel){return AutomationProperties.GetName(actions[0])==settingsLabel;}
-    internal void VerifyLockCommand(EnergyOverlay owner){
-        owner.Show();System.Windows.Forms.Application.DoEvents();var before=owner.Configuration;actions[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        if(!IsDisposed||owner.Configuration.Locked==before.Locked)throw new Exception("Tray lock command must close the popup and toggle the shared lock");
-        owner.UndoConfiguration();if(!ConfigurationHistory.Same(owner.Configuration,before))throw new Exception("Tray lock must use the shared undo history");
     }
 }
 

@@ -1,4 +1,80 @@
-﻿# Aion 2 Helper v1.19.0 Alpha — Hotbar & Character Presets
+# Aion 2 Helper v1.19.1 Alpha — Hotbar Fixes & Clearer Settings
+
+This update fixes the reproduced empty skill bar reported by community players,
+replaces automatic native-HUD edits with a user-imported HUD copy, improves the
+tray context menu and makes Hotbar/Pets settings easier to read.
+
+## Hotbar detection
+
+- Corrected rejection of supported assigned-skill records with nonzero values in
+  an opaque trailing field. Existing length, slot and identity checks remain.
+  The affected community tester confirmed the live skill bar and cooldowns work.
+- Added bounded reception diagnostics to help investigate future missing-bar
+  reports without exporting raw packets.
+
+## Hide the original skill bars while keeping your HUD
+
+The previous direct edits to saved UI settings did not persist on a companion's
+PC. The Helper now creates an importable copy of the HUD you choose instead.
+**Your layout and other HUD settings stay the same; only the three original
+skill-bar visibility flags change. Your original export is left untouched.**
+
+1. With AION 2 open, go to **Edit HUD** and **export your current layout**.
+   Naming the export is optional, but makes it easier to find.
+2. In **Helper > Hotbar**, press **Create HUD without hotbar** and select that
+   exported `.dat` file. The copy is saved beside it as
+   `Helper_HiddenHotbar(original name).dat`. **Show created file** locates it.
+3. In **AION 2 > Edit HUD > Import file**, import the generated copy, preferably
+   into another preset so your original remains available in game. Select the
+   imported preset, **press Save and leave the HUD editor**.
+
+The bars may still appear while editing. Check after saving and leaving the
+editor. **The game can stay open: no restart is required.** Creating the copy
+alone does not activate it in game. These steps are needed only if you want to
+hide the game's original skill bars, once per HUD layout you choose. Export
+again to prepare a new copy after changing your layout.
+
+To restore the bars, select your original preset or import your original export,
+**save and leave the HUD editor**. Automatic background edits to
+`DeviceSetting_V2.dat` are no longer used; older checkbox preferences do not
+trigger writes. Existing original files and previous backups are retained.
+
+The export/import/save workflow has been confirmed by the community tester.
+Unsupported or ambiguous export files are rejected without changing the source;
+existing different copies are preserved by creating a numbered file.
+
+## Tray menu and clearer settings
+
+- Replaced the tray popup handling with a reusable native context menu for
+  Settings, lock/unlock and Exit. Local opening, dismissal and command checks
+  passed; feedback from the Windows hidden-icon panel is still welcome.
+- Improved section-title separation, card spacing, text line spacing and numeric
+  alignment in Hotbar and Pets Widget settings, following the FPS page layout.
+- The HUD guide now has three numbered steps, a prominent Save/leave-editor
+  reminder and a separate restore section. Empty feedback no longer leaves a
+  blank area. The pet Collection and Atlas layouts are unchanged.
+- Updated the public [roadmap](ROADMAP.md) with a fixes/reliability section that
+  separates shipped corrections from issues still under investigation.
+
+## Validation and limits
+
+Checks cover assigned-bar parsing, cooldowns/chains/context replay, character
+profiles, original-preserving HUD export copies, file collisions and rejection,
+settings/undo, tray commands, pet registry/atlas and existing module regressions.
+A real standalone HUD export was compared without modifying its source. The
+redesigned settings were reviewed in English and Spanish and approved locally.
+
+The application remains **Alpha**, **Hotbar experimental** and **DPS Beta**.
+Charges/reloads, unmapped shared cooldowns and other contextual variants are not
+universally supported. The full automatic character-switch live comparison,
+HP/MP loading gaps, unknown special targets and incomplete world-boss party
+combat coverage remain separate work. No personal logs, HUD exports, profiles or
+session data are included in the release. Existing artwork credits remain in
+**THIRD-PARTY.md** and the embedded source notices.
+
+---
+
+# Aion 2 Helper v1.19.0 Alpha — Hotbar & Character Presets
 
 Build a compact skill bar without empty item/skill slots, see received cooldowns and keep a different layout for each character and server. The new **Hotbar** section also includes an optional way to hide AION 2's original skill bars while retaining the rest of the native HUD.
 
