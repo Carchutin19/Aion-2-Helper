@@ -8,10 +8,10 @@ using System.Web.Script.Serialization;
 internal static class ProgressVerification {
     static void Check(bool value,string message){if(!value)throw new Exception(message);}
     static void V(List<byte> b,uint v){while(v>=128){b.Add((byte)((v&127)|128));v>>=7;}b.Add((byte)v);}
-    static byte[] Gauge(uint actor,uint current,uint maximum,bool zero=false,byte state=2){var b=new List<byte>(new byte[]{5,0xe0});V(b,actor);if(zero)b.AddRange(new byte[]{0,3,2});else{b.AddRange(new byte[]{3,1});b.AddRange(BitConverter.GetBytes(maximum));b.AddRange(BitConverter.GetBytes(current));b.Add(state);}return b.ToArray();}
-    static byte[] Energy(uint actor){var b=new List<byte>(new byte[]{0,0x8d});V(b,actor);b.AddRange(new byte[]{1,1,3});b.AddRange(BitConverter.GetBytes(1000));return b.ToArray();}
-    static byte[] Hit(uint source,uint target){var b=new List<byte>(new byte[]{4,0x38});V(b,target);V(b,6);V(b,0);V(b,source);b.AddRange(BitConverter.GetBytes(15210000));b.Add(1);V(b,2);b.AddRange(new byte[]{128,0,1,85,102,119,136,1,0,0,0});V(b,10817);V(b,400);b.AddRange(new byte[]{1,0});return b.ToArray();}
-    static void Send(StaggerSignal s,byte[] b,double time,string flow="game"){s.Consume(b,0,b.Length,time,flow);}
+    internal static byte[] Gauge(uint actor,uint current,uint maximum,bool zero=false,byte state=2){var b=new List<byte>(new byte[]{5,0xe0});V(b,actor);if(zero)b.AddRange(new byte[]{0,3,2});else{b.AddRange(new byte[]{3,1});b.AddRange(BitConverter.GetBytes(maximum));b.AddRange(BitConverter.GetBytes(current));b.Add(state);}return b.ToArray();}
+    internal static byte[] Energy(uint actor){var b=new List<byte>(new byte[]{0,0x8d});V(b,actor);b.AddRange(new byte[]{1,1,3});b.AddRange(BitConverter.GetBytes(1000));return b.ToArray();}
+    internal static byte[] Hit(uint source,uint target){var b=new List<byte>(new byte[]{4,0x38});V(b,target);V(b,6);V(b,0);V(b,source);b.AddRange(BitConverter.GetBytes(15210000));b.Add(1);V(b,2);b.AddRange(new byte[]{128,0,1,85,102,119,136,1,0,0,0});V(b,10817);V(b,400);b.AddRange(new byte[]{1,0});return b.ToArray();}
+    internal static void Send(StaggerSignal s,byte[] b,double time,string flow="game"){s.Consume(b,0,b.Length,time,flow);}
     const BindingFlags Instance=BindingFlags.Instance|BindingFlags.NonPublic;
     static object Field(object value,string name){return value.GetType().GetField(name,Instance).GetValue(value);}
     static void Invoke(object value,string name){value.GetType().GetMethod(name,Instance).Invoke(value,null);}

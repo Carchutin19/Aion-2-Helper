@@ -39,3 +39,19 @@ and Thorn Vines. IDs with no reference name remain unknown; no name is inferred
 from combat, HP, nearby actors or the name of a summon owner. The same embedded
 lookup supplies the enemy and enemy-target bars; it does not classify allegiance,
 boss status, health or player identity.
+
+## Confirmed neutral NPCs
+
+`neutral.json` is a small explicit map-scoped catalogue, not a generic hostility
+flag or a display-name classifier. Controlled selection/dialogue tests on
+2026-10-25 in map1010 identified Storage Manager (`2930066`), Command Merchant
+(`2939438`) and a selected neutral profile (`2989661`) during the warehouse
+control. The last profile has no verified localized name; the overlay uses
+**Neutral NPC / NPC neutral**, not an invented proper name. The first two use
+the existing verified display-name catalogue.
+
+Only those exact template/map pairs receive the neutral-NPC palette. Other NPCs
+retain the base palette until their allegiance is established. The same layout
+flags occur on merchants and hostile monsters and are not used for this decision.
+The metadata is local controlled-test classification; it does not infer health,
+level or distance. Raw captures and personal data are not bundled.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -46,7 +46,7 @@ internal static class EnemyDetailReader {
         return t.Position==end?(int?)level:null;
     }
     internal static int? DisplayLevel(int selfLevel,int? raw){return !raw.HasValue||selfLevel<=0?null:selfLevel==45?(int?)Math.Max(45,raw.Value):raw;}
-    internal static bool Character(byte[] b,int start,int end,out int level,out Position position){level=0;position=new Position();uint actor;string name;byte role;if(!DpsSignal.PlayerIdentity(b,start,end,true,out actor,out name,out role))return false;int p=start+2;uint unused;if(!DpsSignal.Var(b,ref p,end,out unused))return false;for(int q=p;q<Math.Min(end-12,p+16);q++){int n=b[q];if(n<2||n>24||q+n+1>end)continue;string value;try{value=new UTF8Encoding(false,true).GetString(b,q+1,n);}catch(DecoderFallbackException){continue;}if(value!=name)continue;int at=q+1+n+2;if(at>end-11)continue;uint code=BitConverter.ToUInt32(b,at),lev=BitConverter.ToUInt32(b,at+5);if(code<5||code>36||(b[at+4]!=1&&b[at+4]!=2)||lev<1||lev>200)continue;level=(int)lev;Coordinates(b,at+162,end,out position);return true;}return false;}
+    internal static bool Character(byte[] b,int start,int end,out int level,out Position position){level=0;position=new Position();uint actor;string name;byte role;if(!DpsSignal.PlayerIdentity(b,start,end,true,out actor,out name,out role))return false;int p=start+2;uint unused;if(!DpsSignal.Var(b,ref p,end,out unused))return false;for(int q=p;q<Math.Min(end-12,p+16);q++){int n=b[q];if(n<2||n>24||q+n+1>end)continue;string value;try{value=new UTF8Encoding(false,true).GetString(b,q+1,n);}catch(DecoderFallbackException){continue;}if(value!=name)continue;int at=q+1+n+2;if(at>end-11)continue;uint code=BitConverter.ToUInt32(b,at),lev=BitConverter.ToUInt32(b,at+5);if(code<5||code>36||(b[at+4]!=1&&b[at+4]!=2)||lev<1||lev>200)continue;level=(int)lev;EnemyTargetSignal.Player own;if(EnemyTargetSignal.PlayerState(b,start,end,true,out own))Coordinates(b,own.StateOffset+2,end,out position);return true;}return false;}
     internal static bool Movement(byte[] b,int start,int end,out uint actor,out Position position){actor=0;position=new Position();if(b==null||start<0||end>b.Length||end-start<2)return false;int op=(b[start]<<8)|b[start+1],offset;switch(op){case 0x1b37:case 0x1c37:offset=-1;break;case 0x1a37:case 0x1e37:case 0x2037:case 0x2837:case 0x2937:case 0x2a37:offset=2;break;case 0x1f37:case 0x2f37:offset=1;break;case 0x3c37:offset=1;break;default:return false;}int p=start+2;if(!DpsSignal.Var(b,ref p,end,out actor)||actor==0||p>=end||(op==0x3c37&&b[p]!=3))return false;if(offset<0)offset=1+(b[p]&1);return Coordinates(b,p+offset,end,out position);}
     // Cast aim coordinates can be an impact/ground point, not the caster.
     // Distance uses only an identified character profile or movement position.

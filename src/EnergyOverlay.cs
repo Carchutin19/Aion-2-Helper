@@ -364,6 +364,7 @@ internal sealed class EnergyOverlay:Form {
     internal string EnemyTargetStatus {get{return targetWidget.ReadingStatus;}}
     internal string EnemyHealthStatus {get{return enemyWidget.ReadingStatus+(clientPositions.Enabled?" · "+UiLanguage.Text(clientPositions.ReadingStatus,language):"");}}
     internal string StaggerStatus {get{return UiLanguage.Text(staggerWidget.ReadingStatus,language);}}
+    internal void TestStaggerEffect(System.Drawing.Rectangle area){staggerWidget.TestScreenEffect(area);}
     internal string DpsStatus {get{return dpsOptions.Enabled?(NpcapSupport.Current.Required?NpcapSupport.Current.Message:dpsWidget.ReadingStatus):"DPS disabled";}}
     internal void ResetDpsEncounter(){combat.ResetEncounter();}
     internal string PingStatus {get{return UiLanguage.Text(pingWidget.ReadingStatus,language);}}
@@ -448,7 +449,7 @@ internal sealed class EnergyOverlay:Form {
         if(show&&!Visible){RenderNow(true);Show();OverlayNative.RaiseWithoutFocus(Handle);}else if(!show&&Visible)Hide();
         if(Visible)RenderNow();
         energyTexts.Update(CoreBounds,options,fresh||sample,visualCurrent,visualMaximum,show?(byte)Math.Round(motion.Opacity*255):(byte)0);
-        if(!preview&&now>=nextStatusWrite){nextStatusWrite=now+.5;string meta=Width+"/"+Height+"/"+Left+"/"+Top+"/"+locked+"/"+fresh+"/"+Visible+"/"+status+"/"+snapshot.Errors+"/"+notifications.Received+"/"+fpsWidget.Value+"/"+fpsWidget.ReadingStatus+"/"+pingWidget.Value+"/"+pingWidget.ReadingStatus+"/"+enemyWidget.StatusKey+"/"+targetWidget.StatusKey+"/"+clientPositions.ReadingStatus+"/"+healthWidget.StatusKey+"/"+manaWidget.StatusKey+"/"+Pets.StatusKey+"/"+craftingWidget.StatusKey+"/"+SkillSlots.StatusKey+"/hud-export:"+skillOptions.PreparedHudFile;
+        if(!preview&&now>=nextStatusWrite){nextStatusWrite=now+.5;string meta=Width+"/"+Height+"/"+Left+"/"+Top+"/"+locked+"/"+fresh+"/"+Visible+"/"+status+"/"+snapshot.Errors+"/"+notifications.Received+"/"+fpsWidget.Value+"/"+fpsWidget.ReadingStatus+"/"+pingWidget.Value+"/"+pingWidget.ReadingStatus+"/"+enemyWidget.StatusKey+"/"+targetWidget.StatusKey+"/"+clientPositions.ReadingStatus+"/"+healthWidget.StatusKey+"/"+manaWidget.StatusKey+"/"+Pets.StatusKey+"/"+craftingWidget.StatusKey+"/"+SkillSlots.StatusKey+"/hud-export:"+skillOptions.PreparedHudFile+"/stagger-effect:"+staggerWidget.EffectRevision;
             if(meta!=statusKey||(r!=null&&r.Timestamp>lastSaved)){if(r!=null)lastSaved=r.Timestamp;statusKey=meta;WriteStatus(snapshot,fresh);}}
         int interval=motion.Animating?16:options.Enabled?250:1000;
         if(!motion.Animating&&motion.FullSince.HasValue&&motion.Opacity>0){double remaining=options.HoldSeconds-(now-motion.FullSince.Value);if(remaining>0)interval=Math.Min(interval,Math.Max(1,(int)Math.Ceiling(remaining*1000)));}

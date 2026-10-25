@@ -1,3 +1,83 @@
+# Aion 2 Helper v1.20.0 Alpha — Staggered & Target Colors
+
+An optional Staggered screen effect, four target color palettes, selected-player
+health support and corrections verified through controlled zone and PvP tests.
+
+## Staggered screen effect
+
+- Optional centered **Staggered** animation with a broken circular ring, orange
+  glow, streaks and fading text. Disabled by default.
+- In **Progress bar > Stagger**, enable the animation, change its text and
+  glow/effect colors, or press **Test effect** without entering combat.
+- Automatic playback uses a confirmed tracked-target stagger transition from
+  received data, with duplicate suppression. It does not trigger from an
+  estimated countdown. The initial position is fixed at the game viewport center.
+
+## Our target and Target of target
+
+- **Enemy health** is now **Our target**; **Enemy target** is **Target of target**.
+- Selected players can display received names and current/maximum HP, including
+  neutral players and the tested normal 1v1 rivals. Focus follows received data.
+- **Our target > Preview and edit colors** offers **Enemy NPC**, **Neutral NPC**,
+  **Enemy player** and **Neutral player** palettes. Only colors are separate:
+  position, size, scale, text layout and effects remain shared. Existing settings
+  and the original NPC palette are retained.
+- Player colors use supported faction data on the tested world/Abyss maps and
+  the supported two-team roster in the two tested normal 1v1 arenas, including
+  same-faction opponents. Unknown cases keep the base colors.
+- Neutral NPC colors currently cover the confirmed warehouse/Command Merchant
+  profiles on the tested world map. Other NPCs keep base colors; this is a
+  limited catalogue, not universal NPC allegiance detection.
+
+## Zone recovery and reliability
+
+- Fixed Hotbar loss entering and leaving **Pesadilla** when the same character
+  continues on the same connection without a fresh full skill-bar message.
+  Different identities/connections still clear the previous character's bar.
+- Corrected a supported profile layout used in **Abyss**, restoring received
+  player HP/MP, target focus, character identity and own pet soul notifications
+  in the controlled live test. Ambiguous or unsupported profiles remain rejected.
+- Fixed player-profile updates evicting stationary NPC profiles in crowded
+  areas. NPCs and players now have independent bounded caches, and refreshing an
+  existing record does not evict another profile. The exact recorded warehouse
+  reproduction improved from 3 missing selections out of 12 to none.
+- Expanded bounded diagnostics for target identity, palette source and cache
+  state, while keeping personal captures and settings outside release packages.
+
+## Distance setup
+
+For the existing optional **Our target > Details > Exact distance** mode, open
+the Helper **before fully launching Aion**. If you restarted the Helper while
+Aion was already running, restart Aion with the Helper left open; returning
+only to character selection can miss the setup. Initial session discovery may
+take time. The user confirmed distance works with this startup order; this
+release does not claim faster or immediate distance acquisition.
+
+## Validation and limits
+
+Controlled live tests confirmed Pesadilla entry/exit recovery, Abyss HP/MP,
+Hotbar, target focus and soul notices; neutral-player and normal 1v1 health and
+colors; neutral-NPC bars/colors; and distance after the correct startup order.
+The Staggered preview was visually approved; automatic transitions have isolated
+tests, but a separate controlled live trigger comparison remains pending.
+
+The crowded-city correction was also checked against the exact complete recorded
+session and bounded-cache stress cases. The final short live retest did not
+reach both cache limits. Hostile-player colors in Abyss, other arena modes,
+overworld duels and party-ally classification still need live validation.
+Unverified relations retain base colors. No player NPC species/level or missing
+resource maxima are invented.
+
+The application remains **Alpha**, Hotbar **experimental**, and DPS **Beta**.
+World-boss party damage gaps, incomplete combat coverage and unsupported map
+profiles remain under investigation. Existing preferences, character presets,
+history and original HUD exports are preserved.
+
+Download: [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0)
+· [Updated roadmap](https://github.com/Carchutin19/Aion-2-Helper/blob/main/ROADMAP.md)
+
+---
+
 # Aion 2 Helper v1.19.1 Alpha — Hotbar Fixes & Clearer Settings
 
 This update fixes the reproduced empty skill bar reported by community players,

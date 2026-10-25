@@ -21,6 +21,8 @@
 | **Spacetime Rift alerts** | Scheduled advance, opening and closing alerts, entry countdown and time-zone conversion. **Schedule-based, not live portal detection.** | [v1.17.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.17.0) |
 | **Gathering / Crafting overlay** | Resource names, supported types and a customizable three-segment remaining-use bar, based on supported profiles and your own interactions. | [v1.18.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.18.0) |
 | **Rounded overlay blur** | Cleaner pet soul-card backdrop and optional dark DPS blur. Ordinary transparency remains the fallback on unsupported systems. | [v1.18.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.18.0) |
+| **Staggered screen effect** | Optional centered text, broken ring and glow; separate text/effect colors and Test effect under Progress bar > Stagger. Disabled by default. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
+| **Our target & Target of target** | Supported NPC/player HP and focus, with four color palettes sharing one layout. Neutral-NPC and PvP classification has limited confirmed coverage. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | **Custom skill Hotbar** | Detected icons, received cooldowns and supported reductions/resets; group/individual layouts, snap, hidden slots, character/server presets, looping preview and optional native skill-bar hiding. **Experimental.** [Setup guide](docs/HOTBAR.md). | [v1.19.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.0) |
 
 These highlights include community requests. Other existing modules and complete changes are documented in the [README](README.md) and [release notes](RELEASE-NOTES.md).
@@ -36,7 +38,10 @@ is described separately from cases that still need more testing.
 | ✅ Confirmed | **Original hotbar hiding did not persist:** replaced automatic saved-settings edits with an original-preserving exported HUD copy. Import/select it in game, **Save and leave the editor**. The game can stay open; the companion confirmed this workflow works. [Guide](docs/HOTBAR.md). | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | ✅ Reviewed | **Crowded Hotbar/Pets Widget settings:** clearer section spacing, aligned controls and numbered HUD instructions. Collection and Atlas layouts are retained. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | 🟡 Change shipped; feedback welcome | **Tray menu closing too quickly:** switched to a reusable native context menu. Local command/lifetime checks passed; further Windows hidden-icon-panel confirmation is welcome. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
-| 🟡 Reports to reproduce | **Overlay availability in Abyss / Pesadilla:** missing Hotbar and, in some cases, other overlays have been reported. Controlled zone-entry comparisons are planned after the stagger effect; causes and affected layouts are not established. | Investigation queued |
+| ✅ Confirmed in tested zones | **Abyss / Pesadilla recovery:** live entry/exit tests confirmed Pesadilla Hotbar recovery and Abyss HP/MP, focus and own pet soul notices. Other zone profiles remain under validation. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
+| ✅ Confirmed in tested cases | **Selected-player HP and target of target:** neutral players and normal 1v1 rivals now use received HP/focus. Neutral-player and 1v1 colors were visually confirmed. Hostile Abyss-player colors and other PvP/party modes remain unvalidated. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
+| ✅ Reproduction corrected | **NPC bars disappearing in crowded cities:** independent bounded NPC/player caches prevent player updates evicting stationary NPCs. Exact recorded comparison: 3/12 missing warehouse selections to 0/12; short live bars/colors check passed. Neutral NPC palette covers confirmed profiles only. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
+| 🟡 Setup documented; discovery can take time | **Exact distance after restarting Helper:** open Helper before fully launching Aion; character selection alone may miss setup. Correct startup confirmed working; no startup-speed improvement is claimed. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | 🟡 Investigating | **HP/MP gaps during some map transitions:** recovery still depends on supported fresh profile data. | Ongoing |
 | 🟡 Investigating | **World-boss party damage stops updating / incomplete combat coverage:** DPS remains Beta; totals and rankings can be incomplete. | Ongoing |
 
@@ -51,7 +56,6 @@ been reviewed.
 | :--- | :--- |
 | **FPS & GPU optimization** | Reuse drawing/composition resources, reduce unnecessary updates and continue validation under actual game load. Caching improvements are already included; this work is not marked complete or presented as a guaranteed FPS increase. |
 | **Hotbar compatibility & validation** | Validate more classes, charges/reloads, shared cooldown groups and contextual skill variants. Complete the automatic character-switch live comparison and validate further client/HUD variants of the new export/import workflow. |
-| **Stagger screen animation** | Current implementation priority: an optional centered STAGGER animation for a confirmed tracked-enemy stagger event. Initial controls: enable/disable, text color and glow/effect color, under Progress bar > Stagger. |
 | **Data coverage & reliability** | Continue investigating HP/MP loading gaps, unknown special targets and partial combat coverage, including the existing world-boss party-damage limitation. |
 
 ## 💡 Community requests
@@ -61,7 +65,7 @@ Released community features and corrections are listed above.
 
 | Status | Request | Intended scope |
 | :--- | :--- | :--- |
-| 🟡 In progress | **Stagger screen effect** | A centered STAGGER animation when the tracked enemy enters the supported stagger state. Optional switch at the end of the Stagger progress-bar settings, with separate text and glow/effect colors. Initial position is fixed at screen center. |
+| ✅ Available | **Staggered screen effect** | Optional centered animation, text/glow colors and Test effect; introduced in [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0). Preview approved and automatic-transition tests pass; separate controlled live trigger comparison remains pending. |
 | ⬜ Planned / feasibility to check | **Enemy status-effect visual removal** | Explore an option to hide visual effects associated with altered states/debuffs on enemies. Exact scope and compatibility need validation; this is separate from the existing selection-outline option. |
 | 🟡 Ongoing | **FPS & GPU optimization** | Continue reducing unnecessary drawing and updates; see ongoing work above. |
 | ⬜ Planned | **Special chest radar** | Explore reliable detection and location information for special chests. |
@@ -87,6 +91,8 @@ The list is **not a development order**. Feasibility depends on what can be reli
 - Rift alerts follow a schedule; the first local event-time comparison remains pending.
 - Atlas markers are reference locations, not live pet spawns.
 - Gathering supports the tested three-use rule for compatible profiles; it does not claim a universal maximum field or complete exact subtype coverage.
+- Neutral NPC colors use confirmed template/map pairs, not a generic allegiance flag. Normal 1v1 and neutral-player colors have live confirmation; other PvP and party cases remain limited.
+- Staggered is available; its preview was visually approved and received-state trigger logic passed isolated tests. A dedicated live trigger comparison remains pending.
 - Some HP/MP map-loading gaps and special targets without verified names remain. DPS is incomplete and stays in Beta.
 
 See each release's notes for the evidence and limits of that build.

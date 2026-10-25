@@ -4,7 +4,7 @@
 
 [🧭 Public roadmap](ROADMAP.md) · [Latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Report an issue](https://github.com/Carchutin19/Aion-2-Helper/issues)
 
-**Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Enemy/Enemy-target progress bars, FPS/Ping widgets and a
+**Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Our target/Target of target progress bars, FPS/Ping widgets and a
 DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, an experimental skill Hotbar with character presets, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.19.1 release — Hotbar Fixes & Clearer Settings](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.19.1/Aion-2-Helper-v1.19.1-windows-x64.zip).
+The [v1.20.0 release — Staggered & Target Colors](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.20.0/Aion-2-Helper-v1.20.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Hotbar and invitation notifications;
@@ -47,6 +47,28 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.20.0: Staggered & Target Colors
+
+- **Staggered:** optional centered text, broken ring and glow animation, with
+  text/effect colors and **Test effect** under **Progress bar > Stagger**.
+  Disabled by default; automatic playback uses confirmed received transitions.
+- **Our target / Target of target:** renamed bars now include supported selected
+  players, received HP and focus. Four independent color palettes cover enemy
+  NPCs, confirmed neutral NPCs, enemy players and neutral players, with a shared
+  position, size and text layout. Existing settings are retained.
+- **Zone fixes:** Hotbar recovery on Pesadilla entry/exit, plus supported Abyss
+  HP/MP profiles, focus, identity and pet soul notices, confirmed in live tests.
+- **NPC retention:** separate bounded NPC/player caches correct the reproduced
+  disappearing warehouse bar in crowded areas.
+- **Distance setup:** for optional exact distance, start the Helper before fully
+  launching Aion. After restarting the Helper mid-session, restart Aion with
+  the Helper open. Initial discovery can take time; no speedup is claimed.
+
+Neutral NPC recognition is limited to confirmed profiles. Normal 1v1 and neutral
+player colors were visually checked; hostile Abyss players and other PvP modes
+still need validation. See [target details](#selected-targets-and-color-palettes),
+[release notes](RELEASE-NOTES.md) and the updated [roadmap](ROADMAP.md).
 
 ## New in v1.19.1: Hotbar Fixes & Clearer Settings
 
@@ -248,6 +270,33 @@ still need testing. The in-app upgrade was subsequently confirmed working
 by the author and another user. Missing
 handshakes/profiles or unsupported layouts can still hide data. See the
 [complete release notes](RELEASE-NOTES.md) for evidence, limits and troubleshooting.
+
+## Selected targets and color palettes
+
+The experimental bars are now named **Our target** and **Target of target**
+under **Settings → Progress bar**. Selected players use their received name and
+current/maximum HP as well as NPCs. Target of target follows received focus data.
+
+**Our target** has four color presets: **Enemy NPC**, **Neutral NPC**,
+**Enemy player** and **Neutral player**. The preview selector edits each preset independently. All
+four share one position, size, text layout, scale and effect configuration;
+changing a preset changes only colors. Existing NPC colors and saved layout are
+retained.
+
+Neutral-NPC recognition currently covers the exact warehouse/Command Merchant
+profiles confirmed on the tested world map; other NPCs keep base colors. Its
+limited catalogue is documented in [NPC metadata](assets/npcs/README.md). Crowded
+cities no longer let player updates evict stationary NPC profiles: NPC and player
+records have independent bounded quotas. Existing-record refreshes do not evict
+other profiles.
+
+Player colors use the announced faction on the tested world/Abyss maps and the
+received two-team roster in the two tested normal 1v1 arenas. Same-faction arena
+opponents are handled by their teams. Unsupported maps/rosters retain base colors;
+other arena modes and overworld duel rules still need validation. Recorded
+neutral selections and two 1v1 matches pass the local regression checks. Neutral
+player, normal 1v1 and confirmed neutral-NPC colors were visually checked. A
+hostile player in Abyss and broader PvP/party cases still need live validation.
 
 ## New in v1.13.0: Experimental enemy bars and built-in updates
 
@@ -859,7 +908,7 @@ Energy Bar has **Behavior**, **Appearance**, and **Position & size** tabs,
 with a persistent preview above them.
 
 **Progress bar** replaces the Energy Bar section.
-Choose **Energy bar**, **Stagger**, **Enemy health**, **Enemy target**,
+Choose **Energy bar**, **Stagger**, **Our target**, **Target of target**,
 **Player health** or **Player MP** before adjusting independent settings.
 The Stagger tab also includes its separate countdown controls.
 
@@ -925,7 +974,7 @@ The progress-bar, combat and notification modules passively capture Aion TCP tra
 reconstruct the stream, decode framed/LZ4 messages, and read supported HP/MP, energy,
 identity, party, incoming invitation and combat updates.
 By default these modules do not read game memory. The optional **Progress bar →
-Enemy health → Details → Exact distance (reads game memory)** setting is off by
+Our target → Details → Exact distance (reads game memory)** setting is off by
 default. When enabled together with the enemy bar and metres, it reads the game
 session key from Aion's process memory to decode outgoing movement and calculate
 distance from player and enemy coordinates. Enable it before starting Aion;

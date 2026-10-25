@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Automation;
@@ -9,8 +9,8 @@ internal static class UiLanguage {
     internal static string Normalize(string language){return language=="es"?"es":"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
-        {"WHAT'S NEW · v1.19.1 · Hotbar Fixes & Clearer Settings","NOVEDADES · v1.19.1 · Correcciones de hotbar y ajustes más claros"},
-        {"Fixed hotbar detection on an affected community PC. To hide only the original skill bars, export your current HUD and use Hotbar > Create HUD without hotbar. Import the generated copy in AION 2, select its preset, Save and leave the HUD editor. Your layout and original export are retained; the game can stay open. Hotbar and Pets settings have clearer spacing, and the tray uses a native context menu. Existing settings are preserved; Hotbar remains experimental and DPS Beta.","Corregida la detección de la hotbar en el equipo de un usuario de la comunidad. Para ocultar solo las barras originales, exporta tu HUD actual y usa Hotbar > Crear HUD sin hotbar. Importa la copia en AION 2, selecciona su preajuste, pulsa Guardar y sal del editor de HUD. Se conservan tu distribución y el archivo original; el juego puede seguir abierto. Hotbar y Pets tienen apartados más separados y la bandeja usa un menú nativo. Se conservan los ajustes; Hotbar sigue experimental y DPS en Beta."},
+        {"WHAT'S NEW · v1.20.0 · Staggered & Target Colors","NOVEDADES · v1.20.0 · Staggered y colores de objetivos"},
+        {"New optional Staggered screen effect with text/glow colors and a Test effect button under Progress bar > Stagger. Enemy health is now Our target; Enemy target is Target of target. Four target color presets share your existing layout. Selected-player HP and focus, Pesadilla Hotbar recovery, Abyss resource/pet data and crowded-city NPC retention have been corrected in tested cases. Exact distance needs the Helper open before fully launching Aion; initial discovery can take time. Neutral NPC and PvP color coverage remains limited. Settings are preserved; Hotbar remains experimental and DPS Beta.","Nuevo efecto Staggered opcional, con colores de texto/brillo y botón Probar efecto en Barras de progreso > Tambaleo. Enemy health pasa a Nuestro objetivo; Enemy target, a Objetivo del objetivo. Cuatro paletas comparten tu distribución actual. Corregidos los casos probados de vida/foco de jugadores, hotbar en Pesadilla, recursos/mascotas en Abismo y pérdida de NPC en ciudades. La distancia exacta necesita el Helper abierto antes de arrancar Aion por completo; la detección inicial puede tardar. La cobertura de colores de NPC neutrales y PvP sigue siendo limitada. Se conservan los ajustes; Hotbar sigue experimental y DPS en Beta."},
 
         {"Unlock widgets in General to move and resize your Helper bar.","Desbloquea los widgets en General para mover y ajustar el tamaño de tu barra del Helper."},
         {"Export your current HUD","Exporta tu HUD actual"},
@@ -332,9 +332,9 @@ internal static class UiLanguage {
         {"Lock status color","Color del estado de bloqueo"},
         {"Bold lock status","Estado de bloqueo en negrita"},
         {"TARGET SELECTION","SELECCIÓN DEL ENEMIGO"},
-        {"Show only with a locked enemy","Mostrar solo con un enemigo bloqueado"},
-        {"When enabled, this bar appears only while an enemy is locked with Tab. Unlocked widgets remain visible for editing.","Al activarlo, esta barra solo aparece si tienes un enemigo bloqueado con Tab. Los widgets desbloqueados siguen visibles para editarlos."},
-        {"Lock an enemy with Tab","Bloquea un enemigo con Tab"},
+        {"Show only with a locked target","Mostrar solo con un objetivo bloqueado"},
+        {"When enabled, this bar appears only while a target is locked with Tab. Unlocked widgets remain visible for editing.","Al activarlo, esta barra solo aparece si tienes un enemigo bloqueado con Tab. Los widgets desbloqueados siguen visibles para editarlos."},
+        {"Lock a target with Tab","Bloquea un enemigo con Tab"},
 
         {"Exact distance (reads game memory)","Distancia exacta (lee memoria del juego)"},
         {"Reads Aion session keys from game memory and uses outgoing movement packets. Off by default. Enable before opening Aion; if already playing, restart the game. Only active while this bar and metres are enabled.","Lee la clave de sesión en la memoria de Aion y usa los paquetes de movimiento que envía el juego. Desactivada por defecto. Actívala antes de abrir Aion; si ya estás jugando, reinicia el juego. Solo trabaja con esta barra y los metros activados."},
@@ -360,17 +360,17 @@ internal static class UiLanguage {
         {"Show distance in metres","Mostrar distancia en metros"},
         {"At character level 45, displays 45 (base level). The base level is sent by the game.","Con tu personaje al nivel 45, muestra 45 (nivel base). El juego envía el nivel base."},
         {"Show base level in parentheses","Mostrar nivel base entre paréntesis"},
-        {"Show enemy level","Mostrar nivel del enemigo"},
-        {"ENEMY DETAILS","DETALLES DEL ENEMIGO"},
+        {"Show NPC level","Mostrar nivel del NPC"},
+        {"TARGET DETAILS","DETALLES DEL OBJETIVO"},
         {"Name color when targeting you","Color del nombre cuando te selecciona"},
         {"Scales this bar, its name, values and countdown together. Text is redrawn at the final size.","Escala esta barra, su nombre, valores y contador juntos. El texto se dibuja al tamaño elegido."},
         {"Whole widget scale","Escala completa del widget"},
         {"WIDGET SCALE","ESCALA DEL WIDGET"},
         {"Color when targeting you","Color cuando te selecciona"},
-        {"Different color when the enemy targets you","Color diferente cuando el enemigo te selecciona"},
+        {"Different color when the target is you","Color diferente cuando tú eres el objetivo"},
         {"TARGET IDENTITY","IDENTIDAD DEL OBJETIVO"},
-        {"Waiting for confirmed enemy target and health","Esperando el objetivo del enemigo y sus datos de vida"},
-        {"Enemy target disabled","Objetivo del enemigo desactivado"},
+        {"Waiting for received target of target and health","Esperando el objetivo del enemigo y sus datos de vida"},
+        {"Target of target disabled","Objetivo del objetivo desactivado"},
         {"Reset name","Restablecer nombre"},
         {"Bold name","Nombre en negrita"},
         {"Name color","Color del nombre"},
@@ -380,11 +380,14 @@ internal static class UiLanguage {
         {"Name size","Tamaño del nombre"},
         {"Show name","Mostrar nombre"},
         {"NAME","NOMBRE"},
-        {"Enemy target","Objetivo del enemigo"},{"Enable enemy target","Activar objetivo del enemigo"},{"Experimental enemy target: shows the health and name of whoever the enemy targets, including nearby players. Open the helper before entering your character. If your health data is missing, return to character selection and enter again. It never estimates maximum health.","Objetivo del enemigo experimental: muestra la vida y el nombre de quien tenga seleccionado el enemigo, incluidos jugadores cercanos. Abre el helper antes de entrar con tu personaje. Si faltan tus datos de vida, vuelve a la selección de personaje y entra otra vez. No estima la vida máxima."},
+        {"Target of target","Objetivo del objetivo"},{"Enable target of target","Activar objetivo del objetivo"},{"Shows the received name and health of whoever your selected target is targeting, including players. Open the Helper before entering your character.","Muestra el nombre y la vida recibidos de quien tenga seleccionado tu objetivo, incluidos jugadores. Abre el Helper antes de entrar con tu personaje."},
         {"ENEMY NAME","NOMBRE DEL ENEMIGO"},{"Show enemy name","Mostrar nombre del enemigo"},{"Enemy name size","Tamaño del nombre"},{"Enemy name position","Posición del nombre"},{"Enemy name horizontal offset","Desplazamiento horizontal del nombre"},{"Enemy name vertical offset","Desplazamiento vertical del nombre"},{"Enemy name color","Color del nombre"},{"Bold enemy name","Nombre en negrita"},{"Reset enemy name","Restablecer nombre del enemigo"},
-        {"Enemy health","Vida del enemigo"},{"Enable enemy health","Activar vida del enemigo"},
-        {"Enemy health disabled","Vida del enemigo desactivada"},{"Waiting for an enemy attack or target selection","Esperando un ataque o la selección de un enemigo"},
-        {"Experimental enemy health: follows your locked target, or the primary enemy of an attack. The bar hides on death or missing data. If no enemy appears, dash once to identify your character and move closer to a new enemy. Level, distance and known types can be shown independently. Start the helper before entering your character for initial level and position data.","Vida del enemigo experimental: sigue al objetivo bloqueado o al objetivo principal de tu ataque. Se oculta al morir o si faltan datos. Si no aparece, haz un dash para identificarte y acércate a otro enemigo. El nivel, la distancia y la categoría siguen en investigación."},
+        {"Selected target's target","Objetivo de tu objetivo"},{"Selected NPCs and players","NPC y jugadores seleccionados"},
+        {"Neutral NPC","NPC neutral"},
+        {"Preview and edit colors","Vista previa y colores"},{"Target color preset","Paleta del objetivo"},{"Enemy NPC","NPC enemigo"},{"Enemy player","Jugador enemigo"},{"Neutral player","Jugador neutral"},{"Reset selected colors","Restablecer colores seleccionados"},
+        {"Our target","Nuestro objetivo"},{"Enable our target","Activar nuestro objetivo"},
+        {"Our target disabled","Nuestro objetivo desactivado"},{"Waiting for an attack or target selection","Esperando un ataque o la selección de un objetivo"},
+        {"Follows your selected NPC or player, or the primary target of your attack. Layout and text settings are shared; the preview selector edits only colors. Player colors use faction in the world and received teams in supported 1v1 arenas. Unknown modes keep the base colors.","Sigue al NPC o jugador seleccionado, o al objetivo principal de tu ataque. La distribución y los textos son comunes; el selector de vista previa edita solo colores. Los colores de jugadores usan la facción en el mundo y los equipos recibidos en las arenas 1 contra 1 compatibles. Los modos sin identificar conservan los colores base."},
         {"WHAT'S NEW · v1.12.1","NOVEDADES · v1.12.1"},
         {"Intro status recovery and diagnostics: specific messages distinguish unreadable records, unsupported formats, folder mismatches and invalid hashes. Copy intro diagnostics includes the details needed for feedback. The reported warning cleared in the local retest; the video and verified original backup were unchanged. The Startup menu is cleaner. DPS remains in Beta; known world-boss/PvP issues are unchanged.","Estado y diagnóstico de la intro: mensajes específicos para registros ilegibles, formatos no compatibles, otras carpetas y hashes inválidos. Copiar diagnóstico de la intro reúne los detalles para informar del problema. El aviso desapareció en la nueva prueba local; el vídeo y la copia original se conservaron. El menú Inicio es más limpio. El DPS sigue en Beta y los problemas conocidos de jefes de mundo abierto/PvP siguen pendientes."},
         {"Copy intro diagnostics","Copiar diagnóstico de la intro"},{"The intro backup record could not be read. Copy intro diagnostics to report this problem.","No se pudo leer el registro de la copia de la intro. Copia el diagnóstico para informar del problema."},{"The intro backup belongs to an unsupported format.","La copia de la intro tiene un formato no compatible."},{"The intro backup uses a different replacement video.","La copia de la intro corresponde a otro vídeo de sustitución."},{"The intro backup belongs to a different game folder.","La copia de la intro corresponde a otra carpeta del juego."},{"The intro backup contains an invalid original hash.","El hash del vídeo original en el registro de la intro no es válido."},
@@ -417,6 +420,7 @@ internal static class UiLanguage {
         {"VALUES & TEXT","VALORES Y TEXTO"},{"Show current value","Mostrar valor actual"},{"Show maximum value","Mostrar valor máximo"},{"Show percentage","Mostrar porcentaje"},
         {"Current value position","Posición del valor actual"},{"Maximum value position","Posición del valor máximo"},{"Percentage position","Posición del porcentaje"},{"Value text color","Color del texto de valores"},
         {"Above · left","Arriba · izquierda"},{"Above · center","Arriba · centro"},{"Above · right","Arriba · derecha"},{"Below · left","Abajo · izquierda"},{"Below · center","Abajo · centro"},{"Below · right","Abajo · derecha"},
+        {"STAGGER SCREEN EFFECT","ANIMACIÓN EN PANTALLA"},{"Show animation when the enemy is staggered","Mostrar animación cuando el enemigo entra en tambaleo"},{"Staggered text color","Color del texto Staggered"},{"Glow and effect color","Color del resplandor y del efecto"},{"Test effect","Probar efecto"},{"A broken ring, a flash and Staggered appear at the center of the screen. Test effect plays once, even with the automatic animation off.","Un anillo fragmentado, un destello y Staggered aparecen en el centro de la pantalla. Probar efecto lo reproduce una vez, incluso con la animación automática desactivada."},
         {"STAGGER COUNTDOWN","CUENTA ATRÁS DEL TAMBALEO"},{"Show stagger countdown","Mostrar cuenta atrás del tambaleo"},{"Countdown position","Posición de la cuenta atrás"},{"Countdown text size","Tamaño de la cuenta atrás"},{"Countdown color","Color de la cuenta atrás"},
         {"Countdown luminous outline","Borde luminoso de la cuenta atrás"},{"Countdown glow intensity","Intensidad del brillo de la cuenta atrás"},{"Shrink countdown text","Reducir el texto de la cuenta atrás"},{"Final countdown scale","Escala final de la cuenta atrás"},{"Reference stagger duration","Duración de referencia del tambaleo"},
         {"During the estimated countdown, the bar fills visually from empty to full. Numeric labels retain the actual game value. New game data or an inactive phase overrides the animation.","Durante la cuenta atrás estimada, la barra se rellena visualmente de vacía a llena. Los textos numéricos conservan el valor real del juego. Los nuevos datos o una fase inactiva sustituyen la animación."},
