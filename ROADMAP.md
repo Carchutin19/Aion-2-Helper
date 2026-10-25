@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated October 24, 2026.**
+**Built with the community. Updated October 25, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -36,6 +36,7 @@ is described separately from cases that still need more testing.
 | ✅ Confirmed | **Original hotbar hiding did not persist:** replaced automatic saved-settings edits with an original-preserving exported HUD copy. Import/select it in game, **Save and leave the editor**. The game can stay open; the companion confirmed this workflow works. [Guide](docs/HOTBAR.md). | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | ✅ Reviewed | **Crowded Hotbar/Pets Widget settings:** clearer section spacing, aligned controls and numbered HUD instructions. Collection and Atlas layouts are retained. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | 🟡 Change shipped; feedback welcome | **Tray menu closing too quickly:** switched to a reusable native context menu. Local command/lifetime checks passed; further Windows hidden-icon-panel confirmation is welcome. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
+| 🟡 Reports to reproduce | **Overlay availability in Abyss / Pesadilla:** missing Hotbar and, in some cases, other overlays have been reported. Controlled zone-entry comparisons are planned after the stagger effect; causes and affected layouts are not established. | Investigation queued |
 | 🟡 Investigating | **HP/MP gaps during some map transitions:** recovery still depends on supported fresh profile data. | Ongoing |
 | 🟡 Investigating | **World-boss party damage stops updating / incomplete combat coverage:** DPS remains Beta; totals and rankings can be incomplete. | Ongoing |
 
@@ -50,9 +51,23 @@ been reviewed.
 | :--- | :--- |
 | **FPS & GPU optimization** | Reuse drawing/composition resources, reduce unnecessary updates and continue validation under actual game load. Caching improvements are already included; this work is not marked complete or presented as a guaranteed FPS increase. |
 | **Hotbar compatibility & validation** | Validate more classes, charges/reloads, shared cooldown groups and contextual skill variants. Complete the automatic character-switch live comparison and validate further client/HUD variants of the new export/import workflow. |
+| **Stagger screen animation** | Current implementation priority: an optional centered STAGGER animation for a confirmed tracked-enemy stagger event. Initial controls: enable/disable, text color and glow/effect color, under Progress bar > Stagger. |
 | **Data coverage & reliability** | Continue investigating HP/MP loading gaps, unknown special targets and partial combat coverage, including the existing world-boss party-damage limitation. |
 
-## ⬜ Planned features
+## 💡 Community requests
+
+Requests from players are kept separate from the personal feature roadmap.
+Released community features and corrections are listed above.
+
+| Status | Request | Intended scope |
+| :--- | :--- | :--- |
+| 🟡 In progress | **Stagger screen effect** | A centered STAGGER animation when the tracked enemy enters the supported stagger state. Optional switch at the end of the Stagger progress-bar settings, with separate text and glow/effect colors. Initial position is fixed at screen center. |
+| ⬜ Planned / feasibility to check | **Enemy status-effect visual removal** | Explore an option to hide visual effects associated with altered states/debuffs on enemies. Exact scope and compatibility need validation; this is separate from the existing selection-outline option. |
+| 🟡 Ongoing | **FPS & GPU optimization** | Continue reducing unnecessary drawing and updates; see ongoing work above. |
+| ⬜ Planned | **Special chest radar** | Explore reliable detection and location information for special chests. |
+| ⬜ Planned | **Controller support** | A system for integrating controller input with the Helper. |
+
+## ⬜ Personal roadmap
 
 | Feature | Intended scope |
 | :--- | :--- |
@@ -60,8 +75,7 @@ been reviewed.
 | **World-boss tracker** | Supported active-boss information, locations, timers based on detection time and optional notifications. |
 | **Custom cast bar** | A customizable casting-progress overlay with adjustable information, appearance, size and position. This is separate from Hotbar cooldowns. |
 | **Custom NPC nameplates** | Adjustable NPC nameplates to improve readability and control the information displayed. |
-| **Special chest radar** | Explore reliable detection and location information for special chests. |
-| **Controller support** | A system for integrating controller input with the Helper. |
+| **Custom floating combat text** | A customizable floating combat-text overlay for outgoing damage, healing and incoming damage: the combat numbers displayed on screen, based on supported game events. |
 
 The list is **not a development order**. Feasibility depends on what can be reliably read or measured.
 
