@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -271,6 +271,7 @@ internal static class Entry {
         if(args.Length==2&&args[0]=="--player-shields-replay-test"){try{PlayerShieldVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"player-shields-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--player-vitals-test"){try{PlayerVitalVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"player-vitals-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==2&&args[0]=="--player-vitals-replay-test"){try{PlayerVitalVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"player-vitals-replay-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--floating-text-test"){try{FloatingTextVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"floating-text-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--stagger-effect-test"){try{StaggerScreenEffectVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"stagger-effect-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--progress-test"){try{ProgressVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"progress-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-test"){try{PingVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-test.txt"),"FAIL: "+ex);return 1;}}
@@ -323,6 +324,7 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--fps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenFpsSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--notifications-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenNotificationSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--ping-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenPingSettings));};Application.Run(overlay);return 0;}
+        if(args.Length>0&&args[0]=="--floating-text-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenFloatingTextSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--stagger-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenStaggerSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--dps-settings"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsSettings));};Application.Run(overlay);return 0;}
         if(args.Length>0&&args[0]=="--dps-history"){var overlay=new EnergyOverlay(root);overlay.Shown+=delegate{overlay.BeginInvoke(new Action(overlay.OpenDpsHistory));};Application.Run(overlay);return 0;}

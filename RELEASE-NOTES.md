@@ -1,3 +1,62 @@
+# Aion 2 Helper v1.21.0 Alpha — Floating Combat Text
+
+Custom floating numbers for damage dealt, damage taken and healing received,
+with independent appearance, movement and placement.
+
+## Floating Combat Text
+
+- New **Floating Text** settings page with **Damage dealt**, **Damage taken**
+  and **Healing received** tabs. Disabled by default; enable the module and
+  the categories you want to see.
+- Independent position, font size, scale, text color, outline color/thickness,
+  opacity, lifetime and travel distance. Choose movement **up or down**.
+- **Horizontal spread: 0–160%** and **Vertical spacing: 0–40 px**, independently
+  per category. Lower both to group numbers more closely. Burst placement avoids
+  overlapping active numbers within the available area; dense bursts use a
+  bounded visible list rather than an unlimited backlog.
+- Numbers fade in and out, with **!!** on confirmed critical hits. Incoming
+  damage uses **−** and received healing **+**. Bahnschrift with Segoe UI fallback.
+- Unlock widgets in **General** to drag each category's anchor or resize using
+  its lower-right corner. **Test floating text / Stop test** loops a simulation
+  without changing live values or the activation preference.
+- Uses supported incoming combat events independently of DPS-meter visibility.
+  Healing values are announced amounts and can include overhealing. Unsupported
+  events are omitted; amounts and criticals are never guessed from HP changes.
+
+## Detection, animation and reliability
+
+- Corrected identity tracking when enabling Floating Text after character entry;
+  supported identity already received by the Helper can be retained/recovered
+  without waiting for a new instance. Different flows/maps clear old events.
+- Fixed trajectories keep existing numbers in place when other hits arrive or
+  expire. Cached glyphs, persistent cropped drawing surfaces and an active-only
+  frame scheduler reduce repeated drawing and avoid idle animation updates.
+- Corrected Hotbar rejection when the capture clock leads the UI clock. Live
+  cooldowns use local reception time while retaining stale/reset safeguards.
+- Isolated checks and existing-session replays passed. The earlier build showed
+  numbers in game; a fresh live comparison of this animation revision remains
+  pending. No universal FPS improvement or complete combat coverage is claimed.
+
+## Keep your configuration
+
+The built-in updater preserves personal configuration. For a manual move to a
+new folder, close the Helper first, back up your existing files, then copy:
+
+| File beside Aion2Helper.exe | What it preserves |
+| :--- | :--- |
+| `overlay-settings.json` | Overlay preferences, positions, colors, sizes and visibility. |
+| `hotbar-profiles.json` | Saved Hotbar layouts and labels per character/server. |
+| `pets-state.json` | Saved pet collection records and pins. |
+
+Missing files can be skipped. Keep the old folder as a backup; these files may
+contain character names. This transfers Helper settings, not the game's HUD.
+Other optional app preferences/history are described in the README.
+
+The application remains **Alpha**, Hotbar **experimental**, and DPS **Beta**.
+Existing incomplete combat coverage and other roadmap limitations still apply.
+
+---
+
 # Aion 2 Helper v1.20.0 Alpha — Staggered & Target Colors
 
 An optional Staggered screen effect, four target color palettes, selected-player

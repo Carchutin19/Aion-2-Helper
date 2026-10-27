@@ -5,24 +5,24 @@
 [🧭 Public roadmap](ROADMAP.md) · [Latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Report an issue](https://github.com/Carchutin19/Aion-2-Helper/issues)
 
 **Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Our target/Target of target progress bars, FPS/Ping widgets and a
-DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, an experimental skill Hotbar with character presets, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
+DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, floating combat text, an experimental skill Hotbar with character presets, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
 updates. Please report
 problems through [GitHub Issues](https://github.com/Carchutin19/Aion-2-Helper/issues).
 
 Aion 2 Helper is a community project that brings useful game information into
-movable, customizable overlays: progress bars, combat analysis, FPS/ping, pet tracking, gathering, a skill Hotbar and
+movable, customizable overlays: progress bars, combat analysis, FPS/ping, pet tracking, gathering, floating combat text, a skill Hotbar and
 notifications, with optional startup and visual settings.
 
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.20.0 release — Staggered & Target Colors](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.20.0/Aion-2-Helper-v1.20.0-windows-x64.zip).
+The [v1.21.0 release — Floating Combat Text](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.21.0/Aion-2-Helper-v1.21.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
-for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Hotbar and invitation notifications;
+for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
@@ -31,6 +31,27 @@ stats when you enter the world. Opening it after character entry can miss that s
 a saved/default reference that may affect auto-hide. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
+
+## Moving your configuration to a new version
+
+**The built-in updater preserves your settings automatically.** If you extract
+a new version into a different folder, close the Helper first, keep a backup of
+the old folder and copy these existing files beside the new `Aion2Helper.exe`:
+
+| File | Contents |
+| :--- | :--- |
+| `overlay-settings.json` | Widget settings, positions, colors, sizes and visibility. |
+| `hotbar-profiles.json` | Hotbar layouts/labels per character and server. |
+| `pets-state.json` | Saved pet collection records and pins. |
+
+Skip files that do not exist. Optional files are `combat-history*.json*` for
+combat history, `update-settings.json` for update preferences, and
+`game-launch.json`, `game-tweaks.json` and `visual-tweaks.json` for local
+installation/launch/tweak preferences. Machine-specific paths may need to be
+selected again on another PC. Game-tweak backup files remain in
+`%LOCALAPPDATA%\Aion2Helper`; copying preferences alone does not transfer them.
+This is separate from the game's HUD export/import workflow. Do not share
+personal configuration publicly without checking its contents.
 
 ## Discord
 
@@ -47,6 +68,36 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.21.0: Floating Combat Text
+
+A separate **Floating Text** page provides **Damage dealt**, **Damage taken** and
+**Healing received** tabs. Each has its own enable switch, spawn position, scale,
+text/outline colors, outline thickness, opacity, duration, travel distance and
+up/down direction. Burst numbers use separated columns/rows with configurable
+horizontal spread (0–160%) and vertical spacing (0–40 px), both adjustable down to zero. Numbers fade in, move and fade out; confirmed criticals append
+**!!**. Bahnschrift is used with a Segoe UI fallback. No background is drawn.
+
+Use **Test floating text / Stop test** to loop simulated numbers for the selected
+category. Unlock widgets in General to move each anchor or scale it with its
+lower-right corner. The inline preview pauses when Settings is inactive.
+
+The feature is off by default and uses the existing shared decoder independently
+of DPS-meter visibility/scope. Only decoded impacts involving the confirmed own
+character are eligible. Direct/periodic coverage is limited to supported event
+layouts; healing is the announced amount and can include overhealing. Unknown
+critical flags do not add exclamations. No amounts are inferred from HP changes.
+
+Identity, connection and map changes clear old numbers; input is bounded to 128
+queued events and 16 visible entries per category. Animation uses monotonic time and stable trajectories so new impacts do not
+reposition older numbers. Cached drawing and an active-only frame scheduler
+reduce repeated work; its timer stops when idle. Local tests and existing-session replays passed;
+visual comparison of this animation revision in a fresh live session remains pending. The earlier build showed numbers during play.
+
+The included Hotbar correction anchors live reception to the UI clock. A
+long-running Npcap clock offset had hidden a valid received eleven-skill bar.
+The regression reproduces a 1.5-second capture-clock lead and verifies normal
+cooldown duration, true stale timeout and transport reset. Live retest pending.
 
 ## New in v1.20.0: Staggered & Target Colors
 
@@ -832,7 +883,7 @@ or measured. They are not included in the current build.
 ## Getting started
 
 This is a Windows desktop application. **Npcap** is required for Player HP/MP,
-Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Hotbar and invitation notifications; FPS uses Windows presentation events and Ping uses
+Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications; FPS uses Windows presentation events and Ping uses
 per-connection Windows TCP statistics. The application was
 developed and tested with Aion 2 Global.
 

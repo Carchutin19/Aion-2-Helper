@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,12 +9,15 @@ internal sealed class SkillSlotsSignal {
  internal sealed class Cooldown {internal uint Raw,Peak;internal double At;internal bool FromCast;internal Cooldown Copy(){return (Cooldown)MemberwiseClone();}}
  internal sealed class View {internal uint Self,Map,ContextTarget;internal double FireMarkUntil;internal string Flow;internal long Revision;internal readonly List<Slot> Slots=new List<Slot>();internal readonly Dictionary<uint,Cooldown> Cooldowns=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  internal sealed class BarFault {public string Field;public int Offset,Record,Kind,Slot;public int? Value;}
- sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf;internal string SelfName,AwaitingName;internal double Traffic;internal bool HasBar,FullWhileAwaiting;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
+ sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf;internal string SelfName,AwaitingName;internal double Traffic,RawTraffic;internal bool HasBar,FullWhileAwaiting;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  sealed class BarTrace {
   public long FullReceived,FullAccepted,FullRejected,PartialReceived,PartialAccepted,PartialRejected,PartialWithoutFull,MapPauses,MapResumes;
   public int LastLength,LastRejectedLength;public string LastOpcode,LastRejectedOpcode,LastClear;public double? LastAt,LastRejectedAt,ClearedAt,PausedAt,ResumedAt;public BarFault LastRejection;
  }
  long resets;string lastReset;
+ // Runtime reception and the UI share a clock; recorded replays retain their
+ // supplied timestamps. Npcap can drift ahead of UTC during long sessions.
+ internal Func<double> ReceiptClock;
  readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();string active;bool enabled;long revision;View cached;internal Action Changed;
  internal void Configure(bool on){lock(gate){if(enabled==on)return;enabled=on;if(!on){flows.Clear();active=null;resets++;lastReset="module disabled";}cached=null;revision++;}}
  internal void Reset(){lock(gate){resets++;lastReset="transport reset";flows.Clear();active=null;cached=null;revision++;}Notify();}
@@ -64,7 +67,7 @@ internal sealed class SkillSlotsSignal {
  // An explicit 4738 zero does reset it, as does natural interval expiry.
  if(cast&&milliseconds==0&&(old.Raw>0||old.FromCast))return;
  old.Peak=cast?milliseconds:milliseconds==0?0:Math.Max(old.Peak,milliseconds);old.Raw=milliseconds;old.At=time;old.FromCast=cast;}
- internal void Consume(byte[] b,int s,int e,double time,string key){if(b==null||s<0||e>b.Length||e-s<2||e-s>65536||string.IsNullOrEmpty(key)||double.IsNaN(time)||double.IsInfinity(time))return;int op=b[s]*256+b[s+1];bool changed=false;lock(gate){Flow f;if(!flows.TryGetValue(key,out f)){if(op!=0x3336&&op!=0x2136&&op!=0x0056&&op!=0x0556)return;if(flows.Count>=4){var old=flows.Where(x=>x.Key!=active).OrderBy(x=>x.Value.Traffic).FirstOrDefault();if(old.Key==null)return;flows.Remove(old.Key);}flows[key]=f=new Flow();}if(time<f.Traffic)return;f.Traffic=time;
+ internal void Consume(byte[] b,int s,int e,double time,string key){if(b==null||s<0||e>b.Length||e-s<2||e-s>65536||string.IsNullOrEmpty(key)||double.IsNaN(time)||double.IsInfinity(time))return;double rawTime=time;if(ReceiptClock!=null){time=ReceiptClock();if(double.IsNaN(time)||double.IsInfinity(time))return;}int op=b[s]*256+b[s+1];bool changed=false;lock(gate){Flow f;if(!flows.TryGetValue(key,out f)){if(op!=0x3336&&op!=0x2136&&op!=0x0056&&op!=0x0556)return;if(flows.Count>=4){var old=flows.Where(x=>x.Key!=active).OrderBy(x=>x.Value.Traffic).FirstOrDefault();if(old.Key==null)return;flows.Remove(old.Key);}flows[key]=f=new Flow();}if(time<f.Traffic)return;f.Traffic=time;f.RawTraffic=rawTime;
  if(op==0x2136&&e-s==48){uint map=BitConverter.ToUInt32(b,s+6);if(map==0||map>=10000000)return;if(f.Map!=0&&f.Map!=map){
   // A map change does not necessarily resend0056 (recorded Pesadilla entry
   // and exit). Quarantine the received assignments/CD anchors until3336
@@ -106,7 +109,7 @@ internal sealed class SkillSlotsSignal {
  // user's native42s display; later corrections replace the same time anchor.
  internal static double Remaining(Cooldown cd,double now){return cd==null?0:Math.Max(0,cd.Raw/1000.0-Math.Max(0,now-cd.At));}
  // Bounded metadata only: no packet payloads, endpoints, keys or chat are retained.
- internal object Diagnostic(double now){lock(gate){Flow f=active!=null&&flows.ContainsKey(active)?flows[active]:null;return new{barDiagnosticsVersion=3,enabled,flows=flows.Count,ownActor=f==null?(uint?)null:f.Self,map=f==null?(uint?)null:f.Map,activeBar=f!=null&&f.HasBar,secondsSincePacket=f==null?(double?)null:Math.Max(0,now-f.Traffic),packetClockLead=f==null?(double?)null:Math.Max(0,f.Traffic-now),resets,lastReset,bar=f==null?null:f.Bar,barFlows=flows.Select(p=>new{active=p.Key==active,ownActor=p.Value.Self,awaitingOwnActor=p.Value.AwaitingSelf,map=p.Value.Map,activeBar=p.Value.HasBar,slots=p.Value.Slots.Count,bar=p.Value.Bar}).ToArray()};}}
+ internal object Diagnostic(double now){lock(gate){Flow f=active!=null&&flows.ContainsKey(active)?flows[active]:null;return new{barDiagnosticsVersion=4,receptionClock=ReceiptClock!=null,enabled,flows=flows.Count,ownActor=f==null?(uint?)null:f.Self,map=f==null?(uint?)null:f.Map,activeBar=f!=null&&f.HasBar,secondsSincePacket=f==null?(double?)null:Math.Max(0,now-f.Traffic),packetClockLead=f==null?(double?)null:Math.Max(0,f.Traffic-now),captureClockLead=f==null?(double?)null:f.RawTraffic-now,resets,lastReset,bar=f==null?null:f.Bar,barFlows=flows.Select(p=>new{active=p.Key==active,ownActor=p.Value.Self,awaitingOwnActor=p.Value.AwaitingSelf,map=p.Value.Map,activeBar=p.Value.HasBar,slots=p.Value.Slots.Count,bar=p.Value.Bar}).ToArray()};}}
  internal static bool IsFireContext(Slot slot){return Base(slot.Skill)==15280000&&Base(slot.Alternative)==15050000&&slot.Third==0;}
  internal static uint DisplaySkill(View view,Slot slot){return DisplaySkill(view,slot,DpsHistory.UtcNow());}
  internal static uint DisplaySkill(View view,Slot slot,double now){uint next;if(view!=null&&view.Chains.TryGetValue(Base(slot.Skill),out next))return next;

@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated October 25, 2026.**
+**Built with the community. Updated October 27, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -23,6 +23,7 @@
 | **Rounded overlay blur** | Cleaner pet soul-card backdrop and optional dark DPS blur. Ordinary transparency remains the fallback on unsupported systems. | [v1.18.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.18.0) |
 | **Staggered screen effect** | Optional centered text, broken ring and glow; separate text/effect colors and Test effect under Progress bar > Stagger. Disabled by default. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | **Our target & Target of target** | Supported NPC/player HP and focus, with four color palettes sharing one layout. Neutral-NPC and PvP classification has limited confirmed coverage. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
+| **Floating Combat Text** | Independent damage dealt/taken and received healing; text/outline colors, placement, scale, fade, up/down movement, duration, adjustable horizontal/vertical spacing from zero, preview and confirmed-critical **!!**. Supported combat events only. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
 | **Custom skill Hotbar** | Detected icons, received cooldowns and supported reductions/resets; group/individual layouts, snap, hidden slots, character/server presets, looping preview and optional native skill-bar hiding. **Experimental.** [Setup guide](docs/HOTBAR.md). | [v1.19.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.0) |
 
 These highlights include community requests. Other existing modules and complete changes are documented in the [README](README.md) and [release notes](RELEASE-NOTES.md).
@@ -42,6 +43,8 @@ is described separately from cases that still need more testing.
 | ✅ Confirmed in tested cases | **Selected-player HP and target of target:** neutral players and normal 1v1 rivals now use received HP/focus. Neutral-player and 1v1 colors were visually confirmed. Hostile Abyss-player colors and other PvP/party modes remain unvalidated. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | ✅ Reproduction corrected | **NPC bars disappearing in crowded cities:** independent bounded NPC/player caches prevent player updates evicting stationary NPCs. Exact recorded comparison: 3/12 missing warehouse selections to 0/12; short live bars/colors check passed. Neutral NPC palette covers confirmed profiles only. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | 🟡 Setup documented; discovery can take time | **Exact distance after restarting Helper:** open Helper before fully launching Aion; character selection alone may miss setup. Correct startup confirmed working; no startup-speed improvement is claimed. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
+| 🟡 Correction shipped; live comparison pending | **Hotbar hidden by capture-clock drift:** local receipt time avoids rejecting a valid bar when capture timestamps lead the UI clock. Duration, true stale and reset regression checks pass. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
+| 🟡 Correction shipped; feedback welcome | **Floating Text absent until instance entry / jerky motion:** identity can be retained/recovered on late enable; stable trajectories, cached cropped drawing and active-only pacing replace repeated positioning and drawing. Earlier numbers appeared in game; final animation revision awaits live comparison. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
 | 🟡 Investigating | **HP/MP gaps during some map transitions:** recovery still depends on supported fresh profile data. | Ongoing |
 | 🟡 Investigating | **World-boss party damage stops updating / incomplete combat coverage:** DPS remains Beta; totals and rankings can be incomplete. | Ongoing |
 
@@ -56,6 +59,7 @@ been reviewed.
 | :--- | :--- |
 | **FPS & GPU optimization** | Reuse drawing/composition resources, reduce unnecessary updates and continue validation under actual game load. Caching improvements are already included; this work is not marked complete or presented as a guaranteed FPS increase. |
 | **Hotbar compatibility & validation** | Validate more classes, charges/reloads, shared cooldown groups and contextual skill variants. Complete the automatic character-switch live comparison and validate further client/HUD variants of the new export/import workflow. |
+| **Floating Combat Text validation** | Available in v1.21.0. Continue live smoothness checks and expand supported damage/healing event coverage; validate more characters and dense bursts. |
 | **Data coverage & reliability** | Continue investigating HP/MP loading gaps, unknown special targets and partial combat coverage, including the existing world-boss party-damage limitation. |
 
 ## 💡 Community requests
@@ -79,7 +83,6 @@ Released community features and corrections are listed above.
 | **World-boss tracker** | Supported active-boss information, locations, timers based on detection time and optional notifications. |
 | **Custom cast bar** | A customizable casting-progress overlay with adjustable information, appearance, size and position. This is separate from Hotbar cooldowns. |
 | **Custom NPC nameplates** | Adjustable NPC nameplates to improve readability and control the information displayed. |
-| **Custom floating combat text** | A customizable floating combat-text overlay for outgoing damage, healing and incoming damage: the combat numbers displayed on screen, based on supported game events. |
 
 The list is **not a development order**. Feasibility depends on what can be reliably read or measured.
 
