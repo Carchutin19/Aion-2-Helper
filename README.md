@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.21.0 release — Floating Combat Text](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.21.0/Aion-2-Helper-v1.21.0-windows-x64.zip).
+The [v1.22.0 release — Connection Recovery & Critical Damage](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.22.0/Aion-2-Helper-v1.22.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
@@ -31,6 +31,28 @@ stats when you enter the world. Opening it after character entry can miss that s
 a saved/default reference that may affect auto-hide. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
+
+## New in v1.22.0
+
+- **Connection recovery for verified alternate game ports**, confirmed by the
+  affected ExitLag tester. Ordinary startup and exact-position paths are retained;
+  keep opening the Helper before Aion. Other VPN/routing setups need validation.
+- **General → Play with diagnostics**: optional bounded local **support-report.zip**
+  for reproducing problems and sending privately. Off by default; no automatic
+  upload, packet contents, chat or session keys. [Support-report guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/SUPPORT.md).
+- **Separate outgoing critical damage**: its own size, colors, outline and opacity,
+  either in the normal damage widget or a separate movable/scalable widget with
+  its own movement, duration and spacing. Each hit appears once, with confirmed
+  **!!** and a looping preview. [Critical-damage guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/FLOATING-TEXT.md).
+- **German, French and Arabic** interface options; primary controls are translated,
+  some advanced help remains in English, and Arabic settings use right-to-left
+  layout with numeric/code/preview direction preserved.
+- **Manufacturing stations no longer expose target HP/level**, while ordinary
+  merchants and other targets are preserved. **Locking widgets immediately hides
+  Floating Text editing references**, including independent criticals.
+
+See the [release notes](RELEASE-NOTES.md) for evidence and remaining limits.
+The executable is unsigned; Windows may still show a SmartScreen reputation warning.
 
 ## Moving your configuration to a new version
 
@@ -130,7 +152,7 @@ still need validation. See [target details](#selected-targets-and-color-palettes
   `Helper_HiddenHotbar` copy in AION 2. **Save and leave the HUD editor.** Your
   original export and other HUD settings are preserved. This works with the game
   open and replaces automatic native-settings edits. Repeat only for a new HUD
-  layout you want to use. [Step-by-step guide](docs/HOTBAR.md).
+  layout you want to use. [Step-by-step guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/HOTBAR.md).
 - **Clearer settings:** more separation between titles, cards and controls in
   Hotbar/Pets Widget, plus a numbered HUD guide and highlighted Save instruction.
   Collection and Atlas layouts are unchanged.

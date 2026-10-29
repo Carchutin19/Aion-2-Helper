@@ -1,3 +1,92 @@
+# Aion 2 Helper v1.22.0 Alpha — Connection Recovery & Critical Damage
+
+## Connection recovery
+
+- Detect and verify alternate game connections instead of relying exclusively on
+  one fixed server port. The affected community tester confirmed that the separate
+  ExitLag test build restored detection; that correction is now integrated.
+- Alternate connections must belong to Aion and contain a coherent own-character
+  profile and matching energy data before their buffered initial messages reach
+  the overlays. This preserves initial character/hotbar data and avoids duplicate
+  events when the same TCP data is delivered more than once.
+- Preserve the ordinary game-port path and optional exact-position capture.
+  Open the Helper before fully launching Aion. Other routing tools, regions and
+  every possible VPN configuration have not all been validated.
+
+## New: optional support reports in General
+
+- **General → Support & diagnostics → Play with diagnostics**. Off by default.
+- Enable it, reproduce the issue, then disable it to finish the report. For login
+  or connection problems, enable it before fully restarting Aion.
+- **Show support report** locates **support-report.zip** beside Aion2Helper.exe.
+  Send it privately with the problem description and steps to reproduce.
+- Reports record driver/connection counters, decoder progress and selected widget
+  state. Character/server identifiers may appear. No packet contents, chat, IP
+  endpoints or session keys are logged, and nothing is uploaded automatically.
+- Recording is bounded to 15 minutes / 8 MiB, keeps one previous ZIP, and reports
+  write errors. Background recording stops when disabled; ZIP snapshots refresh
+  at most every 30 seconds and are finalized on stop or Helper exit.
+- The option is saved. Turn it off after testing; turn it off/on for a new report.
+
+## New: separate critical damage styling and optional widget
+
+- **Floating Text → Damage dealt → Critical hits → Separate critical damage**.
+- Give confirmed outgoing criticals their own text size/scale, color, outline
+  color/thickness and opacity. Criticals still use **!!**; no critical is guessed.
+- Shared mode keeps the normal damage anchor, movement, lifetime and collision
+  spacing, with the new critical appearance.
+- Enable **Use an independent critical widget** for its own position, scale,
+  lifetime, travel, up/down direction and spacing. Criticals are removed from the
+  normal damage widget, so the same hit is never displayed twice.
+- **Test critical hits / Stop test**, an animated preview, drag/resize when
+  unlocked, undo/redo, saved settings and display-layout recovery are supported.
+- Separation is off by default. Incoming damage and received healing are unchanged.
+
+## Languages
+
+- Added **Deutsch**, **Français** and **العربية** to the language selector.
+- Primary controls and the new support/critical workflows are translated. Some
+  advanced help still falls back to English; translation coverage is not complete.
+- Arabic settings use right-to-left layout; numbers, HEX fields and visual
+  previews keep their intended direction. Language changes apply immediately.
+
+## Fixes
+
+- Do not show target HP/name/level for known manufacturing workstations, including
+  smithy, handicrafting, cooking and alchemy. A narrow native-template catalogue
+  also covers the named profession/counterpart/Legion workstation variants.
+  Ordinary merchants, enemies, selected players and unrelated same-family objects
+  retain their tracking. The filter also applies to target-of-target resolution.
+- Floating Text editing references, including independent criticals, now disappear
+  immediately when widgets are locked, without needing to press Done.
+- Preserve exact critical-widget layout references when returning to an earlier
+  monitor resolution. Existing settings, pet data and character Hotbar presets
+  are preserved by the normal updater.
+
+## Roadmap and current limits
+
+- Added **automatically hide Helper overlays while game menus are open** as a
+  planned feasibility investigation. It is not implemented in this release.
+- The reported **Conquest detection issue** remains queued for investigation.
+- Other map/data-coverage gaps and incomplete world-boss party damage remain open.
+  The application is Alpha, DPS Meter Beta, and Hotbar experimental.
+- The executable remains unsigned. Windows SmartScreen may show an unrecognized-
+  application warning; signing/reputation work is separate from the connection fix.
+
+## Validation
+
+- 30 isolated suites checked the exact packaged executable, including native
+  offline IPv4/IPv6 socket filters, alternate-flow identity/energy verification,
+  optional position-handshake fixtures, report privacy/finalization, critical
+  routing/rendering, language switching and existing module regressions.
+- The stable local recording replay contains 37,862 decoded frames with no decoder
+  errors: nine station selections are suppressed and four neutral-merchant
+  selections retain their bar data. The user confirmed the station and widget-lock
+  corrections in game. This does not establish universal coverage of all stations,
+  characters, clients or routing tools.
+
+---
+
 # Aion 2 Helper v1.21.0 Alpha — Floating Combat Text
 
 Custom floating numbers for damage dealt, damage taken and healing received,

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -20,6 +20,7 @@ internal sealed class DashSignal {
     static readonly object protocolGate=new object();static readonly Dictionary<string,HashSet<int>> protocols=new Dictionary<string,HashSet<int>>(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string,Flow> streams=new Dictionary<string,Flow>();readonly HashSet<int> known;readonly object gate=new object();readonly byte[][] decompression=new byte[5][];
     Reading reading;double lastTraffic;int samples,errors;
+    internal bool ProbeOnly,AllowOwnedPorts;
     internal uint Maximum=113900; // Manual fallback; never inferred from partially full energy.
     readonly Dictionary<string,Dictionary<uint,uint>> energyMaxima=new Dictionary<string,Dictionary<uint,uint>>();string readingStream;
     readonly Dictionary<string,uint> maps=new Dictionary<string,uint>();
@@ -33,13 +34,14 @@ internal sealed class DashSignal {
     }
     uint DetectedMaximum(){Dictionary<uint,uint> actors;uint value;return reading!=null&&readingStream!=null&&energyMaxima.TryGetValue(readingStream,out actors)&&actors.TryGetValue((uint)reading.Actor,out value)?value:0;}
     internal Snapshot ReadSnapshot(){lock(gate){return new Snapshot{Reading=reading,DetectedMaximum=DetectedMaximum(),LastTraffic=lastTraffic,Samples=samples,Errors=errors};}}
-    internal void Reset(){lock(gate){streams.Clear();energyMaxima.Clear();maps.Clear();readingStream=null;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
+    internal object SupportState(){lock(gate){return new{samples,errors,lastTraffic,knownOpcodes=known.Count,flows=streams.Values.Select((f,i)=>new{id=i+1,started=f.Started,synced=f.Synced,buffered=f.Count,pendingSegments=f.Pending.Count,pendingBytes=f.PendingBytes,prefixRecovery=f.PrefixRecovery}).ToArray()};}}
+    internal void Reset(){SupportDiagnostics.Event("decoder-reset",new{reason="Capture/transport reset"});lock(gate){streams.Clear();energyMaxima.Clear();maps.Clear();readingStream=null;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
     internal Reading Current {get{lock(gate){return reading;}}}
     internal double LastTraffic {get{lock(gate){return lastTraffic;}}}
     internal int Samples {get{lock(gate){return samples;}}}
     internal int Errors {get{lock(gate){return errors;}}}
     internal void Consume(Segment s,double ts){
-        if(s.SrcPort!=13328)return;
+        if(s.SrcPort!=13328&&!ProbeOnly&&!AllowOwnedPorts)return;
         lock(gate){lastTraffic=ts;Flow flow;
             if(!streams.TryGetValue(s.Key,out flow)){flow=new Flow();if(streams.Count>=32)streams.Clear();streams[s.Key]=flow;reading=null;}
             uint seq=s.Seq;if((s.Flags&2)!=0){seq++;energyMaxima.Remove(s.Key);maps.Remove(s.Key);if(flow.Started){flow=new Flow();streams[s.Key]=flow;reading=null;}}
@@ -116,7 +118,7 @@ internal sealed class DashSignal {
                 if(maps.Count>=32&&!maps.ContainsKey(stream))maps.Clear();maps[stream]=map;
             }
         }
-        if(OnFrame!=null)OnFrame(data,start,end,ts,stream);
+        if(!ProbeOnly)SupportDiagnostics.Frame((data[start]<<8)|data[start+1],end-start);if(OnFrame!=null)OnFrame(data,start,end,ts,stream);
         if(data[start]!=0||data[start+1]!=0x8d)return;
         int cursor=start+2;uint actor;if(!ReadVar(data,ref cursor,end,out actor)||cursor>=end)return;int flags=data[cursor++];if((flags&~3)!=0)return;
         uint? candidate=null,maximum=null;

@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated October 27, 2026.**
+**Built with the community. Updated October 29, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -23,6 +23,9 @@
 | **Rounded overlay blur** | Cleaner pet soul-card backdrop and optional dark DPS blur. Ordinary transparency remains the fallback on unsupported systems. | [v1.18.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.18.0) |
 | **Staggered screen effect** | Optional centered text, broken ring and glow; separate text/effect colors and Test effect under Progress bar > Stagger. Disabled by default. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | **Our target & Target of target** | Supported NPC/player HP and focus, with four color palettes sharing one layout. Neutral-NPC and PvP classification has limited confirmed coverage. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
+| **Opt-in support reports** | General can record a bounded local support ZIP to reproduce a problem. Disabled by default; no automatic upload. [Guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/SUPPORT.md). | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
+| **Separate critical damage** | Own critical text styling, shared damage position or an independent movable widget, looping preview and immediate edit-guide hiding on relock. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
+| **Additional interface languages** | German, French and Arabic primary controls, Arabic RTL settings and English fallback for untranslated advanced help. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | **Floating Combat Text** | Independent damage dealt/taken and received healing; text/outline colors, placement, scale, fade, up/down movement, duration, adjustable horizontal/vertical spacing from zero, preview and confirmed-critical **!!**. Supported combat events only. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
 | **Custom skill Hotbar** | Detected icons, received cooldowns and supported reductions/resets; group/individual layouts, snap, hidden slots, character/server presets, looping preview and optional native skill-bar hiding. **Experimental.** [Setup guide](docs/HOTBAR.md). | [v1.19.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.0) |
 
@@ -35,6 +38,9 @@ is described separately from cases that still need more testing.
 
 | Status | Report / correction | Update |
 | :--- | :--- | :---: |
+| ✅ Confirmed on affected PC | **ExitLag / alternate-port character detection:** the affected tester confirmed restored detection. Verified owned-flow routing is integrated; other routing tools/configurations still need validation. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
+| ⬜ Reported · investigation queued | **Overlays missing in Conquest:** community report awaiting a controlled zone test after the current connection work. | Pending |
+| ✅ Confirmed in tested cases | **HP/level bar on manufacturing stations:** reproduced on four professions and corrected with explicit workstation IDs. Recorded merchant controls retain their data; the user confirmed the fix in game. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | ✅ Confirmed | **Hotbar not populating on an affected PC:** corrected a supported assigned-skill record being rejected. Live skills and cooldowns were confirmed by the community tester. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | ✅ Confirmed | **Original hotbar hiding did not persist:** replaced automatic saved-settings edits with an original-preserving exported HUD copy. Import/select it in game, **Save and leave the editor**. The game can stay open; the companion confirmed this workflow works. [Guide](docs/HOTBAR.md). | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | ✅ Reviewed | **Crowded Hotbar/Pets Widget settings:** clearer section spacing, aligned controls and numbered HUD instructions. Collection and Atlas layouts are retained. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
@@ -45,6 +51,7 @@ is described separately from cases that still need more testing.
 | 🟡 Setup documented; discovery can take time | **Exact distance after restarting Helper:** open Helper before fully launching Aion; character selection alone may miss setup. Correct startup confirmed working; no startup-speed improvement is claimed. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | 🟡 Correction shipped; live comparison pending | **Hotbar hidden by capture-clock drift:** local receipt time avoids rejecting a valid bar when capture timestamps lead the UI clock. Duration, true stale and reset regression checks pass. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
 | 🟡 Correction shipped; feedback welcome | **Floating Text absent until instance entry / jerky motion:** identity can be retained/recovered on late enable; stable trajectories, cached cropped drawing and active-only pacing replace repeated positioning and drawing. Earlier numbers appeared in game; final animation revision awaits live comparison. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
+| ✅ Confirmed | **Floating Text references persist after locking:** edit guides now hide immediately, including independent criticals, without pressing Done. User confirmed in game. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | 🟡 Investigating | **HP/MP gaps during some map transitions:** recovery still depends on supported fresh profile data. | Ongoing |
 | 🟡 Investigating | **World-boss party damage stops updating / incomplete combat coverage:** DPS remains Beta; totals and rankings can be incomplete. | Ongoing |
 
@@ -59,6 +66,7 @@ been reviewed.
 | :--- | :--- |
 | **FPS & GPU optimization** | Reuse drawing/composition resources, reduce unnecessary updates and continue validation under actual game load. Caching improvements are already included; this work is not marked complete or presented as a guaranteed FPS increase. |
 | **Hotbar compatibility & validation** | Validate more classes, charges/reloads, shared cooldown groups and contextual skill variants. Complete the automatic character-switch live comparison and validate further client/HUD variants of the new export/import workflow. |
+| **Language coverage & review** | German, French and Arabic are available from v1.22.0. Continue translating advanced help that currently falls back to English and reviewing wording/layout. |
 | **Floating Combat Text validation** | Available in v1.21.0. Continue live smoothness checks and expand supported damage/healing event coverage; validate more characters and dense bursts. |
 | **Data coverage & reliability** | Continue investigating HP/MP loading gaps, unknown special targets and partial combat coverage, including the existing world-boss party-damage limitation. |
 
@@ -70,6 +78,7 @@ Released community features and corrections are listed above.
 | Status | Request | Intended scope |
 | :--- | :--- | :--- |
 | ✅ Available | **Staggered screen effect** | Optional centered animation, text/glow colors and Test effect; introduced in [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0). Preview approved and automatic-transition tests pass; separate controlled live trigger comparison remains pending. |
+| ⬜ Planned / feasibility to check | **Hide Helper overlays while game menus are open** | Explore reliable detection of the map, shops, manufacturing stations and other menus, then restore overlays on close. Coverage depends on which menu states can be detected; not included in v1.22.0. |
 | ⬜ Planned / feasibility to check | **Enemy status-effect visual removal** | Explore an option to hide visual effects associated with altered states/debuffs on enemies. Exact scope and compatibility need validation; this is separate from the existing selection-outline option. |
 | 🟡 Ongoing | **FPS & GPU optimization** | Continue reducing unnecessary drawing and updates; see ongoing work above. |
 | ⬜ Planned | **Special chest radar** | Explore reliable detection and location information for special chests. |

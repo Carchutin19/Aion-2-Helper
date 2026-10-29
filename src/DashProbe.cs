@@ -73,13 +73,15 @@ internal sealed class Segment {
 
 internal sealed class Recorder:IDisposable {
     readonly object sync=new object(); readonly string root;readonly bool writePackets;
-    readonly object lifecycle=new object();readonly ManualResetEvent stopEvent=new ManualResetEvent(true);
+    readonly GameSocketFilter socketFilter=new GameSocketFilter();readonly object lifecycle=new object();readonly ManualResetEvent stopEvent=new ManualResetEvent(true);
     int maintenanceQueued,liveWorkers;long lastDiscoveryTicks;volatile bool requested,disposed;string lastStartError="";
     internal string LastStartError {get{lock(sync){return lastStartError;}}}
     internal Action<Segment,double> OnSegment;
     internal Action OnCaptureStarted;
     volatile bool clientTraffic;Dictionary<string,int> flowOwners=new Dictionary<string,int>();
     internal void SetClientTraffic(bool value){clientTraffic=value;}
+    internal string[] IncomingSocketKeys(){lock(sync){return System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Where(flows.Keys,k=>flows[k]=="in"));}}
+    internal bool Incoming(string key){lock(sync){string direction;return flows.TryGetValue(key,out direction)&&direction=="in";}}
     internal int OwnerPid(string key){lock(sync){int pid;return flowOwners.TryGetValue(key,out pid)?pid:0;}}
     Dictionary<string,string> flows=new Dictionary<string,string>(); readonly List<Thread> workers=new List<Thread>();
     StreamWriter writer,marks; volatile bool active; DateTime started; string session;
@@ -90,33 +92,33 @@ internal sealed class Recorder:IDisposable {
     internal Recorder(string folder,bool record=true){root=folder;writePackets=record;}
     internal string Status {get {lock(sync){return processes+" | "+flows.Count/2+" connections | "+openAdapters+" adapters\r\n"+packets+" segments / "+(bytes/1024)+" KB"+(error.Length>0?"\r\n"+error:"");}}}
     internal static string Q(string s) {return "\""+s.Replace("\\","\\\\").Replace("\"","\\\"").Replace("\r","\\r").Replace("\n","\\n")+"\"";}
-    void Error(string s){lock(sync){error=s;}}
+    void Error(string s){lock(sync){error=s;}SupportDiagnostics.Event("capture-error",new{message=SupportDiagnostics.Clean(s)});}
     internal void RefreshFlows() {
         var pids=new HashSet<int>();var names=new List<string>();
         int self;using(var current=Process.GetCurrentProcess())self=current.Id;
         var candidates=Process.GetProcessesByName("AION2");if(candidates.Length==0)candidates=Process.GetProcesses();
         foreach(var p in candidates) {try {string name=p.ProcessName;if(p.Id!=self&&name.IndexOf("aion",StringComparison.OrdinalIgnoreCase)>=0){pids.Add(p.Id);names.Add(name+" ("+p.Id+")");}} catch{} finally{p.Dispose();}}
-        var updated=new Dictionary<string,string>();var owners=new Dictionary<string,int>();
+        var updated=new Dictionary<string,string>();var owners=new Dictionary<string,int>();var supportPorts=new Dictionary<int,int>();var supportTcpErrors=new List<object>();
         foreach(int family in new int[]{2,23}) {
             if(pids.Count==0)break;
             int size=0;Native.GetExtendedTcpTable(IntPtr.Zero,ref size,false,family,5,0);if(size<=0)continue;
             IntPtr memory=Marshal.AllocHGlobal(size);
-            try {if(Native.GetExtendedTcpTable(memory,ref size,false,family,5,0)!=0)continue;
+            try {uint code=Native.GetExtendedTcpTable(memory,ref size,false,family,5,0);if(code!=0){supportTcpErrors.Add(new{family,code});continue;}
                 byte[] table=new byte[size];Marshal.Copy(memory,table,0,size);int count=BitConverter.ToInt32(table,0);int stride=family==2?24:56;
                 for(int n=0;n<count;n++) {int i=4+n*stride;if(i+stride>size)break;
                     int pid=BitConverter.ToInt32(table,i+(family==2?20:52));if(!pids.Contains(pid))continue;
                     int state=BitConverter.ToInt32(table,i+(family==2?0:48));if(state!=5)continue;
                     string local=Segment.Ip(table,i+(family==2?4:0),family==2?4:16);
                     string remote=Segment.Ip(table,i+(family==2?12:24),family==2?4:16);
-                    int lp=Segment.U16(table,i+(family==2?8:20)),rp=Segment.U16(table,i+(family==2?16:44));
+                    int lp=Segment.U16(table,i+(family==2?8:20)),rp=Segment.U16(table,i+(family==2?16:44));if(!supportPorts.ContainsKey(rp))supportPorts[rp]=0;supportPorts[rp]++;
                     updated[local+":"+lp+">"+remote+":"+rp]="out";updated[remote+":"+rp+">"+local+":"+lp]="in";owners[local+":"+lp+">"+remote+":"+rp]=pid;owners[remote+":"+rp+">"+local+":"+lp]=pid;
                 }
             }finally{Marshal.FreeHGlobal(memory);}
         }
-        lock(sync){flows=updated;flowOwners=owners;processes=names.Count==0?"Game not detected":String.Join(", ",names.ToArray());}
+        lock(sync){flows=updated;flowOwners=owners;processes=names.Count==0?"Game not detected":String.Join(", ",names.ToArray());}socketFilter.Update(updated,clientTraffic);SupportDiagnostics.Connections(new{utc=DateTime.UtcNow.ToString("o"),processes=names.ToArray(),processCount=pids.Count,connections=updated.Count/2,remotePorts=SupportDiagnostics.Ports(supportPorts),gamePortConnections=supportPorts.ContainsKey(13328)?supportPorts[13328]:0,tcpErrors=supportTcpErrors});
     }
     bool Tracked(Segment segment){
-        if(!writePackets&&!clientTraffic&&segment.DstPort==13328)return false;
+        if(!writePackets&&!clientTraffic&&segment.SrcPort!=13328&&!Incoming(segment.Key))return false;
         lock(sync){if(!active)return false;if(flows.ContainsKey(segment.Key))return true;}
         // A dungeon creates a new TCP connection. Waiting for the normal UI
         // maintenance tick loses its initial roster and character appearance.
@@ -133,52 +135,52 @@ internal sealed class Recorder:IDisposable {
         ThreadPool.QueueUserWorkItem(delegate{try{lock(lifecycle){
             if(disposed)return;if(!requested)StopCore();else {if(active)RefreshFlows();else {StopCore();StartCore();}if(!requested)StopCore();}
             lock(sync){lastStartError="";}
-        }}catch(Exception ex){lock(sync){lastStartError=ex.Message;}}finally{Interlocked.Exchange(ref maintenanceQueued,0);}});
+        }}catch(Exception ex){lock(sync){lastStartError=ex.Message;SupportDiagnostics.Error("capture-start-error",ex);}}finally{Interlocked.Exchange(ref maintenanceQueued,0);}});
     }
     void StartCore() {
-        if(active)return;NpcapSupport.Current.EnsureAvailable();RefreshFlows();
+        if(active)return;SupportDiagnostics.Event("capture-start",new{clientTraffic,packetRecording=writePackets});NpcapSupport.Current.EnsureAvailable();RefreshFlows();
         lock(sync){if(flows.Count==0&&!clientTraffic)throw new Exception("Enter the game with your character first: no Aion connections detected.");}
         Native.SetDllDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"Npcap"));
         var err=new StringBuilder(512);IntPtr head;
         if(Native.pcap_findalldevs(out head,err)!=0)throw new Exception(err.ToString());
         var devices=new List<string>();
         try {for(IntPtr ptr=head;ptr!=IntPtr.Zero;){var d=(Native.Device)Marshal.PtrToStructure(ptr,typeof(Native.Device));devices.Add(Marshal.PtrToStringAnsi(d.Name));ptr=d.Next;}} finally {Native.pcap_freealldevs(head);}
-        if(devices.Count==0)throw new Exception("Npcap returned no adapters.");
+        SupportDiagnostics.Event("adapter-enumeration",new{count=devices.Count});if(devices.Count==0)throw new Exception("Npcap returned no adapters.");
         if(writePackets){session=Path.Combine(root,"captures",DateTime.Now.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N").Substring(0,6));Directory.CreateDirectory(session);
         writer=new StreamWriter(Path.Combine(session,"segments.jsonl"),false,new UTF8Encoding(false));writer.AutoFlush=true;
         marks=new StreamWriter(Path.Combine(session,"markers.jsonl"),false,new UTF8Encoding(false));marks.AutoFlush=true;}
         started=DateTime.UtcNow;bytes=packets=0;error="";openAdapters=0;liveWorkers=devices.Count;stopEvent.Reset();if(OnCaptureStarted!=null)OnCaptureStarted();active=true;Mark("START");
         foreach(string name in devices) {string captured=name;var t=new Thread(delegate(){Capture(captured);});t.IsBackground=true;workers.Add(t);t.Start();}
     }
-    static void ApplyTrafficFilter(IntPtr handle,bool recording,bool outgoing){Native.Filter filter;if(Native.pcap_compile(handle,out filter,recording?"tcp":outgoing?"tcp port 13328":"tcp src port 13328",1,0xffffffff)!=0)throw new Exception("Could not compile game traffic filter");try{if(Native.pcap_setfilter(handle,ref filter)!=0)throw new Exception("Could not apply game traffic filter");}finally{Native.pcap_freecode(ref filter);}}
+    static void ApplyTrafficFilter(IntPtr handle,string expression){Native.Filter filter;if(Native.pcap_compile(handle,out filter,expression,1,0xffffffff)!=0)throw new Exception("Could not compile game traffic filter");try{if(Native.pcap_setfilter(handle,ref filter)!=0)throw new Exception("Could not apply game traffic filter");}finally{Native.pcap_freecode(ref filter);}}
     void Capture(string device) {
-        IntPtr h=IntPtr.Zero;EventWaitHandle packetEvent=null;bool opened=false;
+        IntPtr h=IntPtr.Zero;EventWaitHandle packetEvent=null;bool opened=false;var supportAdapter=SupportDiagnostics.Adapter(device);
         try {
             var err=new StringBuilder(512);h=Native.pcap_open_live(device,65535,0,100,err);
-            if(h==IntPtr.Zero){Error("Could not open an adapter: "+err);return;}
-            bool filterClient=clientTraffic;ApplyTrafficFilter(h,writePackets,filterClient);
+            if(h==IntPtr.Zero){if(supportAdapter!=null)supportAdapter.Fail("open-failed",err.ToString());Error("Could not open an adapter: "+err);return;}
+            string filterExpression=writePackets?"tcp":socketFilter.Expression;ApplyTrafficFilter(h,filterExpression);
             if(Native.pcap_setnonblock(h,1,err)!=0)throw new Exception("Non-blocking mode: "+err);
             try{if(Native.pcap_setmintocopy(h,1)==0){IntPtr handle=Native.pcap_getevent(h);if(handle!=IntPtr.Zero){packetEvent=new EventWaitHandle(false,EventResetMode.ManualReset);packetEvent.SafeWaitHandle=new SafeWaitHandle(handle,false);}}}catch(EntryPointNotFoundException){}
             var waits=packetEvent==null?null:new WaitHandle[]{stopEvent,packetEvent};var raw=new byte[65535];
-            int link=Native.pcap_datalink(h);lock(sync){openAdapters++;opened=true;}
+            int link=Native.pcap_datalink(h);if(supportAdapter!=null)supportAdapter.Opened(link);lock(sync){openAdapters++;opened=true;}
             while(active) {
-                if(!writePackets&&filterClient!=clientTraffic){filterClient=clientTraffic;ApplyTrafficFilter(h,false,filterClient);}
+                if(!writePackets&&filterExpression!=socketFilter.Expression){filterExpression=socketFilter.Expression;ApplyTrafficFilter(h,filterExpression);}
                 IntPtr hp,dp;int result=Native.pcap_next_ex(h,out hp,out dp);if(result==0){if(waits==null)stopEvent.WaitOne(15);else WaitHandle.WaitAny(waits,1000);continue;}if(result<0){Error("Capture stopped on an adapter: "+Marshal.PtrToStringAnsi(Native.pcap_geterr(h)));break;}
                 // Windows timeval uses 32-bit longs, including on x64.
-                int caplen=Marshal.ReadInt32(hp,8);if(caplen<0||caplen>65535)continue;
-                Marshal.Copy(dp,raw,0,caplen);var s=Segment.Parse(raw,link,caplen);if(s==null)continue;
-                if(!Tracked(s))continue;
+                if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Delivered);int caplen=Marshal.ReadInt32(hp,8);if(caplen<0||caplen>65535||Marshal.ReadInt32(hp,12)<caplen){if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.InvalidHeaders);continue;}
+                if(SupportDiagnostics.Enabled&&supportAdapter!=null){Interlocked.Increment(ref supportAdapter.Raw);Interlocked.Add(ref supportAdapter.Bytes,caplen);}Marshal.Copy(dp,raw,0,caplen);var s=Segment.Parse(raw,link,caplen);if(s==null)continue;
+                if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Parsed);if(!Tracked(s)){if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Unowned);continue;}
                 double ts=(uint)Marshal.ReadInt32(hp,0)+(uint)Marshal.ReadInt32(hp,4)/1000000.0;
                 Action<Segment,double> handler;
                 lock(sync) {string direction;if(!active||!flows.TryGetValue(s.Key,out direction))continue;
                     if(writer!=null){string hex=BitConverter.ToString(s.Data).Replace("-","");
                     writer.WriteLine("{\"ts\":"+ts.ToString("F6",System.Globalization.CultureInfo.InvariantCulture)+",\"stream\":"+Q(s.Key)+",\"direction\":"+Q(direction)+",\"adapter\":"+Q(device)+",\"seq\":"+s.Seq+",\"flags\":"+s.Flags+",\"hex\":"+Q(hex)+"}");}
                     handler=OnSegment;
-                    bytes+=s.Data.Length;packets++;
+                    bytes+=s.Data.Length;packets++;if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Owned);
                 }
                 if(handler!=null)handler(s,ts); // Decoder work never blocks flow refresh/status readers.
             }
-        }catch(Exception ex){Error(ex.Message);}finally{if(packetEvent!=null)packetEvent.Dispose();if(h!=IntPtr.Zero)Native.pcap_close(h);if(opened)lock(sync){openAdapters--;}if(Interlocked.Decrement(ref liveWorkers)==0)active=false;}
+        }catch(Exception ex){if(supportAdapter!=null)supportAdapter.Fail("worker-error",ex.Message);SupportDiagnostics.Error("capture-worker-exception",ex);Error(ex.Message);}finally{if(supportAdapter!=null)supportAdapter.Closed();if(packetEvent!=null)packetEvent.Dispose();if(h!=IntPtr.Zero)Native.pcap_close(h);if(opened)lock(sync){openAdapters--;}if(Interlocked.Decrement(ref liveWorkers)==0)active=false;}
     }
     internal void Mark(string name) {lock(sync){if(!active||marks==null)return;double ts=(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds;marks.WriteLine("{\"ts\":"+ts.ToString("F6",System.Globalization.CultureInfo.InvariantCulture)+",\"event\":"+Q(name)+"}");}}
     internal void Stop(){requested=false;lock(lifecycle){StopCore();}}
@@ -259,6 +261,12 @@ internal static class Entry {
     [STAThread] static int Main(string[] args) {
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
+        if(args.Length==1&&args[0]=="--game-socket-test"){try{GameSocketVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"game-socket-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--workstation-test"){try{WorkstationVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"workstation-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==2&&args[0]=="--workstation-replay-test"){try{WorkstationVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"workstation-replay-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--game-flow-test"){try{GameFlowVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"game-flow-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--next-settings-test"){try{NextSettingsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"next-settings-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--support-diagnostics-test"){try{SupportDiagnostics.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"support-diagnostics-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>1&&args[0]=="--enemy-target-replay-test"){try{EnemyTargetVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-target-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==2&&args[0]=="--client-position-native-test"){try{ClientPositionVerification.NativeCheck(root,int.Parse(args[1]));return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"client-position-native-test.txt"),"FAIL: "+ex.Message);return 1;}}
         if(args.Length>0&&args[0]=="--client-position-test"){try{ClientPositionVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"client-position-test.txt"),"FAIL: "+ex);return 1;}}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -15,15 +15,15 @@ internal sealed class NpcapSupport {
     internal bool Required {get{return state>=2;}}
     internal string Message {get{return state==3?LoadMessage:MissingMessage;}}
     static bool LibraryPresent(){string system=Environment.GetFolderPath(Environment.SpecialFolder.System);return File.Exists(Path.Combine(system,"Npcap","wpcap.dll"))||File.Exists(Path.Combine(system,"wpcap.dll"));}
-    static void LoadLibrary(){Native.SetDllDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"Npcap"));if(Native.pcap_lib_version()==IntPtr.Zero)throw new DllNotFoundException("Npcap version entry point returned no library information.");}
+    static void LoadLibrary(){Native.SetDllDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"Npcap"));IntPtr version=Native.pcap_lib_version();if(version==IntPtr.Zero)throw new DllNotFoundException("Npcap version entry point returned no library information.");SupportDiagnostics.Event("npcap-loaded",new{version=Marshal.PtrToStringAnsi(version)});}
     internal void EnsureAvailable(){if(state==1)return;lock(gate){if(state==1)return;
-        if(!present()){state=2;throw new InvalidOperationException(MissingMessage);}
+        bool available=present();SupportDiagnostics.Event("npcap-check",new{libraryPresent=available,state});if(!available){state=2;throw new InvalidOperationException(MissingMessage);}
         try{load();state=1;}
         catch(DllNotFoundException ex){Fail(ex);}
         catch(BadImageFormatException ex){Fail(ex);}
         catch(EntryPointNotFoundException ex){Fail(ex);}
     }}
-    void Fail(Exception ex){state=3;throw new InvalidOperationException(LoadMessage,ex);}
+    void Fail(Exception ex){SupportDiagnostics.Error("npcap-load-error",ex);state=3;throw new InvalidOperationException(LoadMessage,ex);}
     internal static void Verify(){bool installed=false;int loads=0;var missing=new NpcapSupport(delegate{return installed;},delegate{loads++;});
         if(!missing.Required||missing.Message!=MissingMessage)throw new Exception("Missing Npcap must be visible before game startup");
         try{missing.EnsureAvailable();throw new Exception("Missing Npcap was accepted");}catch(InvalidOperationException ex){if(ex.Message!=MissingMessage||loads!=0)throw new Exception("Missing library must produce guidance without attempting capture");}

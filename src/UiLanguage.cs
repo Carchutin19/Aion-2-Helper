@@ -6,9 +6,35 @@ using System.Windows.Controls;
 
 // Window-local translations: no background work or per-frame overlay bindings.
 internal static class UiLanguage {
-    internal static string Normalize(string language){return language=="es"?"es":"en";}
+    internal static string Normalize(string language){language=(language??"").ToLowerInvariant();return Array.IndexOf(UiLanguageMore.Codes,language)>=0?language:"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
+        {"Finishing diagnostic report","Finalizando informe de diagnóstico"},
+        {"WHAT'S NEW · v1.22.0 · Connection recovery & critical hits","NOVEDADES · v1.22.0 · Conexión y golpes críticos"},
+        {"Connection recovery for verified alternate game ports, confirmed by the ExitLag community tester. General now includes optional local support reports. Outgoing critical hits can use separate colors, size and outlines, with a shared damage anchor or their own movable widget. German, French and Arabic interface previews include English fallback for untranslated advanced help; Arabic settings support right-to-left reading. Settings and character presets are preserved. Conquest and gathering/target-bar reports are queued for investigation.","Recuperación de conexiones con puertos alternativos, confirmada por el usuario con ExitLag. General incluye informes de soporte opcionales. Los críticos de nuestro daño pueden tener colores, tamaño y contorno propios, en la posición del daño normal o en un widget independiente. Alemán, francés y árabe son idiomas preliminares; algunas ayudas avanzadas siguen en inglés. La interfaz en árabe admite lectura de derecha a izquierda. La configuración y los perfiles se conservan. Los reportes de Conquista y de la barra de objetivo al recolectar están pendientes de investigar."},
+        {"Starting diagnostics","Iniciando diagnóstico"},
+        {"Could not write the diagnostic report. Check that the Helper folder is writable.","No se ha podido guardar el informe. Comprueba que tienes permisos de escritura en la carpeta del Helper."},
+        {"CRITICAL HITS","GOLPES CRÍTICOS"},
+        {"Separate critical damage","Separar daño crítico"},
+        {"Critical damage","Daño crítico"},
+        {"Critical text size","Tamaño del texto crítico"},
+        {"Critical text color","Color del texto crítico"},
+        {"Use an independent critical widget","Mostrar críticos en un widget independiente"},
+        {"Test critical hits","Probar golpes críticos"},
+        {"Give confirmed outgoing critical hits their own appearance. Each hit is displayed once; !! still marks criticals.","Personaliza el aspecto de tus golpes críticos confirmados. Cada golpe aparece una sola vez; los críticos siguen marcados con !!."},
+        {"Off: criticals share the damage-dealt anchor, movement and collision spacing, with their own appearance. On: move and scale the critical widget independently; criticals are removed from the normal damage widget.","Desactivado: los críticos comparten posición, movimiento y separación con el daño normal, con su propio aspecto. Activado: mueve y escala el widget de críticos por separado; esos golpes dejan de salir en el widget de daño normal."},
+        {"Unlock widgets in General to move or resize the critical widget on screen.","Desbloquea los widgets en General para mover o cambiar el tamaño del widget de críticos en pantalla."},
+        {"SUPPORT & DIAGNOSTICS","SOPORTE Y DIAGNÓSTICO"},
+        {"Play with diagnostics","Jugar con registro de diagnóstico"},
+        {"Show support report","Mostrar informe de soporte"},
+        {"Recording diagnostics","Grabando diagnóstico"},
+        {"Diagnostic recording finished","Grabación de diagnóstico finalizada"},
+        {"Diagnostics off","Diagnóstico desactivado"},
+        {"Could not open the report folder.","No se ha podido abrir la carpeta del informe."},
+        {"Only enable this if something is not working. Reproduce the problem while it is on, then turn it off to finish the report. For a connection or login problem, enable it before fully restarting Aion.","Actívalo solo si algo no funciona. Intenta reproducir el fallo mientras está activo y desactívalo al terminar para finalizar el informe. Si el problema es de conexión o al entrar con el personaje, actívalo antes de reiniciar Aion por completo."},
+        {"Send support-report.zip from the Helper folder privately to support, together with what failed and the steps you followed. No upload is automatic. Your settings are preserved.","Envíanos por privado el archivo support-report.zip de la carpeta del Helper e indica qué falló y qué pasos seguiste. No se envía nada automáticamente. Tu configuración se conserva."},
+        {"The report contains version, driver, connection counters and overlay/detection state, which may include character/server identifiers. It does not record packet contents, chat or session keys. Recording stops after 15 minutes or 8 MiB. Turn it off and on to start a new report; one previous ZIP is kept.","El informe contiene versión, controladores, contadores de conexión y estado de los overlays y de la detección; puede incluir identificadores de personaje y servidor. No guarda contenido de paquetes, chat ni claves de sesión. Se detiene a los 15 minutos o al llegar a 8 MiB. Desactívalo y vuelve a activarlo para iniciar otro informe; se conserva un ZIP anterior."},
+        {"Some advanced help is still shown in English.","Algunas ayudas avanzadas siguen en inglés."},
         {"◉   Floating Text","◉   Texto de combate"},
         {"Floating Combat Text","Texto de combate flotante"},
         {"Damage dealt, damage taken and received healing","Daño infligido, daño recibido y curas recibidas"},
@@ -707,10 +733,18 @@ internal static class UiLanguage {
     static readonly string[] Prefixes={"Choose color: ","Decrease ","Increase "};
     static Dictionary<string,string> Reverse(){var map=new Dictionary<string,string>();foreach(var pair in Spanish)map[pair.Value]=pair.Key;return map;}
     internal static string Text(string text,string language){
-        if(text==null)return null;string translated;if(English.TryGetValue(text,out translated))text=translated;
-        if(Normalize(language)!="es")return text;if(Spanish.TryGetValue(text,out translated))return translated;
-        foreach(string prefix in Prefixes)if(text.StartsWith(prefix,StringComparison.Ordinal))return (prefix=="Choose color: "?"Elegir color: ":prefix=="Decrease "?"Reducir ":"Aumentar ")+Text(text.Substring(prefix.Length),language);
-        return text.Replace(" · waiting for maximum energy stats"," · esperando el máximo del juego");
+        if(text==null)return null;string translated;
+        if(English.TryGetValue(text,out translated)||UiLanguageMore.TryEnglish(text,out translated))text=translated;
+        language=Normalize(language);if(language=="en")return text;
+        if(language=="es"&&Spanish.TryGetValue(text,out translated))return translated;
+        if(UiLanguageMore.TryText(text,language,out translated))return translated;
+        if(text.StartsWith("◉   ",StringComparison.Ordinal))return "◉   "+Text(text.Substring(4),language);
+        foreach(string prefix in Prefixes)if(text.StartsWith(prefix,StringComparison.Ordinal)){
+            string label=language=="es"?(prefix=="Choose color: "?"Elegir color: ":prefix=="Decrease "?"Reducir ":"Aumentar "):
+                prefix=="Choose color: "?Text("Choose color",language)+": ":Text(prefix.Trim(),language)+" ";
+            return label+Text(text.Substring(prefix.Length),language);
+        }
+        return language=="es"?text.Replace(" · waiting for maximum energy stats"," · esperando el máximo del juego"):text;
     }
     sealed class Label {internal string Original,Rendered;}
     // Attached data lives only as long as its UI element, avoiding global window references.
@@ -723,9 +757,10 @@ internal static class UiLanguage {
     }
     static readonly DependencyProperty RawTextProperty=DependencyProperty.RegisterAttached("RawText",typeof(bool),typeof(UiLanguage),new PropertyMetadata(false));
     internal static void PreserveDataText(DependencyObject element){element.SetValue(RawTextProperty,true);}
-    internal static void Apply(DependencyObject window,string language){Walk(window,language,new HashSet<DependencyObject>());}
+    internal static void Apply(DependencyObject window,string language){var root=window as FrameworkElement;if(root!=null)root.FlowDirection=Normalize(language)=="ar"?FlowDirection.RightToLeft:FlowDirection.LeftToRight;Walk(window,language,new HashSet<DependencyObject>());}
     static void Walk(DependencyObject element,string language,HashSet<DependencyObject> seen){
         if(!seen.Add(element)||(bool)element.GetValue(RawTextProperty))return;
+        if(element is TextBox||element is Image||element is Slider||element is SettingsNumber||element is Button&&((Button)element).Content is string&&((string)((Button)element).Content).StartsWith("#",StringComparison.Ordinal)){var code=element as FrameworkElement;if(code!=null)code.FlowDirection=FlowDirection.LeftToRight;}
         if(element is TextBlock)Translate(element,TextBlock.TextProperty,language);
         if(element is ContentControl)Translate(element,ContentControl.ContentProperty,language);
         if(element is FrameworkElement){Translate(element,FrameworkElement.ToolTipProperty,language);Translate(element,AutomationProperties.NameProperty,language);}

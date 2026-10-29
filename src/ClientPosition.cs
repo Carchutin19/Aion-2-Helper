@@ -75,7 +75,7 @@ internal sealed class ClientPositionReader:IDisposable {
     }
     internal void Reset(){lock(gate){generation++;Clear();error="";nextProbe=0;}Notify();}
     void Notify(){var change=Changed;if(change!=null)change();}
-    internal void Consume(Segment segment,double timestamp,int pid){if(segment==null||segment.DstPort!=13328||pid<=0)return;bool changed=false;lock(gate){if(!enabled||disposed)return;string server=segment.Dst+":"+segment.DstPort+">"+segment.Src+":"+segment.SrcPort;ClientPositionStream flow;
+    internal void Consume(Segment segment,double timestamp,int pid,bool ownedAlternate=false){if(segment==null||segment.DstPort!=13328&&!ownedAlternate||segment.DstPort==443||pid<=0)return;bool changed=false;lock(gate){if(!enabled||disposed)return;string server=segment.Dst+":"+segment.DstPort+">"+segment.Src+":"+segment.SrcPort;ClientPositionStream flow;
             if(flows.TryGetValue(segment.Key,out flow)&&(segment.Flags&2)!=0){flow.Dispose();flows.Remove(segment.Key);flow=null;}
             if(flow==null){if(flows.Count>=4){string remove=null;double oldest=double.MaxValue;foreach(var item in flows)if(item.Value.Traffic<oldest){oldest=item.Value.Traffic;remove=item.Key;}if(remove!=null){flows[remove].Dispose();flows.Remove(remove);}}flows[segment.Key]=flow=new ClientPositionStream(server,pid);}
             long before=flow.Positions;bool handshake=flow.Handshake,needed=flow.NeedsKey;flow.LastObserved=clock();flow.Consume(segment,timestamp);changed=before!=flow.Positions||handshake!=flow.Handshake||flow.Failed;

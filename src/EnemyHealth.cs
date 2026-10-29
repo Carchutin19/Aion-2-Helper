@@ -81,6 +81,19 @@ internal static class TargetRelations {
     }
 }
 
+// Explicit catalogue workstation templates. Never match the whole 2910 family:
+// it also contains combat entities/artifacts. Names and translated labels are
+// deliberately not used. Four stations were reproduced live; the remaining
+// profession/counterpart/Legion entries are explicitly named in the catalogue.
+internal static class WorkstationTargets {
+    internal static bool Known(uint npc){switch(npc){
+        case 2910003:case 2910004:case 2910005:case 2910006:case 2910007:
+        case 2910010:case 2910011:case 2910012:case 2910013:case 2910014:
+        case 2910025:return true;
+        default:return false;
+    }}
+}
+
 internal sealed class EnemyHealthSignal {
     internal sealed class Sample {internal uint Actor,Npc,Current,Maximum;internal string Flow,Name,DistanceStatus;internal double Time,Traffic;internal bool Locked,IsSelf,IsPlayer;internal int RelationCandidate=-1,Faction,ColorKind=-1;internal uint ClassCode;internal string RelationshipSource;internal int? BaseLevel,AdjustedLevel;internal EnemyDetailReader.Position Position;internal double? Distance;}
     sealed class Flow {internal readonly Dictionary<uint,Sample> Entities=new Dictionary<uint,Sample>();internal readonly HashSet<uint> Skills=new HashSet<uint>();internal uint Map,Locked,Soft,Self,SelfClass;internal int SelfLevel,SelfFaction,SelfServer;internal string SelfName;internal TargetRelations.Arena Arena;internal EnemyDetailReader.Position SelfPosition;internal double Traffic,AimTime;}
@@ -89,8 +102,8 @@ internal sealed class EnemyHealthSignal {
     internal void Reset(){lock(gate){flows.Clear();selfFlow=null;}Notify();}
     void Notify(){var changed=Changed;if(changed!=null)changed();}
     internal static bool Fresh(Sample s,double utc){return s!=null&&s.Current>0&&s.Maximum>0&&Math.Max(0,utc-s.Traffic)<=10;}
-    internal Sample Actor(string key,uint actor){lock(gate){Flow f;Sample s;if(!flows.TryGetValue(key,out f)||actor==f.Self||!f.Entities.TryGetValue(actor,out s))return null;return Clone(s,f,key,false);}}
-    internal Sample Read(){lock(gate){Flow f;Sample s;if(selfFlow==null||!flows.TryGetValue(selfFlow,out f)||!f.Entities.TryGetValue(f.Locked!=0?f.Locked:f.Soft,out s)||s.Actor==f.Self)return null;return Clone(s,f,selfFlow,f.Locked!=0);}}
+    internal Sample Actor(string key,uint actor){lock(gate){Flow f;Sample s;if(!flows.TryGetValue(key,out f)||actor==f.Self||!f.Entities.TryGetValue(actor,out s)||WorkstationTargets.Known(s.Npc))return null;return Clone(s,f,key,false);}}
+    internal Sample Read(){lock(gate){Flow f;Sample s;if(selfFlow==null||!flows.TryGetValue(selfFlow,out f)||!f.Entities.TryGetValue(f.Locked!=0?f.Locked:f.Soft,out s)||s.Actor==f.Self||WorkstationTargets.Known(s.Npc))return null;return Clone(s,f,selfFlow,f.Locked!=0);}}
     Sample Clone(Sample s,Flow f,string key,bool locked){double now=DpsHistory.UtcNow();bool exact=ClientPositions!=null&&ClientPositions.Enabled;var reading=exact?ClientPositions.Read(key,now):null;var position=exact?(reading==null?new EnemyDetailReader.Position():reading.Position):f.SelfPosition;double? distance=EnemyDetailReader.Distance(position,s.Position,now,exact);string relation=null;int kind=s.IsPlayer?TargetRelations.Kind(f.Map,f.SelfFaction,f.SelfName,f.SelfServer,f.SelfClass,f.Arena,s.Name,s.Faction,s.ClassCode,out relation):(NeutralNpcCatalogue.Known(s.Npc,f.Map)?3:0);if(kind==3)relation="Confirmed neutral NPC catalogue";return new Sample{Actor=s.Actor,Npc=s.Npc,Current=s.Current,Maximum=s.Maximum,Time=s.Time,Traffic=f.Traffic,Flow=key,Locked=locked,BaseLevel=s.BaseLevel,AdjustedLevel=s.IsPlayer?null:EnemyDetailReader.DisplayLevel(f.SelfLevel,s.BaseLevel),Name=s.Name,IsPlayer=s.IsPlayer,RelationCandidate=s.RelationCandidate,Faction=s.Faction,ClassCode=s.ClassCode,ColorKind=kind,RelationshipSource=relation,Position=s.Position,Distance=distance,DistanceStatus=exact?(reading==null?ClientPositions.ReadingStatus:distance.HasValue?"Exact distance live":"No confirmed enemy position"):!position.Known?"No confirmed player position":!s.Position.Known?"No confirmed enemy position":Math.Max(0,now-position.Time)>5?"Player position older than five seconds":"Confirmed positions"};}
     static readonly int[] DescriptionBits={2,4,8,16},DescriptionSizes={1,1,5,1},StateBits={1,2,4,8,16,32},StateSizes={12,4,2,12,12,4};
     static bool Skip(ref int p,int end,int n){if(n<0||p>end-n)return false;p+=n;return true;}
