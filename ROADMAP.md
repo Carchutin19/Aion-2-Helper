@@ -10,10 +10,14 @@
 
 **✅ Available** · **🟡 Ongoing** · **⬜ Planned**
 
+> [!TIP]
+> **v1.22.0: VPN / ExitLag connection fix released.** Missing character/overlay detection was corrected for the affected ExitLag tester. Other VPN and routing configurations still need validation. [Release details](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0).
+
 ## ✅ Available now
 
 | Feature | What is included | First release |
 | :--- | :--- | :---: |
+| **VPN / ExitLag connection recovery** | Restores detection for verified alternate game connections. Confirmed on the affected ExitLag setup; other VPN/routing configurations remain under validation. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | **Custom HP & MP bars** | Independent live player bars; adjustable size, position, visibility, text, colors, glow and outlines. | [v1.15.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.15.0) |
 | **DPS text scaling** | Independent scaling for meter names, values, headings and tabs. | [v1.16.2](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.2) |
 | **Selection outline control** | Optional control for the game's selection outline through Game Tweaks. | [v1.16.2](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.2) |
@@ -38,7 +42,7 @@ is described separately from cases that still need more testing.
 
 | Status | Report / correction | Update |
 | :--- | :--- | :---: |
-| ✅ Confirmed on affected PC | **ExitLag / alternate-port character detection:** the affected tester confirmed restored detection. Verified owned-flow routing is integrated; other routing tools/configurations still need validation. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
+| ✅ Confirmed on affected PC | **VPN / ExitLag — missing character and overlay detection:** the affected tester confirmed restored detection. Verified owned-flow routing is integrated; other routing tools/configurations still need validation. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | ⬜ Reported · investigation queued | **Overlays missing in Conquest:** community report awaiting a controlled zone test after the current connection work. | Pending |
 | ✅ Confirmed in tested cases | **HP/level bar on manufacturing stations:** reproduced on four professions and corrected with explicit workstation IDs. Recorded merchant controls retain their data; the user confirmed the fix in game. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | ✅ Confirmed | **Hotbar not populating on an affected PC:** corrected a supported assigned-skill record being rejected. Live skills and cooldowns were confirmed by the community tester. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
