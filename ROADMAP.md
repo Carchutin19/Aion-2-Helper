@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated October 29, 2026.**
+**Built with the community. Updated October 30, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -27,7 +27,7 @@
 | **Rounded overlay blur** | Cleaner pet soul-card backdrop and optional dark DPS blur. Ordinary transparency remains the fallback on unsupported systems. | [v1.18.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.18.0) |
 | **Staggered screen effect** | Optional centered text, broken ring and glow; separate text/effect colors and Test effect under Progress bar > Stagger. Disabled by default. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | **Our target & Target of target** | Supported NPC/player HP and focus, with four color palettes sharing one layout. Neutral-NPC and PvP classification has limited confirmed coverage. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
-| **Opt-in support reports** | General can record a bounded local support ZIP to reproduce a problem. Disabled by default; no automatic upload. [Guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/SUPPORT.md). | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
+| **Opt-in support reports** | General records a bounded local support ZIP; v1.22.1 adds capture losses, stream-gap ages, visual eviction reasons and Helper resource counters. Disabled by default; no automatic upload. [Guide](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/SUPPORT.md). | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | **Separate critical damage** | Own critical text styling, shared damage position or an independent movable widget, looping preview and immediate edit-guide hiding on relock. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | **Additional interface languages** | German, French and Arabic primary controls, Arabic RTL settings and English fallback for untranslated advanced help. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | **Floating Combat Text** | Independent damage dealt/taken and received healing; text/outline colors, placement, scale, fade, up/down movement, duration, adjustable horizontal/vertical spacing from zero, preview and confirmed-critical **!!**. Supported combat events only. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
@@ -43,7 +43,8 @@ is described separately from cases that still need more testing.
 | Status | Report / correction | Update |
 | :--- | :--- | :---: |
 | ✅ Confirmed on affected PC | **VPN / ExitLag — missing character and overlay detection:** the affected tester confirmed restored detection. Verified owned-flow routing is integrated; other routing tools/configurations still need validation. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
-| ⬜ Reported · investigation queued | **Overlays missing in Conquest:** community report awaiting a controlled zone test after the current connection work. | Pending |
+| 🟡 Investigating · expanded diagnostics released | **Conquest delays, missing damage numbers, intermittent Hotbar and stagger:** a private report confirms reading interruptions and early visual evictions. v1.22.1 adds capture/decoder/render/resource diagnostics for a controlled comparison; the underlying Conquest issue is not yet marked fixed. | [v1.22.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.1) |
+| 🟡 Local regression checks passed | **Redundant capture-filter changes:** web and already-covered standard-port socket churn no longer reinstall an equivalent filter. Exact alternate-socket ownership and optional position capture remain enforced. Conquest impact awaits feedback. | [v1.22.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.1) |
 | ✅ Confirmed in tested cases | **HP/level bar on manufacturing stations:** reproduced on four professions and corrected with explicit workstation IDs. Recorded merchant controls retain their data; the user confirmed the fix in game. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | ✅ Confirmed | **Hotbar not populating on an affected PC:** corrected a supported assigned-skill record being rejected. Live skills and cooldowns were confirmed by the community tester. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | ✅ Confirmed | **Original hotbar hiding did not persist:** replaced automatic saved-settings edits with an original-preserving exported HUD copy. Import/select it in game, **Save and leave the editor**. The game can stay open; the companion confirmed this workflow works. [Guide](docs/HOTBAR.md). | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |

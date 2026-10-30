@@ -9,6 +9,8 @@ internal sealed class DashSignal {
         internal uint Next;internal bool Started,Synced,PrefixRecovery;
         internal byte[] Buffer=new byte[8192];internal int Count,PendingBytes;
         internal readonly Dictionary<uint,byte[]> Pending=new Dictionary<uint,byte[]>();
+        internal bool GapWaiting;internal uint GapExpected;internal double GapSince,LastTimestamp;
+        internal long GapRecoveries,SkippedBytes,Segments,Duplicates,OutOfOrder,Frames;internal int PeakPending;internal double MaxGapAge;internal string LastRecovery;
         internal void Append(byte[] data,int offset){
             int length=data.Length-offset;if(Count+length>Buffer.Length)Array.Resize(ref Buffer,Math.Max(Count+length,Buffer.Length*2));
             System.Buffer.BlockCopy(data,offset,Buffer,Count,length);Count+=length;
@@ -21,6 +23,10 @@ internal sealed class DashSignal {
     readonly Dictionary<string,Flow> streams=new Dictionary<string,Flow>();readonly HashSet<int> known;readonly object gate=new object();readonly byte[][] decompression=new byte[5][];
     Reading reading;double lastTraffic;int samples,errors;
     internal bool ProbeOnly,AllowOwnedPorts;
+    // Measures gaps with a monotonic reception clock, without changing the
+    // retransmission/reordering policy or imposing a speculative timeout.
+    internal Func<double> DiagnosticClock;
+    long gapRecoveries,framingErrors,containerErrors;
     internal uint Maximum=113900; // Manual fallback; never inferred from partially full energy.
     readonly Dictionary<string,Dictionary<uint,uint>> energyMaxima=new Dictionary<string,Dictionary<uint,uint>>();string readingStream;
     readonly Dictionary<string,uint> maps=new Dictionary<string,uint>();
@@ -34,7 +40,7 @@ internal sealed class DashSignal {
     }
     uint DetectedMaximum(){Dictionary<uint,uint> actors;uint value;return reading!=null&&readingStream!=null&&energyMaxima.TryGetValue(readingStream,out actors)&&actors.TryGetValue((uint)reading.Actor,out value)?value:0;}
     internal Snapshot ReadSnapshot(){lock(gate){return new Snapshot{Reading=reading,DetectedMaximum=DetectedMaximum(),LastTraffic=lastTraffic,Samples=samples,Errors=errors};}}
-    internal object SupportState(){lock(gate){return new{samples,errors,lastTraffic,knownOpcodes=known.Count,flows=streams.Values.Select((f,i)=>new{id=i+1,started=f.Started,synced=f.Synced,buffered=f.Count,pendingSegments=f.Pending.Count,pendingBytes=f.PendingBytes,prefixRecovery=f.PrefixRecovery}).ToArray()};}}
+    internal object SupportState(){lock(gate){double now=DiagnosticClock==null?0:DiagnosticClock();return new{samples,errors,lastTraffic,gapRecoveries,framingErrors,containerErrors,gapRecoveryPolicy="existing pending-count/byte limits; no timeout",knownOpcodes=known.Count,flows=streams.Select(pair=>{var f=pair.Value;return new{id=SupportDiagnostics.FlowId(pair.Key),started=f.Started,synced=f.Synced,buffered=f.Count,pendingSegments=f.Pending.Count,pendingBytes=f.PendingBytes,peakPending=f.PeakPending,prefixRecovery=f.PrefixRecovery,gapAgeSeconds=f.GapWaiting&&DiagnosticClock!=null?(double?)Math.Max(0,now-f.GapSince):null,maxGapAgeSeconds=Math.Max(f.MaxGapAge,f.GapWaiting?Math.Max(0,now-f.GapSince):0),gapBytes=f.Pending.Count==0?0:Math.Max(0,unchecked((int)(f.FirstPending()-f.Next))),gapRecoveries=f.GapRecoveries,skippedBytes=f.SkippedBytes,lastRecovery=f.LastRecovery,segments=f.Segments,duplicateSegments=f.Duplicates,outOfOrderSegments=f.OutOfOrder,decodedFrames=f.Frames,lastCaptureTimestamp=f.LastTimestamp};}).ToArray()};}}
     internal void Reset(){SupportDiagnostics.Event("decoder-reset",new{reason="Capture/transport reset"});lock(gate){streams.Clear();energyMaxima.Clear();maps.Clear();readingStream=null;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
     internal Reading Current {get{lock(gate){return reading;}}}
     internal double LastTraffic {get{lock(gate){return lastTraffic;}}}
@@ -42,18 +48,30 @@ internal sealed class DashSignal {
     internal int Errors {get{lock(gate){return errors;}}}
     internal void Consume(Segment s,double ts){
         if(s.SrcPort!=13328&&!ProbeOnly&&!AllowOwnedPorts)return;
-        lock(gate){lastTraffic=ts;Flow flow;
+        lock(gate){lastTraffic=ts;double now=DiagnosticClock==null?0:DiagnosticClock();Flow flow;
             if(!streams.TryGetValue(s.Key,out flow)){flow=new Flow();if(streams.Count>=32)streams.Clear();streams[s.Key]=flow;reading=null;}
             uint seq=s.Seq;if((s.Flags&2)!=0){seq++;energyMaxima.Remove(s.Key);maps.Remove(s.Key);if(flow.Started){flow=new Flow();streams[s.Key]=flow;reading=null;}}
             if(!flow.Started){flow.Next=seq;flow.Started=true;}
+            flow.LastTimestamp=ts;flow.Segments++;
             int delta=unchecked((int)(seq-flow.Next));
-            if(delta>0){byte[] previous;if(flow.Pending.TryGetValue(seq,out previous))flow.PendingBytes-=previous.Length;flow.Pending[seq]=s.Data;flow.PendingBytes+=s.Data.Length;
-                if(flow.Pending.Count>64||flow.PendingBytes>262144){errors++;flow.Count=0;flow.Synced=false;flow.Next=flow.FirstPending();}else return;
-            }else{int overlap=-delta;if(overlap>=s.Data.Length)return;flow.Append(s.Data,overlap);flow.Next=unchecked(seq+(uint)s.Data.Length);}
-            while(flow.Pending.Count>0){uint first=flow.FirstPending();delta=unchecked((int)(first-flow.Next));if(delta>0)break;
-                byte[] data=flow.Pending[first];flow.Pending.Remove(first);flow.PendingBytes-=data.Length;if(-delta<data.Length){flow.Append(data,-delta);flow.Next=unchecked(first+(uint)data.Length);}}
+            if(delta>0){flow.OutOfOrder++;byte[] previous;if(flow.Pending.TryGetValue(seq,out previous))flow.PendingBytes-=previous.Length;flow.Pending[seq]=s.Data;flow.PendingBytes+=s.Data.Length;flow.PeakPending=Math.Max(flow.PeakPending,flow.Pending.Count);
+                TrackGap(flow,now);
+                if(flow.Pending.Count>64||flow.PendingBytes>262144)RecoverGap(flow,now,"pending limit");
+                else return;
+            }else{int overlap=-delta;if(overlap>=s.Data.Length){flow.Duplicates++;return;}flow.Append(s.Data,overlap);flow.Next=unchecked(seq+(uint)s.Data.Length);}
+            DrainPending(flow);TrackGap(flow,now);
             Cut(flow,ts,s.Key);
         }
+    }
+    static void DrainPending(Flow flow){while(flow.Pending.Count>0){uint first=flow.FirstPending();int delta=unchecked((int)(first-flow.Next));if(delta>0)break;
+        byte[] data=flow.Pending[first];flow.Pending.Remove(first);flow.PendingBytes-=data.Length;if(-delta<data.Length){flow.Append(data,-delta);flow.Next=unchecked(first+(uint)data.Length);}}}
+    static void TrackGap(Flow flow,double now){if(flow.GapWaiting)flow.MaxGapAge=Math.Max(flow.MaxGapAge,Math.Max(0,now-flow.GapSince));if(flow.Pending.Count==0){flow.GapWaiting=false;return;}if(!flow.GapWaiting||flow.GapExpected!=flow.Next){flow.GapWaiting=true;flow.GapExpected=flow.Next;flow.GapSince=now;}}
+    void RecoverGap(Flow flow,double now,string reason){uint first=flow.FirstPending();int skipped=Math.Max(0,unchecked((int)(first-flow.Next)));double waited=Math.Max(0,now-flow.GapSince);int discarded=flow.Count;
+        errors++;gapRecoveries++;flow.GapRecoveries++;flow.SkippedBytes+=skipped;flow.LastRecovery=reason;
+        // Existing count/byte-limit recovery. Never join bytes across a hole;
+        // leave the existing boundary and partial-container policy unchanged.
+        flow.Count=0;flow.Synced=false;flow.Next=first;DrainPending(flow);flow.MaxGapAge=Math.Max(flow.MaxGapAge,waited);flow.GapWaiting=false;TrackGap(flow,now);
+        if(!ProbeOnly)SupportDiagnostics.Event("tcp-gap-recovery",new{reason,waitedSeconds=waited,skippedBytes=skipped,discardedPartialBytes=discarded,pendingSegments=flow.Pending.Count});
     }
     static bool ReadVar(byte[] data,ref int position,int end,out uint value){
         value=0;for(int shift=0;shift<35;shift+=7){if(position>=end)return false;byte item=data[position++];if(shift==28&&(item&0xf0)!=0)return false;value|=(uint)(item&127)<<shift;if(item<128)return true;}return false;
@@ -97,17 +115,17 @@ internal sealed class DashSignal {
                 // Keep the remaining bytes and reacquire the existing three-
                 // frame sync on the next segment instead of decoding arbitrary
                 // payload bytes as actor/profile messages.
-                flow.PrefixRecovery=body-position==5;position++;errors++;flow.Synced=false;break;}
+                flow.PrefixRecovery=body-position==5;position++;errors++;framingErrors++;flow.Synced=false;break;}
             Decode(flow.Buffer,body,end,ts,0,stream);position=end;}
         if(position>0){flow.Count-=position;if(flow.Count>0)System.Buffer.BlockCopy(flow.Buffer,position,flow.Buffer,0,flow.Count);}
-        if(flow.Count>65535){errors++;System.Buffer.BlockCopy(flow.Buffer,flow.Count-65535,flow.Buffer,0,65535);flow.Count=65535;flow.Synced=false;}
+        if(flow.Count>65535){errors++;framingErrors++;System.Buffer.BlockCopy(flow.Buffer,flow.Count-65535,flow.Buffer,0,65535);flow.Count=65535;flow.Synced=false;}
     }
     void Decode(byte[] data,int start,int end,double ts,int depth,string stream=null){
-        if(depth>4){errors++;return;}if(end-start<2)return;
+        if(depth>4){errors++;containerErrors++;return;}if(end-start<2)return;
         if(data[start]==255&&data[start+1]==255){
             try{if(end-start<7)throw new InvalidDataException();int expected=BitConverter.ToInt32(data,start+2);if(expected<=0||expected>1000000)throw new InvalidDataException();byte[] raw=decompression[depth];if(raw==null||raw.Length<expected){raw=new byte[Math.Max(expected,Math.Min(1000000,raw==null?8192:raw.Length*2))];decompression[depth]=raw;}Lz4Into(data,start+6,expected,end,raw);int position=0;
                 while(position<expected){if(raw[position]==0){position++;continue;}int body,frameEnd;if(Frame(raw,position,expected,out body,out frameEnd)!=1)throw new InvalidDataException();Decode(raw,body,frameEnd,ts,depth+1,stream);position=frameEnd;}}
-            catch(InvalidDataException){errors++;}return;
+            catch(InvalidDataException){errors++;containerErrors++;}return;
         }
         // A new area invalidates the previous local energy sample even while
         // ordinary traffic continues. Same-map boss teleports keep valid data.
@@ -118,6 +136,7 @@ internal sealed class DashSignal {
                 if(maps.Count>=32&&!maps.ContainsKey(stream))maps.Clear();maps[stream]=map;
             }
         }
+        Flow transport;if(stream!=null&&streams.TryGetValue(stream,out transport))transport.Frames++;
         if(!ProbeOnly)SupportDiagnostics.Frame((data[start]<<8)|data[start+1],end-start);if(OnFrame!=null)OnFrame(data,start,end,ts,stream);
         if(data[start]!=0||data[start+1]!=0x8d)return;
         int cursor=start+2;uint actor;if(!ReadVar(data,ref cursor,end,out actor)||cursor>=end)return;int flags=data[cursor++];if((flags&~3)!=0)return;

@@ -33,7 +33,7 @@ internal sealed class GameFlowRouter {
             if(c==null){
                 if(candidates.Count>=MaxCandidates){omitted++;return;}
                 c=new Candidate{Id=++nextId,Port=segment.SrcPort};candidates[segment.Key]=c;
-                c.Probe=new DashSignal(root);c.Probe.ProbeOnly=true;Candidate captured=c;
+                c.Probe=new DashSignal(root);c.Probe.ProbeOnly=true;c.Probe.DiagnosticClock=target.DiagnosticClock;Candidate captured=c;
                 c.Probe.OnFrame=delegate(byte[] b,int s,int e,double t,string flow){
                     captured.Frames++;
                     if(b[s]==0x33&&b[s+1]==0x36){uint actor;string name;byte role;

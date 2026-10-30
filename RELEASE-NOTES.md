@@ -1,3 +1,60 @@
+# Aion 2 Helper v1.22.1 Alpha — Expanded Support Diagnostics
+
+## Better reports for intermittent problems
+
+- Expanded the existing **General → Play with diagnostics** option for everyone;
+  no separate testing build is required.
+- Added capture-driver received/drop counters where supported and actual filter
+  application counts. Unavailable statistics are not reported as zero loss.
+- Record pending stream gaps, waiting time, duplicate/out-of-order segments and
+  framing/container/recovery counters. Anonymous local flow IDs connect the
+  active Hotbar to the corresponding decoder stream without logging endpoints.
+- Separate capture-clock age from packet-processing timings. Clock age is not
+  asserted to be network latency.
+- Added Helper memory, cumulative CPU time, handles, threads and GC counts.
+- Include stagger phase/freshness, confirmed-target state, visibility reasons
+  and screen-effect counters, correlated with the same anonymous flow IDs.
+- Floating Text reports now distinguish early removal at the 16-number capacity
+  from insufficient layout space, and include normal expiry, peak active count,
+  relevant layout settings and diagnostic render timings.
+- A visual eviction is not a RAM allocation failure or proof of an undetected
+  combat hit. Text capacity and rendering behavior are unchanged in this update.
+
+## Capture maintenance
+
+- Avoid rebuilding the capture filter when web sockets or standard game sockets
+  already covered by the baseline open or close. Deterministic rule ordering is
+  retained; unrelated alternate endpoints remain excluded.
+- Serialize concurrent socket-table refreshes so an older refresh cannot overwrite
+  a later refresh. Incoming ownership and alternate protocol verification remain.
+- No speculative gap timeout, replacement combat values or relaxed identity checks.
+
+## How to help investigate Conquest
+
+1. Enable **Play with diagnostics** before entering the affected activity.
+2. Reproduce the problem for 2–5 minutes. If possible, leave for a normal zone and
+   continue for another 30–60 seconds in the same recording.
+3. Turn diagnostics off, wait for completion and use **Show support report**.
+4. Send **support-report.zip** privately, with the zone, approximate time,
+   symptoms, recovery outside the zone and whether you use a VPN/routing tool.
+
+For a connection/login problem, enable diagnostics before fully restarting Aion
+with the Helper already open. Recording remains opt-in, bounded to 15 minutes /
+8 MiB, with one previous ZIP retained. It never uploads automatically. Reports may
+include character/server and basic device metadata; packet contents, chat, IP
+endpoints, session keys and decrypted position data are excluded.
+
+**Conquest remains under investigation.** The received report confirms reading
+interruptions and visual evictions, but does not prove their complete underlying
+cause. This release adds evidence for the next controlled comparison; it is not
+announced as a completed Conquest fix or an FPS increase.
+
+Existing settings, character presets and the v1.22.0 features are preserved by
+the normal updater. The application remains Alpha, DPS Beta and Hotbar
+experimental. Unsigned Windows builds can still receive a SmartScreen warning.
+
+---
+
 # Aion 2 Helper v1.22.0 Alpha — Connection Recovery & Critical Damage
 
 ## Connection recovery

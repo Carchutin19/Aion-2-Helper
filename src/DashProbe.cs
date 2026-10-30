@@ -25,12 +25,16 @@ internal static class Native {
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern int pcap_setnonblock(IntPtr h, int value, StringBuilder error);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern IntPtr pcap_getevent(IntPtr h);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern int pcap_setmintocopy(IntPtr h,int bytes);
+    [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern int pcap_stats(IntPtr h,out CaptureStatistics statistics);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern void pcap_close(IntPtr h);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl, CharSet=CharSet.Ansi)] internal static extern int pcap_compile(IntPtr h, out Filter filter, string text, int optimize, uint mask);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern int pcap_setfilter(IntPtr h, ref Filter filter);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern void pcap_freecode(ref Filter filter);
     [DllImport("wpcap.dll", CallingConvention=CallingConvention.Cdecl)] internal static extern IntPtr pcap_geterr(IntPtr h);
     [StructLayout(LayoutKind.Sequential)] internal struct Filter { public uint Length; public IntPtr Instructions; }
+    // Npcap's Windows layout includes reserved compatibility counters after the
+    // first three fields. Only recv/drop are interpreted; ifdrop is unused.
+    [StructLayout(LayoutKind.Sequential)] internal struct CaptureStatistics {public uint Received,Dropped,InterfaceDropped,Captured,Sent,NetworkDropped;}
     [StructLayout(LayoutKind.Sequential)] internal struct Device { public IntPtr Next, Name, Description, Addresses; public uint Flags; }
 }
 
@@ -73,7 +77,7 @@ internal sealed class Segment {
 
 internal sealed class Recorder:IDisposable {
     readonly object sync=new object(); readonly string root;readonly bool writePackets;
-    readonly GameSocketFilter socketFilter=new GameSocketFilter();readonly object lifecycle=new object();readonly ManualResetEvent stopEvent=new ManualResetEvent(true);
+    readonly GameSocketFilter socketFilter=new GameSocketFilter();readonly object lifecycle=new object(),refreshGate=new object();readonly ManualResetEvent stopEvent=new ManualResetEvent(true);
     int maintenanceQueued,liveWorkers;long lastDiscoveryTicks;volatile bool requested,disposed;string lastStartError="";
     internal string LastStartError {get{lock(sync){return lastStartError;}}}
     internal Action<Segment,double> OnSegment;
@@ -94,6 +98,9 @@ internal sealed class Recorder:IDisposable {
     internal static string Q(string s) {return "\""+s.Replace("\\","\\\\").Replace("\"","\\\"").Replace("\r","\\r").Replace("\n","\\n")+"\"";}
     void Error(string s){lock(sync){error=s;}SupportDiagnostics.Event("capture-error",new{message=SupportDiagnostics.Clean(s)});}
     internal void RefreshFlows() {
+        lock(refreshGate)RefreshFlowsCore();
+    }
+    void RefreshFlowsCore() {
         var pids=new HashSet<int>();var names=new List<string>();
         int self;using(var current=Process.GetCurrentProcess())self=current.Id;
         var candidates=Process.GetProcessesByName("AION2");if(candidates.Length==0)candidates=Process.GetProcesses();
@@ -158,19 +165,22 @@ internal sealed class Recorder:IDisposable {
         try {
             var err=new StringBuilder(512);h=Native.pcap_open_live(device,65535,0,100,err);
             if(h==IntPtr.Zero){if(supportAdapter!=null)supportAdapter.Fail("open-failed",err.ToString());Error("Could not open an adapter: "+err);return;}
-            string filterExpression=writePackets?"tcp":socketFilter.Expression;ApplyTrafficFilter(h,filterExpression);
+            string filterExpression=writePackets?"tcp":socketFilter.Expression;ApplyTrafficFilter(h,filterExpression);if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.FilterApplications);
             if(Native.pcap_setnonblock(h,1,err)!=0)throw new Exception("Non-blocking mode: "+err);
             try{if(Native.pcap_setmintocopy(h,1)==0){IntPtr handle=Native.pcap_getevent(h);if(handle!=IntPtr.Zero){packetEvent=new EventWaitHandle(false,EventResetMode.ManualReset);packetEvent.SafeWaitHandle=new SafeWaitHandle(handle,false);}}}catch(EntryPointNotFoundException){}
             var waits=packetEvent==null?null:new WaitHandle[]{stopEvent,packetEvent};var raw=new byte[65535];
             int link=Native.pcap_datalink(h);if(supportAdapter!=null)supportAdapter.Opened(link);lock(sync){openAdapters++;opened=true;}
+            int lastStatistics=unchecked(Environment.TickCount-2000);
             while(active) {
-                if(!writePackets&&filterExpression!=socketFilter.Expression){filterExpression=socketFilter.Expression;ApplyTrafficFilter(h,filterExpression);}
+                if(!writePackets&&filterExpression!=socketFilter.Expression){filterExpression=socketFilter.Expression;ApplyTrafficFilter(h,filterExpression);if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.FilterApplications);}
+                if(SupportDiagnostics.Enabled&&supportAdapter!=null&&unchecked(Environment.TickCount-lastStatistics)>=2000){lastStatistics=Environment.TickCount;supportAdapter.ReadNativeStatistics(h);}
                 IntPtr hp,dp;int result=Native.pcap_next_ex(h,out hp,out dp);if(result==0){if(waits==null)stopEvent.WaitOne(15);else WaitHandle.WaitAny(waits,1000);continue;}if(result<0){Error("Capture stopped on an adapter: "+Marshal.PtrToStringAnsi(Native.pcap_geterr(h)));break;}
                 // Windows timeval uses 32-bit longs, including on x64.
                 if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Delivered);int caplen=Marshal.ReadInt32(hp,8);if(caplen<0||caplen>65535||Marshal.ReadInt32(hp,12)<caplen){if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.InvalidHeaders);continue;}
                 if(SupportDiagnostics.Enabled&&supportAdapter!=null){Interlocked.Increment(ref supportAdapter.Raw);Interlocked.Add(ref supportAdapter.Bytes,caplen);}Marshal.Copy(dp,raw,0,caplen);var s=Segment.Parse(raw,link,caplen);if(s==null)continue;
                 if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Parsed);if(!Tracked(s)){if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Unowned);continue;}
                 double ts=(uint)Marshal.ReadInt32(hp,0)+(uint)Marshal.ReadInt32(hp,4)/1000000.0;
+                bool measured=SupportDiagnostics.Enabled&&supportAdapter!=null;long processingAt=measured?Stopwatch.GetTimestamp():0;if(measured)supportAdapter.Delivery(ts);
                 Action<Segment,double> handler;
                 lock(sync) {string direction;if(!active||!flows.TryGetValue(s.Key,out direction))continue;
                     if(writer!=null){string hex=BitConverter.ToString(s.Data).Replace("-","");
@@ -179,6 +189,7 @@ internal sealed class Recorder:IDisposable {
                     bytes+=s.Data.Length;packets++;if(SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Owned);
                 }
                 if(handler!=null)handler(s,ts); // Decoder work never blocks flow refresh/status readers.
+                if(measured)supportAdapter.Processed(Stopwatch.GetTimestamp()-processingAt);
             }
         }catch(Exception ex){if(supportAdapter!=null)supportAdapter.Fail("worker-error",ex.Message);SupportDiagnostics.Error("capture-worker-exception",ex);Error(ex.Message);}finally{if(supportAdapter!=null)supportAdapter.Closed();if(packetEvent!=null)packetEvent.Dispose();if(h!=IntPtr.Zero)Native.pcap_close(h);if(opened)lock(sync){openAdapters--;}if(Interlocked.Decrement(ref liveWorkers)==0)active=false;}
     }
@@ -261,6 +272,7 @@ internal static class Entry {
     [STAThread] static int Main(string[] args) {
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
+        if(args.Length==1&&args[0]=="--transport-diagnostics-test"){try{TransportDiagnosticsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"transport-diagnostics-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==1&&args[0]=="--game-socket-test"){try{GameSocketVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"game-socket-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==1&&args[0]=="--workstation-test"){try{WorkstationVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"workstation-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==2&&args[0]=="--workstation-replay-test"){try{WorkstationVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"workstation-replay-test.txt"),"FAIL: "+ex);return 1;}}

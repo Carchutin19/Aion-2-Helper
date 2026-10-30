@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.22.0 release — Connection Recovery & Critical Damage](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.22.0/Aion-2-Helper-v1.22.0-windows-x64.zip).
+The [v1.22.1 release — Expanded Support Diagnostics](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.1)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.22.1/Aion-2-Helper-v1.22.1-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
@@ -31,6 +31,17 @@ stats when you enter the world. Opening it after character entry can miss that s
 a saved/default reference that may affect auto-hide. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
+
+## New in v1.22.1
+
+- Expanded **General → Play with diagnostics** reports: capture-driver losses,
+  pending stream gaps, processing/render timings, Floating Text eviction reasons
+  and Helper CPU/memory counters. Off by default; no automatic upload or raw
+  packet/chat/session-key logging. [How to report a problem](https://github.com/Carchutin19/Aion-2-Helper/blob/main/docs/SUPPORT.md).
+- Avoid redundant filter reinstalls when web or already-covered game sockets
+  change. Exact alternate game-socket checks are preserved.
+- **Conquest delays remain under investigation.** This update helps identify
+  their cause; it does not claim a final Conquest or missing-number fix.
 
 ## New in v1.22.0
 
