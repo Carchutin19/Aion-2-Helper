@@ -23,10 +23,10 @@ internal sealed class GameFlowRouter {
     // absent from Windows must earn verification again if its tuple is reused.
     internal void Retain(Func<IEnumerable<string>> owned){lock(gate){var keys=new HashSet<string>(owned());foreach(string key in candidates.Keys.Where(k=>!keys.Contains(k)).ToArray()){buffered-=candidates[key].Bytes;candidates.Remove(key);}}}
     void Reject(Candidate c,string reason){buffered-=c.Bytes;c.Bytes=0;c.Pending.Clear();c.Probe=null;c.Rejected=true;c.State=reason;}
-    internal void Observe(Segment segment,double timestamp){
+    internal void Observe(Segment segment,double timestamp,bool requireVerification=false){
         if(segment==null||segment.Data==null||segment.Data.Length==0)return;
         lock(gate){
-            if(segment.SrcPort==13328){directSegments++;target.Consume(segment,timestamp);return;}
+            if(segment.SrcPort==13328&&!requireVerification&&!candidates.ContainsKey(segment.Key)){directSegments++;target.Consume(segment,timestamp);return;}
             if(segment.SrcPort==443)return; // Web sockets never become gameplay.
             Candidate c;
             if(candidates.TryGetValue(segment.Key,out c)&&(segment.Flags&2)!=0){buffered-=c.Bytes;candidates.Remove(segment.Key);c=null;}

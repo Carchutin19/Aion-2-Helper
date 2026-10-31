@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -319,7 +319,7 @@ internal sealed class EnergyOverlay:Form {
     }
     System.Drawing.Size CoreSize {get{return CoreBounds.Size;}set{CoreBounds=new Rectangle(CoreBounds.Location,value);}}
     internal EnergyOverlay(string folder,bool previewMode=false) {
-        root=folder;preview=previewMode;if(!preview){SkillSignal.ReceiptClock=DpsHistory.UtcNow;floatingSignal.ReceiptClock=DpsHistory.UtcNow;}previewRatio=.65;signal=new DashSignal(root);if(!preview)signal.DiagnosticClock=delegate{return Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;};var gameFlow=new GameFlowRouter(root,signal);recorder=new Recorder(root,false);recorder.OnSegment=delegate(Segment segment,double timestamp){if(recorder.Incoming(segment.Key))gameFlow.Observe(segment,timestamp);else clientPositions.Consume(segment,timestamp,recorder.OwnerPid(segment.Key),true);};recorder.OnCaptureStarted=gameFlow.Reset;statusWriter=new LatestStatusWriter(Path.Combine(root,"live-status.json"));signal.OnReading=QueueReading;PlayerVitals.Changed=WakeVitals;Gathering.Changed=WakeVitals;SkillSignal.Changed=WakeVitals;
+        root=folder;preview=previewMode;if(!preview){SkillSignal.ReceiptClock=DpsHistory.UtcNow;floatingSignal.ReceiptClock=DpsHistory.UtcNow;}previewRatio=.65;signal=new DashSignal(root);if(!preview)signal.DiagnosticClock=delegate{return Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;};var gameFlow=new GameFlowRouter(root,signal);recorder=new Recorder(root,false);recorder.OnOwnedSegment=delegate(Segment segment,double timestamp,bool incoming,bool ambiguous,int owner){if(incoming)gameFlow.Observe(segment,timestamp,ambiguous);else clientPositions.Consume(segment,timestamp,owner,true);};recorder.OnCaptureStarted=gameFlow.Reset;statusWriter=new LatestStatusWriter(Path.Combine(root,"live-status.json"));signal.OnReading=QueueReading;PlayerVitals.Changed=WakeVitals;Gathering.Changed=WakeVitals;SkillSignal.Changed=WakeVitals;
         helperIcon=Icon.ExtractAssociatedIcon(Application.ExecutablePath)??(Icon)SystemIcons.Application.Clone();Icon=helperIcon;
         Text="Aion 2 Helper - Energy";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;
         // Enforce the slim window's own limits in native sizing messages.
