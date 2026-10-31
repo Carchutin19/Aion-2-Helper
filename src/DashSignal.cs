@@ -54,7 +54,7 @@ internal sealed class DashSignal {
             if(!flow.Started){flow.Next=seq;flow.Started=true;}
             flow.LastTimestamp=ts;flow.Segments++;
             int delta=unchecked((int)(seq-flow.Next));
-            if(delta>0){flow.OutOfOrder++;byte[] previous;if(flow.Pending.TryGetValue(seq,out previous))flow.PendingBytes-=previous.Length;flow.Pending[seq]=s.Data;flow.PendingBytes+=s.Data.Length;flow.PeakPending=Math.Max(flow.PeakPending,flow.Pending.Count);
+            if(delta>0){flow.OutOfOrder++;byte[] previous;if(flow.Pending.TryGetValue(seq,out previous)){flow.Duplicates++;flow.PendingBytes-=previous.Length;}flow.Pending[seq]=s.Data;flow.PendingBytes+=s.Data.Length;flow.PeakPending=Math.Max(flow.PeakPending,flow.Pending.Count);
                 TrackGap(flow,now);
                 if(flow.Pending.Count>64||flow.PendingBytes>262144)RecoverGap(flow,now,"pending limit");
                 else return;
