@@ -15,10 +15,21 @@ internal sealed class GameFlowRouter {
     }
     readonly object gate=new object();readonly string root;readonly DashSignal target;
     readonly Dictionary<string,Candidate> candidates=new Dictionary<string,Candidate>();
+    sealed class Proof {internal uint Actor;internal bool Confirmed;}
+    readonly Dictionary<string,Proof> proofs=new Dictionary<string,Proof>();
+    internal Action<string> OnVerified;
     int nextId,omitted,buffered;long directSegments,forwardedSegments;
     const int MaxCandidates=16,MaxCandidateBytes=524288,MaxTotalBytes=4194304,MaxSegments=4096;
     internal GameFlowRouter(string root,DashSignal target){this.root=root;this.target=target;target.AllowOwnedPorts=true;}
-    internal void Reset(){lock(gate){candidates.Clear();buffered=0;omitted=0;target.Reset();}}
+    internal void Reset(){lock(gate){candidates.Clear();proofs.Clear();buffered=0;omitted=0;target.Reset();}}
+    internal void ObserveFrame(byte[] bytes,int start,int end,string stream){
+        if(string.IsNullOrEmpty(stream)||end-start<2)return;
+        lock(gate){Proof p;if(!proofs.TryGetValue(stream,out p)){if(proofs.Count>=32)proofs.Clear();proofs[stream]=p=new Proof();}
+            if(p.Confirmed)return;
+            if(bytes[start]==0x33&&bytes[start+1]==0x36){uint actor;string name;byte role;if(DpsSignal.PlayerIdentity(bytes,start,end,true,out actor,out name,out role))p.Actor=actor;}
+            uint resource;if(p.Actor!=0&&DashSignal.EnergyActor(bytes,start,end,out resource)&&resource==p.Actor){p.Confirmed=true;var verified=OnVerified;if(verified!=null)verified(stream);}
+        }
+    }
     // Called on existing maintenance, never a second polling loop. A socket
     // absent from Windows must earn verification again if its tuple is reused.
     internal void Retain(Func<IEnumerable<string>> owned){lock(gate){var keys=new HashSet<string>(owned());foreach(string key in candidates.Keys.Where(k=>!keys.Contains(k)).ToArray()){buffered-=candidates[key].Bytes;candidates.Remove(key);}}}
@@ -26,13 +37,14 @@ internal sealed class GameFlowRouter {
     internal void Observe(Segment segment,double timestamp,bool requireVerification=false){
         if(segment==null||segment.Data==null||segment.Data.Length==0)return;
         lock(gate){
-            if(segment.SrcPort==13328&&!requireVerification&&!candidates.ContainsKey(segment.Key)){directSegments++;target.Consume(segment,timestamp);return;}
+            Proof confirmed;if(requireVerification&&segment.SrcPort==13328&&!candidates.ContainsKey(segment.StreamKey)&&proofs.TryGetValue(segment.StreamKey,out confirmed)&&confirmed.Confirmed){directSegments++;target.Consume(segment,timestamp);return;}
+            if(segment.SrcPort==13328&&!requireVerification&&!candidates.ContainsKey(segment.StreamKey)){directSegments++;target.Consume(segment,timestamp);return;}
             if(segment.SrcPort==443)return; // Web sockets never become gameplay.
             Candidate c;
-            if(candidates.TryGetValue(segment.Key,out c)&&(segment.Flags&2)!=0){buffered-=c.Bytes;candidates.Remove(segment.Key);c=null;}
+            if(candidates.TryGetValue(segment.StreamKey,out c)&&(segment.Flags&2)!=0){buffered-=c.Bytes;candidates.Remove(segment.StreamKey);c=null;}
             if(c==null){
                 if(candidates.Count>=MaxCandidates){omitted++;return;}
-                c=new Candidate{Id=++nextId,Port=segment.SrcPort};candidates[segment.Key]=c;
+                c=new Candidate{Id=++nextId,Port=segment.SrcPort};candidates[segment.StreamKey]=c;
                 c.Probe=new DashSignal(root);c.Probe.ProbeOnly=true;c.Probe.DiagnosticClock=target.DiagnosticClock;Candidate captured=c;
                 c.Probe.OnFrame=delegate(byte[] b,int s,int e,double t,string flow){
                     captured.Frames++;

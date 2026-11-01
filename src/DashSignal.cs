@@ -49,8 +49,8 @@ internal sealed class DashSignal {
     internal void Consume(Segment s,double ts){
         if(s.SrcPort!=13328&&!ProbeOnly&&!AllowOwnedPorts)return;
         lock(gate){lastTraffic=ts;double now=DiagnosticClock==null?0:DiagnosticClock();Flow flow;
-            if(!streams.TryGetValue(s.Key,out flow)){flow=new Flow();if(streams.Count>=32)streams.Clear();streams[s.Key]=flow;reading=null;}
-            uint seq=s.Seq;if((s.Flags&2)!=0){seq++;energyMaxima.Remove(s.Key);maps.Remove(s.Key);if(flow.Started){flow=new Flow();streams[s.Key]=flow;reading=null;}}
+            if(!streams.TryGetValue(s.StreamKey,out flow)){flow=new Flow();if(streams.Count>=32)streams.Clear();streams[s.StreamKey]=flow;reading=null;}
+            uint seq=s.Seq;if((s.Flags&2)!=0){seq++;energyMaxima.Remove(s.StreamKey);maps.Remove(s.StreamKey);if(flow.Started){flow=new Flow();streams[s.StreamKey]=flow;reading=null;}}
             if(!flow.Started){flow.Next=seq;flow.Started=true;}
             flow.LastTimestamp=ts;flow.Segments++;
             int delta=unchecked((int)(seq-flow.Next));
@@ -60,7 +60,7 @@ internal sealed class DashSignal {
                 else return;
             }else{int overlap=-delta;if(overlap>=s.Data.Length){flow.Duplicates++;return;}flow.Append(s.Data,overlap);flow.Next=unchecked(seq+(uint)s.Data.Length);}
             DrainPending(flow);TrackGap(flow,now);
-            Cut(flow,ts,s.Key);
+            Cut(flow,ts,s.StreamKey);
         }
     }
     static void DrainPending(Flow flow){while(flow.Pending.Count>0){uint first=flow.FirstPending();int delta=unchecked((int)(first-flow.Next));if(delta>0)break;

@@ -1,5 +1,8 @@
 # Capture Recovery Test A
 
+**Superseded for the current investigation:** Test A did not resolve the reported
+boss-fight delays. See [Capture Recovery Test B](CAPTURE-CONTINUITY-TEST.md).
+
 Testing build: **1.22.1.1-capture-test-a** (assembly1.22.1.1).
 This candidate needs an affected-PC comparison before a normal release.
 
