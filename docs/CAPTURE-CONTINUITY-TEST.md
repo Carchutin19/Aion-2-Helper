@@ -1,7 +1,12 @@
 # Capture Recovery Test C
 
-Build **1.22.1.4-capture-test-c**. Separate testing prerelease; the normal release
-remains v1.22.1. Includes the HUD-export crash correction and the earlier capture
+**Historical testing guide:** these corrections are now included in the normal
+[v1.22.2 release](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.2).
+Use the normal update for current installations. The instructions below describe
+the separate testing package.
+
+Build **1.22.1.4-capture-test-c**. Separate testing prerelease; at the time of this test the normal release
+was v1.22.1. Includes the HUD-export crash correction and the earlier capture
 continuity changes. Live confirmation from the affected player is still needed.
 
 ## What changed

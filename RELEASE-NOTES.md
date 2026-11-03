@@ -1,3 +1,55 @@
+# Aion 2 Helper v1.22.2 Alpha — Overlay Reading & HUD Export Fixes
+
+## Overlay reading and capture continuity
+
+- Corrected cases where interrupted or inconsistent native connection observations
+  could split a verified game stream, leaving the Hotbar, target bars, combat
+  numbers or stagger without the profile information needed to keep updating.
+- Previously verified incoming streams can bridge a bounded missing ownership
+  observation while retaining their exact connection and process identity.
+- Inconclusive native states on an exact Aion-owned normal game connection require
+  own-character profile and matching-energy verification before dispatch. Real
+  connection generations and captured SYN/FIN/RST remain separate.
+- Keep standard game capture independent of changing auxiliary socket filters.
+  Dual-owned connections retain their direction checks, and failure of the primary
+  capture lane can no longer be hidden by an idle auxiliary capture handle.
+- Improved ping continuity when a socket's reported state changes. Displayed ping
+  still requires successful, enabled and fresh Windows RTT statistics.
+
+## Creating a HUD without the original skill bars
+
+- Fixed an unhandled export error after choosing an empty or invalid HUD file.
+- An empty preset now explains how to select the populated HUD, press Save and
+  export it again. Locked/unreadable files remain recoverable errors.
+- The original HUD is preserved. Import the generated copy in Aion, press Save
+  and leave the HUD editor; the original bars may remain visible while editing.
+
+## Diagnostics and validation
+
+- Added owned-stream continuity events/counters and inconclusive socket-state
+  observations to the existing optional **General → Play with diagnostics** report.
+- Reduced repeated idle-adapter detail in the event log while retaining full
+  adapter information in the summary.
+- Twenty regression suites and five recorded comparisons pass. A local shared
+  overlay-loss incident and an isolated regression guided this correction.
+- Reports remain local, opt-in and bounded to 15 minutes or 8 MiB; nothing is
+  uploaded automatically. Send a fresh report if the issue persists.
+
+These corrections address specific observed failure paths. They do not claim
+universal resolution of Conquest, routing or network problems. The Floating Text
+16-number visual capacity, TCP gap thresholds and diagnostic limits are unchanged.
+Automatic overlay hiding when game menus open remains planned and is not included.
+
+## Updating
+
+Use the Helper's normal update check, or extract the full ZIP into your existing
+Helper folder while the Helper is closed, replacing program files. Keep your
+personal JSON files to preserve settings and character presets. Start the Helper
+before fully launching Aion. Npcap remains a separate prerequisite.
+
+
+---
+
 # Aion 2 Helper v1.22.1 Alpha — Expanded Support Diagnostics
 
 ## Better reports for intermittent problems

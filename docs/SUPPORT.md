@@ -1,6 +1,6 @@
-# Support reports (v1.22.1)
+# Support reports (v1.22.2)
 
-Available from v1.22.0; expanded diagnostics from v1.22.1.
+Available from v1.22.0; expanded diagnostics from v1.22.1, with connection-continuity details in v1.22.2.
 
 1. Open **General → Support & diagnostics** and enable **Play with diagnostics**.
 2. Reproduce the problem. For a connection/login issue, enable this first, fully
@@ -32,7 +32,7 @@ write support-write-error.txt. Send that file, if present, instead of an old ZIP
 
 ## Lag, disappearing overlays or missing combat numbers
 
-Use v1.22.1 or newer. Enable diagnostics before the affected activity. Reproduce
+Use v1.22.2 or newer. Enable diagnostics before the affected activity. Reproduce
 it for roughly 2–5 minutes, then, if practical, leave for a normal zone and play
 for another 30–60 seconds in the same recording. Stop diagnostics and send the
 ZIP privately. Include the approximate time of the problem, the zone, what
@@ -45,15 +45,19 @@ the first and last recording samples rather than attributing their full totals
 to the recorded incident. The expanded report includes:
 
 - Capture-driver received/drop counters when supported, actual filter application
-  counts, and local packet-processing timings. Driver counters cover the handle's
-  lifetime; compare consecutive samples, not an absolute total against the log's
-  shorter duration. Unsupported counters are reported as unavailable/errors.
+  counts, and local packet-processing timings. Driver counters cover the current
+  native filter epoch; compare consecutive samples within the same epoch, not an
+  absolute total against the log's shorter duration. Unsupported counters are
+  reported as unavailable/errors.
 - Capture-timestamp age, separate from processing cost. Clock drift can affect
   this age: it is not a direct measurement of server or internet latency.
 - Per-flow pending-byte/segment counts, gap age and distance, duplicates,
   out-of-order arrivals, framing/container errors and existing recovery reasons.
   Local numeric flow IDs correlate the active Hotbar with its decoder stream
   without exposing socket endpoints. These IDs are scoped to one recording.
+- Exact owned-stream verification, missing/restored observations, retained and
+  rejected packet counters, native TCP-state totals and inconclusive-state events.
+  These are local metadata observations, not proof that a server closed a socket.
 - Floating Text peak active count, configured capacity, layout dimensions and
   relevant text/movement settings; separate counters for capacity evictions,
   placement failures/evictions and normal expiry; diagnostic render timings.

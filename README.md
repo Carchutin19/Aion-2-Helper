@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.22.1 release — Expanded Support Diagnostics](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.1)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.22.1/Aion-2-Helper-v1.22.1-windows-x64.zip).
+The [v1.22.2 release — Overlay Reading & HUD Export Fixes](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.2)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.22.2/Aion-2-Helper-v1.22.2-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
