@@ -89,7 +89,7 @@ internal sealed class Recorder:IDisposable {
     internal void SetClientTraffic(bool value){clientTraffic=value;}
     internal string[] IncomingSocketKeys(){lock(sync){return continuity.Streams();}}
     internal void ConfirmGameplay(string stream){lock(sync){continuity.Confirm(stream);}}
-    internal void ApplyOwnershipSnapshot(Dictionary<string,string> updated,Dictionary<string,int> owners,Dictionary<int,long> live,HashSet<string> closed){lock(sync){continuity.Update(updated,owners,live,closed);flows=updated;flowOwners=owners;var effective=new Dictionary<string,string>(updated);foreach(var row in continuity.EffectiveDirections())effective[row.Key]=row.Value;socketFilter.Update(effective,clientTraffic);if(SupportDiagnostics.Enabled)SupportDiagnostics.Ownership(continuity.Status());}}
+    internal void ApplyOwnershipSnapshot(Dictionary<string,string> updated,Dictionary<string,int> owners,Dictionary<int,long> live,HashSet<string> closed,HashSet<string> uncertain=null){lock(sync){continuity.Update(updated,owners,live,closed,uncertain);flows=updated;flowOwners=owners;var effective=new Dictionary<string,string>(updated);foreach(var row in continuity.EffectiveDirections())effective[row.Key]=row.Value;socketFilter.Update(effective,clientTraffic);if(SupportDiagnostics.Enabled)SupportDiagnostics.Ownership(continuity.Status());}}
     internal bool Incoming(string key){lock(sync){string direction;return flows.TryGetValue(key,out direction)&&(direction=="in"||direction=="both");}}
     internal int OwnerPid(string key){lock(sync){int pid;return flowOwners.TryGetValue(key,out pid)?pid:0;}}
     Dictionary<string,string> flows=new Dictionary<string,string>(); readonly List<Thread> workers=new List<Thread>();
@@ -110,6 +110,15 @@ internal sealed class Recorder:IDisposable {
         directions[incoming]=directions.TryGetValue(incoming,out old)&&old!="in"?"both":"in";
         if(!owners.ContainsKey(outgoing))owners[outgoing]=pid;owners[incoming]=pid;
     }
+    // Live incident: the same PID-owned, non-wildcard game tuple was observed
+    // with states 0/1/2 while traffic continued, then ESTABLISHED again. These
+    // rows are inconclusive, not permission to dispatch unverified gameplay.
+    // Limit the fallback to the normal game port and require protocol proof in
+    // GameFlowRouter. FIN/RST, process replacement and real socket generations
+    // still retire proof. Other ports and TIME_WAIT/DELETE retain normal policy.
+    internal static bool InconclusiveGameState(int state,string local,string remote,int lp,int rp){
+        return (state==0||state==1||state==2)&&lp>0&&rp==13328&&local!="0.0.0.0"&&local!="::"&&remote!="0.0.0.0"&&remote!="::";
+    }
     internal void RefreshFlows() {
         lock(refreshGate)RefreshFlowsCore();
     }
@@ -118,7 +127,7 @@ internal sealed class Recorder:IDisposable {
         int self;using(var current=Process.GetCurrentProcess())self=current.Id;
         var candidates=Process.GetProcessesByName("AION2");if(candidates.Length==0)candidates=Process.GetProcesses();
         foreach(var p in candidates) {try {string name=p.ProcessName;if(p.Id!=self&&name.IndexOf("aion",StringComparison.OrdinalIgnoreCase)>=0){pids.Add(p.Id);names.Add(name+" ("+p.Id+")");try{live[p.Id]=p.StartTime.ToUniversalTime().Ticks;}catch{live[p.Id]=0;}}} catch{} finally{p.Dispose();}}
-        var updated=new Dictionary<string,string>();var owners=new Dictionary<string,int>();var supportPorts=new Dictionary<int,int>();var supportTcpErrors=new List<object>();var closed=new HashSet<string>();var states=new Dictionary<int,int>();
+        var updated=new Dictionary<string,string>();var owners=new Dictionary<string,int>();var supportPorts=new Dictionary<int,int>();var supportTcpErrors=new List<object>();var closed=new HashSet<string>();var uncertain=new HashSet<string>();var states=new Dictionary<int,int>();
         foreach(int family in new int[]{2,23}) {
             if(pids.Count==0)break;
             byte[] table=ReadTcpTable(family,supportTcpErrors);if(table==null)continue;
@@ -130,12 +139,13 @@ internal sealed class Recorder:IDisposable {
                     string local=Segment.Ip(table,i+(family==2?4:0),family==2?4:16);
                     string remote=Segment.Ip(table,i+(family==2?12:24),family==2?4:16);
                     int lp=Segment.U16(table,i+(family==2?8:20)),rp=Segment.U16(table,i+(family==2?16:44));if(!supportPorts.ContainsKey(rp))supportPorts[rp]=0;supportPorts[rp]++;
+                    if(InconclusiveGameState(state,local,remote,lp,rp)){AddOwnedSocket(updated,owners,local+":"+lp,remote+":"+rp,pid);uncertain.Add(remote+":"+rp+">"+local+":"+lp);uncertain.Add(local+":"+lp+">"+remote+":"+rp);continue;}
                     if(state==1||state==11||state==12){closed.Add(remote+":"+rp+">"+local+":"+lp);closed.Add(local+":"+lp+">"+remote+":"+rp);continue;}
                     if(state<3||state>10)continue;AddOwnedSocket(updated,owners,local+":"+lp,remote+":"+rp,pid);
                 }
             }
         }
-        ApplyOwnershipSnapshot(updated,owners,live,closed);lock(sync){processes=names.Count==0?"Game not detected":String.Join(", ",names.ToArray());}SupportDiagnostics.Connections(new{utc=DateTime.UtcNow.ToString("o"),processes=names.ToArray(),processCount=pids.Count,connections=updated.Count/2,dualOwnedDirections=System.Linq.Enumerable.Count(updated.Values,v=>v=="both"),remotePorts=SupportDiagnostics.Ports(supportPorts),gamePortConnections=supportPorts.ContainsKey(13328)?supportPorts[13328]:0,tcpErrors=supportTcpErrors,tcpStates=states.Select(x=>new{state=x.Key,count=x.Value}).ToArray()});
+        ApplyOwnershipSnapshot(updated,owners,live,closed,uncertain);lock(sync){processes=names.Count==0?"Game not detected":String.Join(", ",names.ToArray());}SupportDiagnostics.Connections(new{utc=DateTime.UtcNow.ToString("o"),processes=names.ToArray(),processCount=pids.Count,connections=updated.Count/2,dualOwnedDirections=System.Linq.Enumerable.Count(updated.Values,v=>v=="both"),inconclusiveGameRows=uncertain.Count/2,remotePorts=SupportDiagnostics.Ports(supportPorts),gamePortConnections=supportPorts.ContainsKey(13328)?supportPorts[13328]:0,tcpErrors=supportTcpErrors,tcpStates=states.Select(x=>new{state=x.Key,count=x.Value}).ToArray()});
     }
     static byte[] ReadTcpTable(int family,List<object> errors){
         int size=0;uint code=Native.GetExtendedTcpTable(IntPtr.Zero,ref size,false,family,5,0);
@@ -212,7 +222,7 @@ internal sealed class Recorder:IDisposable {
                 double ts=(uint)Marshal.ReadInt32(hp,0)+(uint)Marshal.ReadInt32(hp,4)/1000000.0;
                 bool measured=SupportDiagnostics.Enabled&&supportAdapter!=null;long processingAt=measured?Stopwatch.GetTimestamp():0;if(measured)supportAdapter.Delivery(ts);
                 Action<Segment,double> handler;Action<Segment,double,bool,bool,int> ownedHandler;
-                bool incoming=decision.Incoming,ambiguous=decision.Ambiguous;int owner=decision.Owner;
+                bool incoming=decision.Incoming,ambiguous=decision.Ambiguous||decision.UncertainState;int owner=decision.Owner;
                 s.ProtocolStream=decision.Stream;s.PeerStream=decision.PeerStream;
                 lock(sync) {
                     if(!active)continue;
@@ -315,6 +325,7 @@ internal static class Entry {
         if(args.Length==1&&args[0]=="--workstation-test"){try{WorkstationVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"workstation-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==2&&args[0]=="--workstation-replay-test"){try{WorkstationVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"workstation-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==1&&args[0]=="--game-flow-test"){try{GameFlowVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"game-flow-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--native-tcp-state-test"){try{NativeTcpStateVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"native-tcp-state-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==1&&args[0]=="--next-settings-test"){try{NextSettingsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"next-settings-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==1&&args[0]=="--support-diagnostics-test"){try{SupportDiagnostics.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"support-diagnostics-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>1&&args[0]=="--enemy-target-replay-test"){try{EnemyTargetVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"enemy-target-replay-test.txt"),"FAIL: "+ex);return 1;}}

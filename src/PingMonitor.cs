@@ -17,7 +17,7 @@ internal sealed class TcpPingReader:IDisposable {
     internal sealed class Connection {
         internal byte[] Row;internal int Family;internal bool Owned,HasCount;internal uint Count,Error;internal int? Value;internal double FreshAt,RetryAt;
         string key; // The native endpoint row is fixed for this connection.
-        internal string Key {get{return key??(key=Family+":"+Convert.ToBase64String(Row));}}
+        internal string Key {get{return key??(key=Family+":"+Convert.ToBase64String(Row,4,Row.Length-4));}}
     }
     readonly Dictionary<string,Connection> connections=new Dictionary<string,Connection>();
     readonly Func<List<Connection>> discover;readonly Func<Connection,byte[],byte[],uint> read;readonly Func<Connection,bool,uint> write;
@@ -29,7 +29,9 @@ internal sealed class TcpPingReader:IDisposable {
         var found=new List<Connection>();int stride=family==2?24:56;if(table==null||table.Length<4)return found;
         uint count=BitConverter.ToUInt32(table,0);if(count>(table.Length-4)/stride)throw new IOException("Invalid TCP table size");
         for(int n=0;n<count&&found.Count<MaximumConnections;n++){int at=4+n*stride,state=family==2?0:48,pid=family==2?20:52,port=family==2?16:44;
-            if(BitConverter.ToUInt32(table,at+state)!=5||!pids.Contains(BitConverter.ToInt32(table,at+pid))||((table[at+port]<<8)|table[at+port+1])!=13328)continue;
+            if(!pids.Contains(BitConverter.ToInt32(table,at+pid))||((table[at+port]<<8)|table[at+port+1])!=13328)continue;
+            int observedState=BitConverter.ToInt32(table,at+state);
+            if(observedState!=5&&!Recorder.InconclusiveGameState(observedState,Segment.Ip(table,at+(family==2?4:0),family==2?4:16),Segment.Ip(table,at+(family==2?12:24),family==2?4:16),Segment.U16(table,at+(family==2?8:20)),13328))continue;
             var row=new byte[family==2?20:52];if(family==2)Buffer.BlockCopy(table,at,row,0,20);else{Buffer.BlockCopy(table,at+48,row,0,4);Buffer.BlockCopy(table,at,row,4,48);}found.Add(new Connection{Row=row,Family=family});
         }return found;
     }

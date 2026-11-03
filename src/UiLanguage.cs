@@ -62,6 +62,7 @@ internal static class UiLanguage {
 
         {"Unlock widgets in General to move and resize your Helper bar.","Desbloquea los widgets en General para mover y ajustar el tamaño de tu barra del Helper."},
         {"Export your current HUD","Exporta tu HUD actual"},
+        {"In AION 2, open Edit HUD, select the preset with your current layout, press Save and export that preset. Do not export an empty preset. Naming it makes it easier to find.","En AION 2, abre Editar HUD, selecciona el preajuste que contiene tu distribución actual, pulsa Guardar y exporta ese preajuste. Evita exportar uno vacío. Ponle un nombre para encontrarlo más fácilmente."},
         {"In AION 2, open Edit HUD and export your current layout. Giving the export a name is optional, but makes it easier to find.","En AION 2, abre Editar HUD y exporta tu distribución actual. Ponerle un nombre es opcional, pero te ayudará a encontrarla."},
         {"Create the Helper copy","Crea la copia del Helper"},
         {"Select the file you just exported. The copy is saved beside the original as Helper_HiddenHotbar(original name).dat.","Elige el archivo que acabas de exportar. La copia se guarda junto al original como Helper_HiddenHotbar(nombre original).dat."},
@@ -84,6 +85,7 @@ internal static class UiLanguage {
         {"Export your current HUD in AION 2 to begin.","Exporta tu HUD actual en AION 2 para empezar."},
         {"Copy prepared. Import it in AION 2, select the preset, press Save and leave the HUD editor.","Copia preparada. Impórtala en AION 2, selecciona el preajuste, pulsa Guardar y sal del editor de HUD."},
         {"Choose a HUD file exported from Edit HUD > Export in AION 2. The original file was not changed.","Elige un HUD exportado desde Editar HUD > Exportar en AION 2. El archivo original no se ha modificado."},
+        {"The exported HUD preset is empty. In AION 2, select the preset with your current layout, press Save and export it again. Then choose that exported file here.","El preajuste de HUD exportado está vacío. En AION 2, selecciona el preajuste que contiene tu distribución actual, pulsa Guardar y expórtalo de nuevo. Después elige aquí ese archivo exportado."},
         {"The HUD copy could not be created. Check the exported file and folder permissions, then retry.","No se ha podido crear la copia del HUD. Comprueba el archivo exportado y los permisos de su carpeta y vuelve a intentarlo."},
         {"The created file was not found. Create the HUD copy again.","No se encuentra el archivo creado. Vuelve a crear la copia del HUD."},
         {"Could not open the folder. Use the file path shown below.","No se ha podido abrir la carpeta. Usa la ruta del archivo que aparece debajo."},
