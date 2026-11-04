@@ -82,7 +82,12 @@ internal static class EnemyHealthVerification {
 
         EnemyHealthSignal.Sample special;var nightmare=Spawn(23146,1200000,1200000,2980240);Check(EnemyHealthSignal.Spawn(nightmare,0,nightmare.Length,out special)&&special.Npc==2980240&&special.Maximum==1200000,"Pesadilla NPC namespace retains explicit current/max instead of dropping valid special-instance enemies");var unsupported=Spawn(23146,10,10,3000000);Check(!EnemyHealthSignal.Spawn(unsupported,0,unsupported.Length,out special),"Expanded namespace still rejects unsupported identifiers");
         var signal=new EnemyHealthSignal();signal.Configure(true);Feed(signal,Energy(1923),100);Feed(signal,Spawn(34411),100);Feed(signal,Spawn(21922),100);
-        Check(signal.Read()==null,"Spawn alone cannot choose an enemy");Feed(signal,Aim(1923,34411,15110340),101);Check(signal.Read().Actor==34411&&signal.Read().Maximum==119700,"Primary area aim selects explicit max");
+        Check(signal.Read()==null,"Spawn alone cannot choose an enemy");
+        Feed(signal,Aim(1923,34411,13010000),100.5);
+        Check(signal.Read()!=null&&signal.Read().Actor==34411&&!signal.Read().Locked,"A catalogue-confirmed base attack selects the target before receiving learned skills");
+        Feed(signal,Aim(1923,21922,13710000),100.6);
+        Check(signal.Read().Actor==34411,"A catalogue-confirmed base heal cannot replace the attack target");
+        Feed(signal,Aim(1923,34411,15110340),101);Check(signal.Read().Actor==34411&&signal.Read().Maximum==119700,"Primary area aim selects explicit max");
         Feed(signal,Aim(1923,21922,15780007),101.1);Feed(signal,Aim(1923,1923,15760007),101.2);Feed(signal,Aim(1923,21922,15750007),101.3);Check(signal.Read().Actor==34411,"Procs, heals and retaliation cannot change primary target");
         Feed(signal,Hp(21922,85941),102);Feed(signal,Hp(34411,98460),102);Check(signal.Read().Current==98460,"Only tracked enemy HP shown");
         Feed(signal,Select(21922),103);Check(signal.Read().Actor==21922&&signal.Read().Locked,"Hard lock overrides soft target");Feed(signal,Aim(1923,34411,15110340),104);Check(signal.Read().Actor==21922,"Attacks do not override lock");Feed(signal,Hp(21922,0),105);Check(signal.Read()==null,"Locked target death hides without falling back to an old area target");

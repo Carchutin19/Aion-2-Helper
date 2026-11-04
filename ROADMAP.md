@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated November 3, 2026.**
+**Built with the community. Updated November 4, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -42,6 +42,9 @@ is described separately from cases that still need more testing.
 
 | Status | Report / correction | Update |
 | :--- | :--- | :---: |
+| ✅ Released | **Hotbar on new characters and when re-enabled:** checked the initial assignments, a level 3 skill unlock and the switch between skill presets 1 and 2. Re-enabling the Helper Hotbar restores the detected bar and preserves cooldown tracking. | [v1.23.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0) |
+| ✅ Confirmed in tested cases | **Assassin Q/E icons stuck on the base skill:** Q follows the verified stun trigger for **Shadow Fall**. E follows the verified critical-hit and evasion triggers for **Heart Gore** and **Whirlwind Slice**. The corrected build was confirmed in game and picked the expected icon before all 14 recorded casts in replay. Priority when two E variants are ready together still needs a live check. | [v1.23.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0) |
+| ✅ Confirmed in tested cases | **Enemy HP missing without target lock:** the health bar appears when landing a supported attack without locking the enemy. Confirmed in game with a normal enemy. | [v1.23.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0) |
 | ✅ Confirmed on affected PC | **VPN / ExitLag — missing character and overlay detection:** the affected tester confirmed restored detection. Verified owned-flow routing is integrated; other routing tools/configurations still need validation. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | 🟡 Correction released · feedback welcome | **Conquest / boss delays and disappearing overlays:** a local session reproduced shared Hotbar/target/combat-number loss and inconsistent native socket states. v1.22.2 preserves verified input through inconclusive state observations, improves ping continuity and adds diagnostics. The affected-player comparison is still required; dense-number capacity is a separate pending issue. | [v1.22.2](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.2) |
 | 🟡 Correction released · regression checked | **Helper closes after choosing an empty or invalid HUD export:** the export error is handled; an empty preset explains how to export the populated layout. Original HUD files remain unchanged. | [v1.22.2](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.2) |
@@ -86,11 +89,24 @@ Released community features and corrections are listed above.
 | ✅ Available | **Staggered screen effect** | Optional centered animation, text/glow colors and Test effect; introduced in [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0). Preview approved and automatic-transition tests pass; separate controlled live trigger comparison remains pending. |
 | ⬜ Planned / feasibility to check | **Hide Helper overlays while game menus are open** | Explore reliable detection of the map, shops, manufacturing stations and other menus, then restore overlays on close. Coverage depends on which menu states can be detected; not included in v1.22.0. |
 | ⬜ Planned / feasibility to check | **Enemy status-effect visual removal** | Explore an option to hide visual effects associated with altered states/debuffs on enemies. Exact scope and compatibility need validation; this is separate from the existing selection-outline option. |
+| ⬜ Planned | **Real-time combat log** | Show supported combat events as they happen, including damage, healing and critical hits. |
+| ⬜ Planned / feasibility to check | **Estimated fight duration in the DPS Meter** | Estimate the time remaining based on the target's remaining HP and recent DPS when both readings are reliable. |
+| ⬜ Planned | **Snap alignment for overlay widgets** | Extend snap beyond individual Hotbar slots so movable widgets can align with one another while editing the layout. |
+| ⬜ Planned / feasibility to check | **Hit direction in Floating Combat Text** | Label attacks from behind, from the front and from other directions when the combat event provides a reliable direction. |
 | 🟡 Ongoing | **FPS & GPU optimization** | Continue reducing unnecessary drawing and updates; see ongoing work above. |
 | ⬜ Planned | **Special chest radar** | Explore reliable detection and location information for special chests. |
 | ⬜ Planned | **Controller support** | A system for integrating controller input with the Helper. |
 
-## ⬜ Personal roadmap
+## Personal roadmap
+
+### ✅ Released in [v1.23.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0) · November 4, 2026
+
+| Feature | What changed and what was checked |
+| :--- | :--- |
+| **Combat Power overlay** | Added an FPS/Ping-style widget with white text and sword icons by default, configurable color, size and position. Click the locked widget to switch between the two values. Both values appeared in live testing, including after equipment changes. |
+| **Experience progress bar** | Added a customizable bar under **Progress bar**, with level and XP display options, optional fade after a configurable period without gains and an option to hide at maximum level. Tested level-ups and XP gains from enemies after the tutorial. |
+
+### ⬜ Planned
 
 | Feature | Intended scope |
 | :--- | :--- |

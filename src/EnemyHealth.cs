@@ -113,7 +113,15 @@ internal sealed class EnemyHealthSignal {
     internal static bool Points(byte[] b,int start,int end,out uint actor,out uint? current,out uint? maximum,out bool energy){actor=0;current=maximum=null;energy=false;int p=start+2;if(!DpsSignal.Var(b,ref p,end,out actor)||actor==0||p>=end)return false;int flags=b[p++];if(flags>3)return false;for(int width=4;width<=8;width+=4)if((flags&(width==4?1:2))!=0){uint count;if(!DpsSignal.Var(b,ref p,end,out count)||count>(end-p)/(width+1))return false;for(uint i=0;i<count;i++){int kind=b[p++];if(width==4&&kind==3){if(energy||actor>int.MaxValue||BitConverter.ToUInt32(b,p)>100000000)return false;energy=true;}if(width==8&&(kind==0||kind==7)){long v=BitConverter.ToInt64(b,p);if(v<0||v>1000000000)return false;if(kind==0)current=(uint)v;else maximum=(uint)v;}p+=width;}}return p==end;}
     internal static bool Selection(byte[] b,int start,int end,out uint actor){actor=0;int p=start+2;return end-start>=6&&b[p++]==0&&b[p++]==0&&b[p++]==0&&DpsSignal.Var(b,ref p,end,out actor)&&p==end&&actor<=10000000;}
     internal static bool Aim(byte[] b,int start,int end,out uint source,out uint target,out uint skill){source=target=skill=0;int p=start+2;if(!DpsSignal.Var(b,ref p,end,out source)||source==0||!Skip(ref p,end,1)||p+6>end)return false;skill=BitConverter.ToUInt32(b,p);p+=4;byte flags=b[p+1];p+=2;if(!DpsSignal.Var(b,ref p,end,out target)||target==0||target==source||p+4>end)return false;float facing=BitConverter.ToSingle(b,p);p+=4;if(float.IsNaN(facing)||float.IsInfinity(facing)||Math.Abs(facing)>720)return false;if((flags&2)!=0){if(p+12>end)return false;for(int i=0;i<3;i++){float v=BitConverter.ToSingle(b,p+i*4);if(float.IsNaN(v)||float.IsInfinity(v)||Math.Abs(v)>10000000)return false;}}return skill/1000000>=11&&skill/1000000<=19;}
-    static bool Primary(Flow f,uint skill){return skill%100!=7&&skill%100!=8&&skill%100!=9&&!DpsSignal.HealingSkill(skill)&&!SkillCatalogue.Shared.IsNonDamage(skill)&&(f.Skills.Contains(skill)||skill%100>=10&&skill%100<=69);}
+    static bool Primary(Flow f,uint skill){
+        uint part=skill%100;
+        var catalogue=SkillCatalogue.Shared;
+        if(part==7||part==8||part==9||DpsSignal.HealingSkill(skill)||catalogue.IsNonDamage(skill))return false;
+        // New characters can cast the exact base ID before the learned-skill
+        // list is available. Require explicit damage metadata for this fallback.
+        return f.Skills.Contains(skill)||part>=10&&part<=69||
+            skill/1000000>=11&&skill/1000000<=19&&skill%10000==0&&catalogue.IsDamage(skill);
+    }
     // Independent bounded quotas: observing or refreshing players must never
     // evict a stationary NPC which the client may not announce again.
     void Trim(Flow f,uint incoming,bool player){Sample existing;if(f.Entities.TryGetValue(incoming,out existing)&&existing.IsPlayer==player)return;int count=0;uint remove=0;double oldest=double.MaxValue;foreach(var pair in f.Entities){if(pair.Value.IsPlayer!=player)continue;count++;if(pair.Key!=f.Locked&&pair.Key!=f.Soft&&pair.Value.Time<oldest){remove=pair.Key;oldest=pair.Value.Time;}}if(count>=512&&remove!=0)f.Entities.Remove(remove);}

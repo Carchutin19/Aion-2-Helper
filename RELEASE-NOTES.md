@@ -1,3 +1,22 @@
+# Aion 2 Helper v1.23.0 Alpha — Combat Power & Experience
+
+## New overlays
+
+- **Combat Power** displays both values sent by the game. Click the locked widget to switch between the single-sword and crossed-swords displays. The widget starts with white text and icons. Color, size and position are configurable. Both values were checked in game, including after equipment changes.
+- **Progress bar → Experience** adds a customizable XP bar with level, current and required XP, and percentage. Set an inactivity delay and fade, or hide the bar at maximum level. Live testing covered level-ups and XP gained from enemies after the tutorial.
+
+## Hotbar and enemy HP
+
+- Re-enabling the Helper Hotbar brings back the detected bar. Skill assignments and received cooldowns continue to update while it is hidden. Tested on a new character, including a skill unlock, and checked received assignments when switching skill presets.
+- Assassin Q now follows the verified stun trigger for **Shadow Fall**. E follows the verified critical-hit and evasion triggers for **Heart Gore** and **Whirlwind Slice**. The latest local build was tested in game. Priority when multiple contextual skills are available together still needs comparison.
+- Enemy HP is restored after a supported attack without a target lock. Confirmed in game with a normal enemy.
+
+## Updating
+
+Use the built-in updater or extract the full ZIP into your existing Helper folder while the Helper is closed. Keep your personal JSON files to preserve settings and character presets. Open the Helper before launching Aion.
+
+---
+
 # Aion 2 Helper v1.22.2 Alpha — Overlay Reading & HUD Export Fixes
 
 ## Overlay reading and capture continuity

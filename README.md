@@ -4,7 +4,7 @@
 
 [🧭 Public roadmap](ROADMAP.md) · [Latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Report an issue](https://github.com/Carchutin19/Aion-2-Helper/issues)
 
-**Alpha software — actively in development.** Player HP/MP, Energy/Stagger and experimental Our target/Target of target progress bars, FPS/Ping widgets and a
+**Alpha software — actively in development.** Player HP/MP, XP, Energy/Stagger and experimental Our target/Target of target progress bars, Combat Power and FPS/Ping widgets and a
 DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, floating combat text, an experimental skill Hotbar with character presets, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
@@ -18,11 +18,11 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.22.2 release — Overlay Reading & HUD Export Fixes](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.2)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.22.2/Aion-2-Helper-v1.22.2-windows-x64.zip).
+The [v1.23.0 release — Combat Power & Experience](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.23.0/Aion-2-Helper-v1.23.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
-for player HP/MP, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
+for player HP/MP, Experience, Combat Power, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
@@ -31,6 +31,13 @@ stats when you enter the world. Opening it after character entry can miss that s
 a saved/default reference that may affect auto-hide. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
+
+## New in v1.23.0
+
+- **Combat Power** widget with two live values, customizable appearance and click-to-switch while locked.
+- **Progress bar → Experience** with level and XP display, optional inactivity fade and an option to hide at maximum level.
+- **Hotbar** restores its assignments and cooldowns when re-enabled. Assassin Q/E now follow the supported stun, critical-hit and evasion triggers.
+- **Enemy HP** can appear after a supported attack without requiring a target lock.
 
 ## New in v1.22.1
 
