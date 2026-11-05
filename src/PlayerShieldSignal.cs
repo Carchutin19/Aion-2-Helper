@@ -11,9 +11,10 @@ internal sealed class PlayerShieldSignal {
         internal bool Removed;
     }
     internal sealed class Status {
-        internal uint Instance,Effect,Skill;
+        internal uint Instance,Effect,Skill,Source;
         internal long Duration,Expiry;
         internal bool Removing;
+        internal EnemyDetailReader.Position SourcePosition;
     }
     readonly Dictionary<uint,Entry> entries=new Dictionary<uint,Entry>();
     internal void Clear(){entries.Clear();}
@@ -31,14 +32,16 @@ internal sealed class PlayerShieldSignal {
         internal bool I64(out long value){value=0;if(end-Position<8)return false;value=BitConverter.ToInt64(bytes,Position);Position+=8;return true;}
         internal bool Boolean(out bool value){value=false;if(bits==8){if(!Byte(out bitByte))return false;bits=0;}value=(bitByte&(1<<bits++))!=0;return true;}
     }
-    internal static bool ReadStatuses(byte[] b,int start,int end,out uint actor,out List<Status> statuses){
+    internal static bool ReadStatuses(byte[] b,int start,int end,out uint actor,out List<Status> statuses,bool readSourcePosition=false){
         actor=0;statuses=null;var w=new Wire(b,start,end);uint count=1;bool single=b[start]==0x2b;
         if(!w.Var(out actor)||actor==0||(!single&&!w.Var(out count))||count>128)return false;
         var parsed=new List<Status>();
         for(uint i=0;i<count;i++){
             int flags,level;uint instance,effect,source=0,skill=0,unused;long duration,expiry;bool removing;
-            if(!w.Byte(out flags)||flags>31||!w.Var(out instance)||!w.U32(out effect)||!w.I64(out duration)||!w.I64(out expiry)||((flags&1)!=0&&!w.Var(out source))||!w.Byte(out level)||((flags&2)!=0&&!w.U32(out skill))||!w.Boolean(out removing)||((flags&4)!=0&&!w.Var(out unused))||((flags&8)!=0&&!w.Skip(4))||((flags&16)!=0&&!w.Skip(12)))return false;
-            parsed.Add(new Status{Instance=instance,Effect=effect,Skill=skill,Duration=duration,Expiry=expiry,Removing=removing});
+            if(!w.Byte(out flags)||flags>31||!w.Var(out instance)||!w.U32(out effect)||!w.I64(out duration)||!w.I64(out expiry)||((flags&1)!=0&&!w.Var(out source))||!w.Byte(out level)||((flags&2)!=0&&!w.U32(out skill))||!w.Boolean(out removing)||((flags&4)!=0&&!w.Var(out unused))||((flags&8)!=0&&!w.Skip(4)))return false;
+            var position=new EnemyDetailReader.Position();
+            if((flags&16)!=0){int at=w.Position;if(!w.Skip(12))return false;if(readSourcePosition&&source!=0)EnemyDetailReader.Coordinates(b,at,end,out position);}
+            parsed.Add(new Status{Instance=instance,Effect=effect,Skill=skill,Source=source,SourcePosition=position,Duration=duration,Expiry=expiry,Removing=removing});
         }
         bool last;if(single&&!w.Boolean(out last)||!w.Done)return false;statuses=parsed;return true;
     }

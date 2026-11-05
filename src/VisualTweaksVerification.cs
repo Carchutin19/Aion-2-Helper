@@ -7,6 +7,40 @@ internal static class VisualTweaksVerification {
     static void Require(bool condition,string message){if(!condition)throw new Exception(message);}
     static void Reject(Action action,string message){bool failed=false;try{action();}catch(InvalidOperationException){failed=true;}Require(failed,message);}
     static bool Same(byte[] a,byte[] b){return IntroTweaks.Hash(a)==IntroTweaks.Hash(b);}
+    static void VerifyPerformance(string root,string folder,Encoding encoding){
+        string path=Path.Combine(folder,"performance","Engine.ini");
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        const string initial="[SystemSettings]\r\nr.CustomDepth=0\r\nT.MaxFPS=73 ; previous\r\n[ConsoleVariables]\r\nt.MaxFPS=96\r\n[Other]\r\nt.MaxFPS=8\r\n";
+        File.WriteAllText(path,initial,encoding);
+        bool running=false;
+        var service=new VisualTweaks(Path.Combine(folder,"performance-prefs"),Path.Combine(folder,"performance-backups"),()=>running);
+        service.ChooseFile(path);
+        Require(service.InspectPerformance().Override=="96","Console override is reflected before edits");
+        service.ApplyFrameLimit(120,service.Snapshot());
+        Require(File.ReadAllText(path).Contains("r.CustomDepth=0\r\nt.MaxFPS=120")&&File.ReadAllText(path).Contains("[Other]\r\nt.MaxFPS=8")&&service.InspectPerformance().CanRestore,"Limit edits affect only the supported scopes");
+        service.Apply(new[]{false,true,true,true,false},service.Snapshot());
+        Require(service.InspectPerformance().Override=="120"&&service.InspectPerformance().CanRestore,"Visual changes preserve the limit and its independent backup");
+        service.RestoreFrameLimit();
+        Require(service.InspectPerformance().Override=="96"&&!service.Inspect().Enabled[0]&&File.ReadAllText(path).Contains("T.MaxFPS=73 ; previous"),"FPS restore preserves later Visual changes and returns both previous limit lines");
+        service.Restore();
+        Require(service.Inspect().Enabled[0]&&service.InspectPerformance().Override=="96","Visual restore preserves the restored FPS cap");
+        var expected=service.Snapshot();
+        File.AppendAllText(path,"Keep=1\r\n",encoding);
+        Reject(()=>service.ApplyFrameLimit(90,expected),"Stale FPS change must be rejected");
+        running=true;
+        Reject(()=>service.ApplyFrameLimit(90,service.Snapshot()),"FPS limit must not be changed with Aion open");
+        running=false;
+        service.ApplyFrameLimit(0,service.Snapshot());
+        Require(service.InspectPerformance().Override==null&&File.ReadAllText(path).Contains("Keep=1"),"Game defaults remove the managed limits and keep unrelated edits");
+        using(var owner=new EnergyOverlay(root,true)){
+            var settings=new HelperSettings(owner,null,null,service);
+            try{
+                settings.VerifyPerformanceMenu(root);
+                var pane=new PerformanceSettingsPane(owner,settings,service);
+                pane.VerifyLimitAfterGameCloses(value=>running=value);
+            }finally{settings.Close();}
+        }
+    }
     internal static void Run(string root){
         string folder=Path.Combine(Path.GetTempPath(),"A2HVisualTests",Guid.NewGuid().ToString("N")),config=Path.Combine(folder,"AION2","Saved_Steam","Config","Windows","Engine.ini"),backup=Path.Combine(folder,"private-backups"),prefs=Path.Combine(folder,"prefs");Directory.CreateDirectory(Path.GetDirectoryName(config));Directory.CreateDirectory(prefs);
         string original="; keep this comment\r\n[Core.System]\r\nPaths=../One\r\nPaths=../Two\r\n\r\n"+VisualTweaks.Section+"\r\nr.ngx.dlss.enable=1\r\nr.fidelityfx.fsr.enabled=0\r\n";
@@ -56,6 +90,7 @@ internal static class VisualTweaksVerification {
         // UI uses only fixtures; no live game config is changed by verification.
         var uiService=new VisualTweaks(Path.Combine(folder,"fresh-ui-prefs"),Path.Combine(folder,"ui-backups"),delegate{return false;});uiService.ChooseFile(config);Require(uiService.Inspect().Enabled[4],"Fresh UI defaults outline on without editing the game config");using(var owner=new EnergyOverlay(root,true)){var settings=new HelperSettings(owner,null,null,uiService);try{settings.VerifyVisualMenu(root);}finally{settings.Close();}}
         Require(Same(bytes,File.ReadAllBytes(config)),"Menu construction, choices and localization never apply game changes");Require(Directory.GetFiles(folder,"*.tmp",SearchOption.AllDirectories).Length==0,"Atomic writes leave no temp files");
+        VerifyPerformance(root,folder,utf8);
         File.WriteAllText(Path.Combine(root,"visual-tweaks-test.txt"),"PASS: default outline on with explicit apply and no forced renderer mode; four original effects retain defaults; no-op; five independent overrides; outline SystemSettings scope; legacy backup compatibility; scoped duplicate and comment handling; unrelated keys/DLSS/FSR/dithering preservation; UTF8/BOM/UTF16/ANSI and newline preservation; missing-section append; no quality invented on enable; snapshot conflict detection; writable file; game-running/late-start/concurrent-change blocking; verified backups and byte-exact/merged restore; external managed edits and corrupted backup rejection; Steam/non-Steam bounded discovery/manual fallback; explicit-apply EN/ES menu rendered. Only private fixtures changed. Actual Aion visual effects still require live testing after restart.");
     }
 }

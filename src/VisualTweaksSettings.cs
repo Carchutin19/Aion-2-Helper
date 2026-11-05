@@ -10,6 +10,7 @@ internal sealed class VisualTweaksPane:StackPanel {
     readonly ComboBox files=new ComboBox{MinHeight=38,HorizontalAlignment=HorizontalAlignment.Stretch};
     readonly TextBlock path=SettingsVisual.Text("",11,"#A7ADBA"),status=SettingsVisual.Text("",12,"#E4B986");
     readonly CheckBox[] effects=new CheckBox[VisualTweaks.Keys.Length];readonly Button apply,restore,detect;VisualTweaks.State state;byte[] snapshot;bool loading,started,disposed,searching;string message="";
+    internal event Action ConfigPathChanged;
     internal VisualTweaksPane(EnergyOverlay helper,Window settings,VisualTweaks tweaks=null){owner=helper;window=settings;service=tweaks??new VisualTweaks(AppDomain.CurrentDomain.BaseDirectory);window.Closed+=delegate{disposed=true;};
         var card=new StackPanel();Children.Add(SettingsVisual.Card(card,new Thickness(18,16,18,16)));card.Children.Add(SettingsVisual.Text("Visual effects",18));
         Note(card,"Enable an effect to use the game's settings. Disable it to add a zero override to Engine.ini. With an unmodified INI, all effects default to enabled.");
@@ -29,7 +30,7 @@ internal sealed class VisualTweaksPane:StackPanel {
     static WrapPanel Actions(StackPanel parent){var p=new WrapPanel{Margin=new Thickness(0,8,0,4)};parent.Children.Add(p);return p;}
     static Button AddButton(Panel row,string text,Action action,bool primary=false){var b=SettingsVisual.Button(text,action,primary);b.Margin=new Thickness(0,0,8,8);row.Children.Add(b);return b;}
     void Browse(){var dialog=new Microsoft.Win32.OpenFileDialog{Title=UiLanguage.Text("Select the game's Engine.ini",owner.Language),Filter="Engine.ini|Engine.ini",CheckFileExists=true};if(service.ConfigPath.Length!=0&&Directory.Exists(Path.GetDirectoryName(service.ConfigPath)))dialog.InitialDirectory=Path.GetDirectoryName(service.ConfigPath);if(dialog.ShowDialog(window)==true)Act(delegate{service.ChooseFile(dialog.FileName);});}
-    void Act(Action action,string success=null){try{action();Refresh();if(success!=null)SetMessage(success);}catch(Exception e){SetMessage(e.Message);}}
+    void Act(Action action,string success=null){try{string before=service.ConfigPath;action();Refresh();if(success!=null)SetMessage(success);if(before!=service.ConfigPath&&ConfigPathChanged!=null)ConfigPathChanged();}catch(Exception e){SetMessage(e.Message);}}
     void SetMessage(string text){message=text;status.Text=UiLanguage.Text(text,owner.Language);}
     internal void Open(){Refresh();if(!started){started=true;Discover();}}
     internal void Refresh(){loading=true;try{state=service.Inspect();snapshot=state.Snapshot;for(int i=0;i<effects.Length;i++)effects[i].IsChecked=state.Enabled[i];path.Text=service.ConfigPath;SetMessage(state.Message);UpdateActions();}catch(Exception e){snapshot=null;apply.IsEnabled=restore.IsEnabled=false;SetMessage(e.Message);}finally{loading=false;}}

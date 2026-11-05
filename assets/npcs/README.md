@@ -55,3 +55,11 @@ retain the base palette until their allegiance is established. The same layout
 flags occur on merchants and hostile monsters and are not used for this decision.
 The metadata is local controlled-test classification; it does not infer health,
 level or distance. Raw captures and personal data are not bundled.
+
+## Boss templates for the DPS estimate
+
+`bosses.json` lists 559 exact template IDs from
+`Client/assets/aion2/npcs/boss_npcs.json` at upstream revision
+`e767bf486d52407d91f5fea698a9fdc5c7d1d5af` (see `LICENSE-MIT.txt`).
+The DPS meter uses the list to choose a boss when the player or their party
+is fighting multiple enemies. Health and combat activity come from live data.

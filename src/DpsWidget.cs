@@ -10,7 +10,7 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 internal sealed class DpsOptions {
-    public bool Enabled=false,Background=true,BackgroundBlur=false;
+    public bool Enabled=false,Background=true,BackgroundBlur=false,ShowEncounterEstimate=true;
     public string Scope="self",SelfName="",Color="#FF6403",View="damage";
     public bool RoleColors=true,AutoHide=false,Fade=true,Smooth=true;
     public bool ShowSelfAsYou=false,PinSelfFirst=false;
@@ -24,7 +24,7 @@ internal sealed class DpsOptions {
     internal void Normalize(){TextScalePercent=Math.Max(50,Math.Min(200,TextScalePercent));HistoryMinimumSeconds=Math.Max(0,Math.Min(3600,HistoryMinimumSeconds));HistoryAge=Math.Max(1,Math.Min(3650,HistoryAge));HistoryMaxRecords=Math.Max(1,Math.Min(1000,HistoryMaxRecords));if(HistoryAgeUnit!="hours"&&HistoryAgeUnit!="days")HistoryAgeUnit="days";if(View!="damage"&&View!="healing"&&View!="received")View="damage";if(Scope!="self"&&Scope!="party"&&Scope!="global")Scope="self";SelfName=(SelfName??"").Trim();if(SelfName.Length>24)SelfName=SelfName.Substring(0,24);if(!EnergyBarOptions.ValidColor(Color))Color="#FF6403";if(!EnergyBarOptions.ValidColor(DamageColor))DamageColor="#E05252";if(!EnergyBarOptions.ValidColor(HealerColor))HealerColor="#43BA85";if(!EnergyBarOptions.ValidColor(TankColor))TankColor="#4A92E4";HideAfterSeconds=Finite(HideAfterSeconds,15,1,300);FadeSeconds=Finite(FadeSeconds,.2,0,2);SmoothingSeconds=Finite(SmoothingSeconds,.15,0,2);RefreshIntervalMs=Math.Max(250,Math.Min(2000,RefreshIntervalMs));IdleSeconds=Math.Max(1,Math.Min(120,IdleSeconds));MaxRows=Math.Max(1,Math.Min(10,MaxRows));BackgroundOpacity=Math.Max(0,Math.Min(255,BackgroundOpacity));Bounds=new Rectangle(Math.Max(-100000,Math.Min(100000,Bounds.X)),Math.Max(-100000,Math.Min(100000,Bounds.Y)),Math.Max(260,Math.Min(1600,Bounds.Width)),Math.Max(110,Math.Min(900,Bounds.Height)));}
     static double Finite(double v,double fallback,double min,double max){return double.IsNaN(v)||double.IsInfinity(v)?fallback:Math.Max(min,Math.Min(max,v));}
     internal static DpsOptions Read(Dictionary<string,object> settings){object data;var o=new DpsOptions();if(settings.TryGetValue("dps",out data))try{o=new JavaScriptSerializer().ConvertToType<DpsOptions>(data)??o;}catch{}o.Normalize();return o;}
-    internal static bool Same(DpsOptions a,DpsOptions b){return a.TextScalePercent==b.TextScalePercent&&a.HistoryMinimumSeconds==b.HistoryMinimumSeconds&&a.HistoryAutoDelete==b.HistoryAutoDelete&&a.HistoryAge==b.HistoryAge&&a.HistoryAgeUnit==b.HistoryAgeUnit&&a.HistoryMaxRecords==b.HistoryMaxRecords&&a.Enabled==b.Enabled&&a.Background==b.Background&&a.BackgroundBlur==b.BackgroundBlur&&a.View==b.View&&a.Scope==b.Scope&&a.SelfName==b.SelfName&&a.Color==b.Color&&a.Bounds==b.Bounds&&a.RefreshIntervalMs==b.RefreshIntervalMs&&a.IdleSeconds==b.IdleSeconds&&a.BackgroundOpacity==b.BackgroundOpacity&&a.MaxRows==b.MaxRows&&a.RoleColors==b.RoleColors&&a.DamageColor==b.DamageColor&&a.HealerColor==b.HealerColor&&a.TankColor==b.TankColor&&a.AutoHide==b.AutoHide&&a.HideAfterSeconds==b.HideAfterSeconds&&a.Fade==b.Fade&&a.FadeSeconds==b.FadeSeconds&&a.Smooth==b.Smooth&&a.SmoothingSeconds==b.SmoothingSeconds&&a.ShowSelfAsYou==b.ShowSelfAsYou&&a.PinSelfFirst==b.PinSelfFirst;}
+    internal static bool Same(DpsOptions a,DpsOptions b){return a.ShowEncounterEstimate==b.ShowEncounterEstimate&&a.TextScalePercent==b.TextScalePercent&&a.HistoryMinimumSeconds==b.HistoryMinimumSeconds&&a.HistoryAutoDelete==b.HistoryAutoDelete&&a.HistoryAge==b.HistoryAge&&a.HistoryAgeUnit==b.HistoryAgeUnit&&a.HistoryMaxRecords==b.HistoryMaxRecords&&a.Enabled==b.Enabled&&a.Background==b.Background&&a.BackgroundBlur==b.BackgroundBlur&&a.View==b.View&&a.Scope==b.Scope&&a.SelfName==b.SelfName&&a.Color==b.Color&&a.Bounds==b.Bounds&&a.RefreshIntervalMs==b.RefreshIntervalMs&&a.IdleSeconds==b.IdleSeconds&&a.BackgroundOpacity==b.BackgroundOpacity&&a.MaxRows==b.MaxRows&&a.RoleColors==b.RoleColors&&a.DamageColor==b.DamageColor&&a.HealerColor==b.HealerColor&&a.TankColor==b.TankColor&&a.AutoHide==b.AutoHide&&a.HideAfterSeconds==b.HideAfterSeconds&&a.Fade==b.Fade&&a.FadeSeconds==b.FadeSeconds&&a.Smooth==b.Smooth&&a.SmoothingSeconds==b.SmoothingSeconds&&a.ShowSelfAsYou==b.ShowSelfAsYou&&a.PinSelfFirst==b.PinSelfFirst;}
 }
 
 // Only visible rows animate. Packet polling retains its configured interval;
@@ -107,6 +107,12 @@ internal static class DpsDesign {
     }
     static string Amount(double value,int width,Font font){string full=value.ToString("N0",CultureInfo.InvariantCulture);if(TextRenderer.MeasureText(full,font,Size.Empty,TextFormatFlags.NoPadding).Width<=width)return full;return value>=1000000?(value/1000000).ToString("0.#",CultureInfo.InvariantCulture)+"M":value>=1000?(value/1000).ToString("0.#",CultureInfo.InvariantCulture)+"K":full;}
     internal static string DisplayName(DpsSignal.Row row,DpsSignal.Snapshot snapshot,DpsOptions options,string language){return row.Actor==snapshot.SelfActor&&(options.ShowSelfAsYou||row.Name==null)?UiLanguage.Text("You",language):row.Name??string.Format(UiLanguage.Text("Player {0}",language),row.Actor);}
+    static string Clock(int seconds){return (seconds/60).ToString(CultureInfo.InvariantCulture)+":"+(seconds%60).ToString("00",CultureInfo.InvariantCulture);}
+    internal static string EstimateLabel(DpsEncounterEstimate.Estimate estimate,string language){
+        if(estimate.Subject==DpsEncounterEstimate.Kind.None)return "";
+        string key=estimate.Subject==DpsEncounterEstimate.Kind.Boss?"Boss":estimate.Subject==DpsEncounterEstimate.Kind.Target?"Target":"Time left";
+        return UiLanguage.Text(key,language)+" "+(estimate.Seconds.HasValue?"~"+Clock(estimate.Seconds.Value):"—");
+    }
     internal static Bitmap Render(int width,int height,DpsSignal.Snapshot snapshot,DpsOptions options,bool editing,string language,DpsPaintWorkspace workspace,IDictionary<uint,double> ratios=null,bool includeBars=true){
         float scale=Math.Max(.8f,Math.Min(3f,width/380f));workspace.Prepare(width,height,Math.Max(.8f,Math.Min(3f,width/520f)),TextScale(options));var bitmap=new Bitmap(width,height,PixelFormat.Format32bppPArgb);
         int pad=(int)(12*scale),titleHeight=TabBounds(width,options).Top,header=HeaderHeight(width,options),footer=FooterHeight(width,height),line=RowHeight(width,height,options);
@@ -115,11 +121,31 @@ internal static class DpsDesign {
             if(options.Background){g.SmoothingMode=SmoothingMode.AntiAlias;using(var path=FpsDesign.Round(.5f,.5f,width-1,height-1,10*scale))using(var brush=new SolidBrush(Color.FromArgb(options.BackgroundOpacity,9,12,17)))g.FillPath(brush,path);}
             if(editing)using(var pen=new Pen(Color.FromArgb(160,103,199,176))){pen.DashStyle=DashStyle.Dot;g.DrawRectangle(pen,1,1,width-3,height-3);}
             var mg=workspace.Pixels.MaskGraphics;mg.Clear(Color.Black);
-            string title=options.View=="damage"?"DPS":options.View=="healing"?"Healing done":"Healing received";
+            string title=UiLanguage.Text(options.View=="damage"?"DPS":options.View=="healing"?"Healing done":"Healing received",language)+" · Beta";
             int titleWidth=TextScale(options)==1?(int)(width*.5):(width-pad*2)/2;
-            TextRenderer.DrawText(mg,UiLanguage.Text(title,language)+" · Beta",workspace.Body,new Rectangle(pad,3,titleWidth,titleHeight-3),Color.White,Left);
             string scope=UiLanguage.Text(options.Scope=="self"?"Self":options.Scope=="party"?"Party":"Nearby players",language);
-            TextRenderer.DrawText(mg,scope+" · "+snapshot.Duration.ToString("0.0",CultureInfo.InvariantCulture)+" s",workspace.Small,TextScale(options)==1?new Rectangle(pad,3,width-pad*2,titleHeight-3):new Rectangle(pad+titleWidth,3,width-pad*2-titleWidth,titleHeight-3),Color.White,Right);
+            string elapsed=snapshot.Duration.ToString("0.0",CultureInfo.InvariantCulture)+" s";
+            string clock=scope+" · "+elapsed;
+            int clockLeft=TextScale(options)==1?pad:pad+titleWidth;
+            string estimate=options.ShowEncounterEstimate?EstimateLabel(snapshot.Estimate,language):"";
+            if(estimate.Length>0){
+                int measuredTitle=TextRenderer.MeasureText(title,workspace.Body,Size.Empty,TextFormatFlags.NoPadding).Width+8;
+                titleWidth=Math.Min(titleWidth,measuredTitle);
+                clockLeft=pad+titleWidth;
+                string times=Clock((int)Math.Min(int.MaxValue,snapshot.Duration))+" | "+estimate;
+                clock=scope+" · "+times;
+                int clockWidth=width-pad-clockLeft;
+                if(TextRenderer.MeasureText(clock,workspace.Small,Size.Empty,TextFormatFlags.NoPadding).Width>clockWidth){
+                    clock=times;
+                    int timesWidth=TextRenderer.MeasureText(times,workspace.Small,Size.Empty,TextFormatFlags.NoPadding).Width;
+                    if(timesWidth>clockWidth){
+                        titleWidth=Math.Max(0,width-pad*2-timesWidth-3);
+                        clockLeft=pad+titleWidth;
+                    }
+                }
+            }
+            if(titleWidth>0)TextRenderer.DrawText(mg,title,workspace.Body,new Rectangle(pad,3,titleWidth,titleHeight-3),Color.White,Left);
+            TextRenderer.DrawText(mg,clock,workspace.Small,new Rectangle(clockLeft,3,width-pad-clockLeft,titleHeight-3),Color.White,Right);
             PaintTabs(g,mg,width,options,language,workspace.Small);
             int available=width-pad*2,nameWidth=(int)(available*.30),damageWidth=(int)(available*.22),dpsWidth=(int)(available*.16),critWidth=(int)(available*.16),rateWidth=available-nameWidth-damageWidth-dpsWidth-critWidth;
             int amountX=pad+nameWidth,rateX=amountX+damageWidth,critX=rateX+dpsWidth,chanceX=critX+critWidth;
@@ -164,7 +190,7 @@ internal static class DpsDesign {
             }
         }return safeArea;
     }
-    internal static DpsSignal.Snapshot Sample(DpsOptions options=null){var s=new DpsSignal.Snapshot{SelfActor=2,Duration=24.5,Status="In combat",Active=true};s.Rows.Add(new DpsSignal.Row{Actor=1,Role=1,Name="Player One",HighestHit=5400,TaggedDamageEvents=20,BackHits=12,FrontHits=6,DoubleHits=3,PerfectHits=5,BackCriticalHits=4,FrontCriticalHits=2,BackDoubleCriticalHits=2,FrontDoubleCriticalHits=1,BackPerfectHits=3,FrontPerfectHits=2,Damage=38600,Dps=1576,DamageEvents=20,Criticals=6,DamagePrimary=35000,DamageCritical=15000,Healing=4000,Hps=163,HealingEvents=5,HealingCriticals=1,HealingPrimary=4000,HealingCritical=1000,HealingReceived=22000,ReceivedHps=898,ReceivedEvents=12,ReceivedCriticals=3,ReceivedPrimary=22000,ReceivedCritical=8000});s.Rows.Add(new DpsSignal.Row{Actor=2,Role=2,Name="Player Two",HighestHit=3600,TaggedDamageEvents=18,BackHits=10,FrontHits=5,DoubleHits=2,PerfectHits=3,BackCriticalHits=3,FrontCriticalHits=1,BackDoubleCriticalHits=1,BackPerfectHits=2,FrontPerfectHits=1,Damage=27100,Dps=1106,DamageEvents=18,Criticals=4,DamagePrimary=26000,DamageCritical=9000,Healing=43000,Hps=1755,HealingEvents=15,HealingCriticals=5,HealingPrimary=38000,HealingCritical=19000,HealingReceived=13000,ReceivedHps=531,ReceivedEvents=10,ReceivedCriticals=2,ReceivedPrimary=13000,ReceivedCritical=4000});s.Rows.Add(new DpsSignal.Row{Actor=3,Role=3,Name="Player Three",HighestHit=3000,TaggedDamageEvents=12,BackHits=4,FrontHits=8,DoubleHits=1,PerfectHits=2,BackCriticalHits=1,FrontCriticalHits=1,FrontDoubleCriticalHits=1,BackPerfectHits=1,FrontPerfectHits=1,Damage=20300,Dps=829,DamageEvents=12,Criticals=2,DamagePrimary=20000,DamageCritical=6000,Healing=12000,Hps=490,HealingEvents=8,HealingCriticals=2,HealingPrimary=10000,HealingCritical=3000,HealingReceived=24000,ReceivedHps=980,ReceivedEvents=14,ReceivedCriticals=3,ReceivedPrimary=22000,ReceivedCritical=9000});DpsSignal.SortRows(s.Rows,s.SelfActor,options!=null&&options.PinSelfFirst,options==null?"damage":options.View);return s;}
+    internal static DpsSignal.Snapshot Sample(DpsOptions options=null){var s=new DpsSignal.Snapshot{SelfActor=2,Duration=24.5,Status="In combat",Active=true,Estimate=new DpsEncounterEstimate.Estimate(DpsEncounterEstimate.Kind.Boss,38)};s.Rows.Add(new DpsSignal.Row{Actor=1,Role=1,Name="Player One",HighestHit=5400,TaggedDamageEvents=20,BackHits=12,FrontHits=6,DoubleHits=3,PerfectHits=5,BackCriticalHits=4,FrontCriticalHits=2,BackDoubleCriticalHits=2,FrontDoubleCriticalHits=1,BackPerfectHits=3,FrontPerfectHits=2,Damage=38600,Dps=1576,DamageEvents=20,Criticals=6,DamagePrimary=35000,DamageCritical=15000,Healing=4000,Hps=163,HealingEvents=5,HealingCriticals=1,HealingPrimary=4000,HealingCritical=1000,HealingReceived=22000,ReceivedHps=898,ReceivedEvents=12,ReceivedCriticals=3,ReceivedPrimary=22000,ReceivedCritical=8000});s.Rows.Add(new DpsSignal.Row{Actor=2,Role=2,Name="Player Two",HighestHit=3600,TaggedDamageEvents=18,BackHits=10,FrontHits=5,DoubleHits=2,PerfectHits=3,BackCriticalHits=3,FrontCriticalHits=1,BackDoubleCriticalHits=1,BackPerfectHits=2,FrontPerfectHits=1,Damage=27100,Dps=1106,DamageEvents=18,Criticals=4,DamagePrimary=26000,DamageCritical=9000,Healing=43000,Hps=1755,HealingEvents=15,HealingCriticals=5,HealingPrimary=38000,HealingCritical=19000,HealingReceived=13000,ReceivedHps=531,ReceivedEvents=10,ReceivedCriticals=2,ReceivedPrimary=13000,ReceivedCritical=4000});s.Rows.Add(new DpsSignal.Row{Actor=3,Role=3,Name="Player Three",HighestHit=3000,TaggedDamageEvents=12,BackHits=4,FrontHits=8,DoubleHits=1,PerfectHits=2,BackCriticalHits=1,FrontCriticalHits=1,FrontDoubleCriticalHits=1,BackPerfectHits=1,FrontPerfectHits=1,Damage=20300,Dps=829,DamageEvents=12,Criticals=2,DamagePrimary=20000,DamageCritical=6000,Healing=12000,Hps=490,HealingEvents=8,HealingCriticals=2,HealingPrimary=10000,HealingCritical=3000,HealingReceived=24000,ReceivedHps=980,ReceivedEvents=14,ReceivedCriticals=3,ReceivedPrimary=22000,ReceivedCritical=9000});DpsSignal.SortRows(s.Rows,s.SelfActor,options!=null&&options.PinSelfFirst,options==null?"damage":options.View);return s;}
 }
 
 // Only this small input surface accepts clicks while the main layered widget
@@ -247,7 +273,7 @@ internal sealed class CharacterNoticeOverlay:Form {
 }
 
 internal sealed class DpsOverlay:Form {
-    readonly EnergyOverlay owner;readonly DpsSignal signal;readonly bool preview;readonly LayeredImage image=new LayeredImage();readonly DpsPaintWorkspace workspace=new DpsPaintWorkspace();readonly Timer timer=new Timer();readonly DpsMotion motion=new DpsMotion();DpsSignal.Snapshot cached;double nextPoll;DpsOptions options=new DpsOptions();bool editing,closing,rendering,dragging,valid,disposed;int hit,imageX=int.MinValue,imageY,imageAlpha=-1;Rectangle dragStart;Point mouseStart;long revision=-1,raise;double duration=-1;string language,status;
+    readonly EnergyOverlay owner;readonly DpsSignal signal;readonly bool preview;readonly LayeredImage image=new LayeredImage();readonly DpsPaintWorkspace workspace=new DpsPaintWorkspace();readonly Timer timer=new Timer();readonly DpsMotion motion=new DpsMotion();DpsSignal.Snapshot cached;double nextPoll;DpsOptions options=new DpsOptions();bool editing,closing,rendering,dragging,valid,disposed;int hit,imageX=int.MinValue,imageY,imageAlpha=-1;Rectangle dragStart;Point mouseStart;long revision=-1,raise;double duration=-1;string language,status;DpsEncounterEstimate.Estimate lastEstimate;
     readonly DpsTabInput tabs;OverlayGlassLayer backdrop;bool blurApplied;
     internal DpsOverlay(EnergyOverlay parent,DpsSignal reader,bool previewMode){owner=parent;signal=reader;preview=previewMode;Text="Aion 2 Helper - DPS";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;tabs=new DpsTabInput(this,delegate(Point p){SelectTab(PointToClient(tabs.PointToScreen(p)));});timer.Tick+=delegate{UpdateWidget();};FormClosing+=delegate{closing=true;tabs.HideInput();HideBackdrop();};}
     internal void Configure(DpsOptions value,bool locked){bool changed=!DpsOptions.Same(options,value)||editing==locked||language!=owner.Language;options=value.Copy();options.Normalize();editing=!locked;language=owner.Language;if(Bounds!=options.Bounds)Bounds=options.Bounds;if(changed)valid=false;
@@ -258,8 +284,8 @@ internal sealed class DpsOverlay:Form {
     void HideBackdrop(){blurApplied=false;if(backdrop!=null)backdrop.Sync(Rectangle.Empty,0,IntPtr.Zero,false);}
     void UpdateWidget(){if(closing||rendering||!options.Enabled)return;rendering=true;try{long tick=Stopwatch.GetTimestamp();double now=tick/(double)Stopwatch.Frequency;
         if(preview||cached==null||now>=nextPoll){double utc=(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds;cached=signal.Read(utc);motion.Set(cached,options,now,utc);nextPoll=now+options.RefreshIntervalMs/1000.0;}
-        bool shell=!preview&&DpsDesign.ShellUiActive();bool barsChanged=motion.Step(now,editing||preview,options);var s=cached;double stamp=Math.Round(s.Duration,1);bool panelChanged=!valid||revision!=s.Revision||duration!=stamp||status!=s.Status;bool changed=panelChanged||barsChanged;byte alpha=(byte)Math.Round(motion.Opacity*255);
-        if(changed&&(alpha>0||preview)&&!shell){if(panelChanged)workspace.ReplacePanel(DpsDesign.Render(Width,Height,s,options,editing,language,workspace,null,false));using(var bitmap=DpsDesign.Compose(workspace,s,options,motion.Ratios))image.Upload(bitmap);revision=s.Revision;duration=stamp;status=s.Status;valid=true;}
+        bool shell=!preview&&DpsDesign.ShellUiActive();bool barsChanged=motion.Step(now,editing||preview,options);var s=cached;double stamp=Math.Round(s.Duration,1);bool panelChanged=!valid||revision!=s.Revision||duration!=stamp||status!=s.Status||lastEstimate.Subject!=s.Estimate.Subject||lastEstimate.Seconds!=s.Estimate.Seconds;bool changed=panelChanged||barsChanged;byte alpha=(byte)Math.Round(motion.Opacity*255);
+        if(changed&&(alpha>0||preview)&&!shell){if(panelChanged)workspace.ReplacePanel(DpsDesign.Render(Width,Height,s,options,editing,language,workspace,null,false));using(var bitmap=DpsDesign.Compose(workspace,s,options,motion.Ratios))image.Upload(bitmap);revision=s.Revision;duration=stamp;status=s.Status;lastEstimate=s.Estimate;valid=true;}
         else if(changed)valid=false;
         if((alpha==0||shell)&&!preview){if(Visible)Hide();imageAlpha=-1;}
         else {if(changed||Left!=imageX||Top!=imageY||imageAlpha!=alpha||!Visible&&!preview){image.Present(Handle,Left,Top,alpha);imageX=Left;imageY=Top;imageAlpha=alpha;}if(!Visible&&!preview)Show();if(!preview&&!owner.TrayMenuOpen&&(tick-raise)/(double)Stopwatch.Frequency>=1){OverlayNative.RaiseWithoutFocus(Handle);raise=tick;}}

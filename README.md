@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.23.0 release — Combat Power & Experience](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.23.0/Aion-2-Helper-v1.23.0-windows-x64.zip).
+The [v1.24.0 release — Combat Log, DPS Estimates & Performance](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.24.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.24.0/Aion-2-Helper-v1.24.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Experience, Combat Power, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
@@ -31,6 +31,14 @@ stats when you enter the world. Opening it after character entry can miss that s
 a saved/default reference that may affect auto-hide. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
+
+## New in v1.24.0
+
+- **Combat Log** with supported outgoing hits, configurable rows and a scrollable history.
+- **Floating Combat Text** can label confirmed Front, Back, Critical, Perfect and Double hits.
+- **DPS Meter** estimates time remaining from recent enemy HP loss.
+- **Game Tweaks → Performance** adds a reversible FPS cap and a 60-second frame pacing test with an in-game countdown.
+- **Hidden Cube Radar** is in testing. Cube alerts are supported in Verteron, with location guidance subject to available player-position data.
 
 ## New in v1.23.0
 

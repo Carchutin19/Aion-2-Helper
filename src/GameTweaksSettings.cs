@@ -5,12 +5,18 @@ using System.Windows.Controls;
 using System.Threading.Tasks;
 
 internal sealed class GameTweaksPane:ScrollViewer {
-    readonly EnergyOverlay owner;readonly Window window;readonly IntroTweaks tweaks;readonly StackPanel content=new StackPanel();readonly VisualTweaksPane visuals;readonly Button[] tabs=new Button[2];
+    readonly EnergyOverlay owner;readonly Window window;readonly IntroTweaks tweaks;readonly StackPanel content=new StackPanel();readonly VisualTweaksPane visuals;readonly PerformanceSettingsPane performance;readonly Button[] tabs=new Button[3];
     readonly TextBlock folder=SettingsVisual.Text("",11,"#A7ADBA"),status=SettingsVisual.Text("",12,"#E4B986");
     readonly CheckBox skip=new CheckBox();readonly Button apply,restore,detect;bool refreshing,started,detecting,disposed;string statusMessage="";IntroTweaks.State state;
     internal GameTweaksPane(EnergyOverlay helper,Window settings,IntroTweaks service=null,VisualTweaks visualService=null){owner=helper;window=settings;tweaks=service??new IntroTweaks(AppDomain.CurrentDomain.BaseDirectory);
         var root=new StackPanel{Margin=new Thickness(0,0,12,0)};Content=root;VerticalScrollBarVisibility=ScrollBarVisibility.Auto;HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled;SetResourceReference(StyleProperty,"SlimScroll");
-        var navigation=new Grid{Margin=new Thickness(0,0,0,14)};root.Children.Add(navigation);for(int n=0;n<2;n++){int selected=n;navigation.ColumnDefinitions.Add(new ColumnDefinition());var tab=SettingsVisual.Button(n==0?"Startup":"Visuals",delegate{SelectVisuals(selected==1);});tabs[n]=tab;Grid.SetColumn(tab,n);navigation.Children.Add(tab);}root.Children.Add(content);visuals=new VisualTweaksPane(owner,window,visualService){Visibility=Visibility.Collapsed};root.Children.Add(visuals);tabs[0].Background=SettingsVisual.Brush("#3067C7B0");
+        var navigation=new Grid{Margin=new Thickness(0,0,0,14)};root.Children.Add(navigation);
+        string[] sections={"Startup","Visuals","Performance"};
+        for(int n=0;n<sections.Length;n++){int selected=n;navigation.ColumnDefinitions.Add(new ColumnDefinition());var tab=SettingsVisual.Button(sections[n],delegate{SelectTab(selected);});tabs[n]=tab;Grid.SetColumn(tab,n);navigation.Children.Add(tab);}
+        var config=visualService??new VisualTweaks(AppDomain.CurrentDomain.BaseDirectory);
+        root.Children.Add(content);visuals=new VisualTweaksPane(owner,window,config){Visibility=Visibility.Collapsed};root.Children.Add(visuals);
+        performance=new PerformanceSettingsPane(owner,window,config){Visibility=Visibility.Collapsed};root.Children.Add(performance);tabs[0].Background=SettingsVisual.Brush("#3067C7B0");
+        visuals.ConfigPathChanged+=delegate{if(performance.Visibility==Visibility.Visible)performance.Refresh();};
         var body=new StackPanel();content.Children.Add(SettingsVisual.Card(body,new Thickness(18,16,18,16)));
         body.Children.Add(SettingsVisual.Text("Skip the NCSOFT intro",18));
         var switchRow=new Grid{Margin=new Thickness(0,16,0,14)};switchRow.ColumnDefinitions.Add(new ColumnDefinition());switchRow.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});switchRow.Children.Add(SettingsVisual.Text("Skip intro"));Grid.SetColumn(skip,1);switchRow.Children.Add(skip);body.Children.Add(switchRow);AutomationProperties.SetName(skip,"Skip intro");skip.Click+=delegate{if(!refreshing)UpdateActions();};
@@ -37,7 +43,16 @@ internal sealed class GameTweaksPane:ScrollViewer {
     internal void Open(){bool discover=!started&&!GameInstallation.IsValid(tweaks.GameFolder);started=true;Refresh();if(discover)DetectFolder();}
     internal void Refresh(){refreshing=true;try{state=tweaks.Inspect();skip.IsChecked=state.Active;folder.Text=tweaks.GameFolder.Length==0?UiLanguage.Text("No game folder selected",owner.Language):tweaks.GameFolder;statusMessage=detecting?"Looking for the game installation...":state.Message;status.Text=UiLanguage.Text(statusMessage,owner.Language);UpdateActions();}finally{refreshing=false;}}
     void UpdateActions(){if(state==null)return;bool desired=skip.IsChecked==true;skip.IsEnabled=state.CanApply||state.CanRestore;apply.IsEnabled=desired!=state.Active&&(desired?state.CanApply:state.CanRestore);restore.IsEnabled=state.CanRestore;}
-    internal void SelectVisuals(bool active=true){content.Visibility=active?Visibility.Collapsed:Visibility.Visible;visuals.Visibility=active?Visibility.Visible:Visibility.Collapsed;for(int n=0;n<2;n++)tabs[n].Background=SettingsVisual.Brush((n==1)==active?"#3067C7B0":"#102F3542");if(active)visuals.Open();Translate();ScrollToTop();}
+    internal void SelectVisuals(bool active=true){SelectTab(active?1:0);}
+    internal void SelectTab(int index){
+        content.Visibility=index==0?Visibility.Visible:Visibility.Collapsed;
+        visuals.Visibility=index==1?Visibility.Visible:Visibility.Collapsed;
+        performance.Visibility=index==2?Visibility.Visible:Visibility.Collapsed;
+        for(int n=0;n<tabs.Length;n++)tabs[n].Background=SettingsVisual.Brush(n==index?"#3067C7B0":"#102F3542");
+        if(index==1)visuals.Open();
+        if(index==2){visuals.Open();performance.Open();}
+        Translate();ScrollToTop();
+    }
     internal void VerifyVisuals(){SelectVisuals();visuals.Verify();}
-    internal void Translate(){if(state!=null){status.Text=UiLanguage.Text(statusMessage,owner.Language);if(tweaks.GameFolder.Length==0)folder.Text=UiLanguage.Text("No game folder selected",owner.Language);}visuals.Translate();UiLanguage.Apply(this,owner.Language);}
+    internal void Translate(){if(state!=null){status.Text=UiLanguage.Text(statusMessage,owner.Language);if(tweaks.GameFolder.Length==0)folder.Text=UiLanguage.Text("No game folder selected",owner.Language);}visuals.Translate();performance.Translate();UiLanguage.Apply(this,owner.Language);}
 }

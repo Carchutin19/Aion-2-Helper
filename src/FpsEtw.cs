@@ -121,6 +121,7 @@ internal sealed class FpsEtw : IDisposable {
         }finally{if(ids!=IntPtr.Zero)Marshal.FreeHGlobal(ids);if(pids!=IntPtr.Zero)Marshal.FreeHGlobal(pids);if(descriptors!=IntPtr.Zero)Marshal.FreeHGlobal(descriptors);}
     }
     internal int? Value {get{return Error==0?samples.Read():null;}}
+    internal FpsSamples Timings {get{return samples;}}
     internal static int Live(string root){var result=new System.Text.StringBuilder();int count=0;
         try{using(var trace=new FpsEtw("Aion2Helper-FPS-native-validation-"+Guid.NewGuid().ToString("N"))){var watch=Stopwatch.StartNew();while(watch.Elapsed.TotalSeconds<12){trace.UpdateProcesses();int? value=trace.Value;if(value.HasValue)count++;result.AppendLine(watch.Elapsed.TotalSeconds.ToString("F2")+" | "+value+" | error="+trace.Error);Thread.Sleep(250);}}}catch(Exception e){result.AppendLine(e.ToString());}
         System.IO.File.WriteAllText(System.IO.Path.Combine(root,"fps-native-test.txt"),(count>0?"PASS: real DXGI presentations "+count:"NO DATA")+"\r\n"+result);return count>0?0:1;

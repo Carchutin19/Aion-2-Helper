@@ -8,7 +8,7 @@ using System.Text;
 internal sealed class DpsSignal {
     internal struct Hit {internal uint Source,Target,Skill,Amount,PrimaryAmount,Effect,Instance;internal int Extras;internal bool Critical,Periodic,CriticalKnown,TagsKnown,Double,Perfect;internal byte Position;}
     internal sealed class Row {internal readonly Dictionary<ulong,DpsSkillTotal> Skills=new Dictionary<ulong,DpsSkillTotal>();internal bool SkillDetailsComplete=true;internal uint Actor;internal string Name;internal byte Role;internal long Damage,PeriodicDamage,DamagePrimary,DamageCritical,Healing,HealingReceived,HealingPrimary,HealingCritical,ReceivedPrimary,ReceivedCritical;internal int Hits,Criticals,DamageEvents,HealingEvents,HealingCriticals,ReceivedEvents,ReceivedCriticals;internal uint HighestHit;internal int TaggedDamageEvents,BackHits,FrontHits,DoubleHits,PerfectHits,BackCriticalHits,FrontCriticalHits,BackDoubleCriticalHits,FrontDoubleCriticalHits,BackPerfectHits,FrontPerfectHits;internal double Dps,Hps,ReceivedHps,LastImpact;}
-    internal sealed class Snapshot {internal readonly List<Row> Rows=new List<Row>();internal double Duration,FirstImpact,LastImpact;internal long Revision,Pending,DirectFrames,ParsedDirect,UnknownTargets,UnknownSources,RecoveredImpacts;internal int CatalogueDefinitions,CharacterSkillCount;internal string CatalogueError;internal uint SelfActor;internal int Players,Npcs,PartyMembers;internal bool Active,PartyKnown,NeedsIdentification,PartyRecovered;internal string Status;}
+    internal sealed class Snapshot {internal readonly List<Row> Rows=new List<Row>();internal double Duration,FirstImpact,LastImpact;internal long Revision,Pending,DirectFrames,ParsedDirect,UnknownTargets,UnknownSources,RecoveredImpacts;internal int CatalogueDefinitions,CharacterSkillCount;internal string CatalogueError;internal uint SelfActor;internal DpsEncounterEstimate.Estimate Estimate;internal int Players,Npcs,PartyMembers;internal bool Active,PartyKnown,NeedsIdentification,PartyRecovered;internal string Status;}
     sealed class DeferredHit {internal Hit Hit;internal double Time;}
     readonly List<DeferredHit> pendingIdentity=new List<DeferredHit>();long resolvedIdentityImpacts;
     void ReconcileIdentity(double now){for(int n=pendingIdentity.Count-1;n>=0;n--){var item=pendingIdentity[n];if(completed||now-item.Time>5){pendingIdentity.RemoveAt(n);continue;}if(now<item.Time||!ConfirmedPlayer(item.Hit.Source,now))continue;pendingIdentity.RemoveAt(n);if(!npcs.Contains(item.Hit.Target)||names.ContainsKey(item.Hit.Target)||parents.ContainsKey(item.Hit.Target))continue;long before=revision;RecordDamage(item.Hit,item.Time,true);if(before!=revision)resolvedIdentityImpacts++;}}
@@ -23,6 +23,7 @@ internal sealed class DpsSignal {
     // Restart recovery is per impact, not inferred NPC identity. Only observed
     // offensive direction tags with a fresh, subsequent HP drop are eligible.
     readonly Dictionary<uint,TargetHealth> targetHealth=new Dictionary<uint,TargetHealth>();
+    readonly DpsEncounterEstimate estimate=new DpsEncounterEstimate();
     long recoveredImpacts;
     sealed class Parent {internal uint Actor;internal double Spawned;}
     sealed class PendingRoster {internal byte[] Bytes;internal double Time;}
@@ -162,9 +163,9 @@ internal sealed class DpsSignal {
     bool ConfirmedPlayer(uint actor,double timestamp){double observed;return actor!=0&&!conflicted.Contains(actor)&&!npcs.Contains(actor)&&(actor==Self||names.ContainsKey(actor)||partyVitals.TryGetValue(actor,out observed)&&timestamp>=observed&&timestamp-observed<=120);}
     void FinishEncounter(string reason){if(completed||actors.Count==0||first<=0||last<=0)return;completed=true;if(EncounterCompleted==null)return;double duration=Math.Max(1,last-first);var record=new DpsHistoryRecord{Id=Guid.NewGuid().ToString("N"),Started=first,Ended=last,Duration=duration,Reason=reason,Scope=options.Scope,Map=currentMap,SelfActor=Self,PartyKnown=partyKnown,PartyRecovered=partyKnown&&explicitParty.Count==0,Party=new List<uint>(party),Pending=pending,DirectFrames=directFrames,ParsedDirect=parsedDirect,UnknownTargets=unknownTargets,UnknownSources=unknownSources};foreach(var pair in actors){string name;byte role;names.TryGetValue(pair.Key,out name);roles.TryGetValue(pair.Key,out role);record.Players.Add(DpsHistoryPlayer.Capture(pair.Value,name,role,duration));}record.Players.Sort(delegate(DpsHistoryPlayer a,DpsHistoryPlayer b){int order=b.Damage.CompareTo(a.Damage);return order==0?a.Actor.CompareTo(b.Actor):order;});EncounterCompleted(record);}
     internal void Finish(string reason){lock(gate)FinishEncounter(reason);}
-    void ClearEncounter(string reason="Inactivity"){FinishEncounter(reason);actors.Clear();pendingIdentity.Clear();skillEntries=0;first=last=0;pending=0;completed=false;revision++;}
+    void ClearEncounter(string reason="Inactivity"){FinishEncounter(reason);estimate.ClearFight();actors.Clear();pendingIdentity.Clear();skillEntries=0;first=last=0;pending=0;completed=false;revision++;}
     void ClearParty(){party.Clear();explicitParty.Clear();deferredParty.Clear();partyVitals.Clear();partyDatabaseIds.Clear();partyKnown=false;deferredFull=false;revision++;}
-    void ClearEntities(string reason="Connection or area change"){ClearEncounter(reason);characterSkills.Unbind();targetHealth.Clear();names.Clear();roles.Clear();activity.Clear();npcs.Clear();parents.Clear();ClearParty();conflicted.Clear();localActor=currentMap=0;lastTraffic=0;}
+    void ClearEntities(string reason="Connection or area change"){ClearEncounter(reason);estimate.Reset();characterSkills.Unbind();targetHealth.Clear();names.Clear();roles.Clear();activity.Clear();npcs.Clear();parents.Clear();ClearParty();conflicted.Clear();localActor=currentMap=0;lastTraffic=0;}
     void ResolveParty(double now){
         uint self=Self;if(deferredParty.Count>0&&self!=0){if(!deferredFull||deferredParty.Contains(self)){if(deferredFull)explicitParty.Clear();foreach(uint id in deferredParty)if(!conflicted.Contains(id))explicitParty.Add(id);explicitParty.Add(self);}deferredParty.Clear();deferredFull=false;}
         expiredParty.Clear();foreach(var pair in partyVitals)if(now-pair.Value>120||conflicted.Contains(pair.Key)||npcs.Contains(pair.Key))expiredParty.Add(pair.Key);foreach(uint id in expiredParty)partyVitals.Remove(id);
@@ -211,6 +212,7 @@ internal sealed class DpsSignal {
                 // A boss phase can teleport us on the same connection/map without
                 // respawning the boss. Its entity and party identities stay valid.
                 if(stream!=flow||currentMap!=0&&currentMap!=map)SelectStream(flow,timestamp,true);
+                else estimate.ClearFight();
                 currentMap=map;
             }
             if(selfInfo){PlayerIdentity(b,start,end,true,out identityActor,out identityName,out identityRole);if(stream!=flow)SelectStream(flow,timestamp,true);if(localActor!=0&&localActor!=identityActor)ClearEntities();localActor=identityActor;Bind(identityActor,identityName,identityRole);ResolveParty(timestamp);}
@@ -219,13 +221,24 @@ internal sealed class DpsSignal {
             if(stream==null)stream=flow;if(stream!=flow)return;
             if(localActor!=0)characterSkills.Bind(flow,localActor,timestamp);
             lastTraffic=timestamp;ReconcileIdentity(timestamp);
-            if(opcode==0x008d){ObserveTargetHealth(b,start,end,timestamp);return;}
+            if(opcode==0x008d){
+                int p=start+2;uint actor;
+                if(!Var(b,ref p,end,out actor)||actor==0||p>=end)return;
+                if(estimate.Tracks(actor)){
+                    uint? hp,maximum;bool energy;
+                    if(EnemyHealthSignal.Points(b,start,end,out actor,out hp,out maximum,out energy)&&(hp.HasValue||maximum.HasValue))estimate.Observe(actor,hp,maximum,timestamp);
+                }
+                if(!npcs.Contains(actor))ObserveTargetHealth(b,p,end,actor,timestamp);
+                return;
+            }
+            if(opcode==0x3438){uint actor;if(EnemyHealthSignal.Selection(b,start,end,out actor))estimate.Select(actor);return;}
+            if(opcode==0x4236){int p=start+2;uint actor;if(Var(b,ref p,end,out actor)&&end-p==2&&b[p]==0)estimate.Remove(actor);return;}
             if(opcode==0x048d){int p=start+2;uint unused,id;if(Var(b,ref p,end,out unused)){p+=4;if(Var(b,ref p,end,out id))Bind(id,Name(b,p+2,end));}ReconcileIdentity(timestamp);return;}
             if(opcode==0x3336)return;
             if(opcode==0x0092||opcode==0x0d92){ReadParty(b,start,end,opcode==0x0d92);return;}
             if(opcode==0x1b92){uint id;if(PartyVital(b,start,end,out id)&&!conflicted.Contains(id)&&!npcs.Contains(id)&&(partyVitals.Count<12||partyVitals.ContainsKey(id))){partyVitals[id]=timestamp;ResolveParty(timestamp);}return;}
             if(opcode==0x1192&&end-start==10){uint id;ulong key=BitConverter.ToUInt64(b,start+2);if(partyDatabaseIds.TryGetValue(key,out id)&&id!=Self){explicitParty.Remove(id);deferredParty.Remove(id);partyVitals.Remove(id);party.Remove(id);partyDatabaseIds.Remove(key);revision++;ResolveParty(timestamp);}else ClearParty();return;}
-            if(opcode==0x4136){int p=start+2;uint id;if(Var(b,ref p,end,out id)){targetHealth.Remove(id);parents.Remove(id);if(p+3<=end&&(b[p+2]==0||b[p+2]==1)&&npcs.Count<EntityLimit)npcs.Add(id);uint entity,parent;
+            if(opcode==0x4136){int p=start+2;uint id;if(Var(b,ref p,end,out id)){EnemyHealthSignal.Sample sample;if(EnemyHealthSignal.Spawn(b,start,end,out sample,false))estimate.Spawn(sample,timestamp);else estimate.Remove(id);targetHealth.Remove(id);parents.Remove(id);if(p+3<=end&&(b[p+2]==0||b[p+2]==1)&&npcs.Count<EntityLimit)npcs.Add(id);uint entity,parent;
                 if(EffectParent(b,start,end,out entity,out parent)&&parents.Count<EntityLimit)parents[entity]=new Parent{Actor=parent,Spawned=timestamp};}return;}
             if(opcode==0x4536){uint id;string name;byte role;if(PlayerIdentity(b,start,end,false,out id,out name,out role))Bind(id,name,role);ReconcileIdentity(timestamp);return;}
             Hit hit;bool periodic=opcode==0x0538;if(opcode!=0x0438&&!periodic)return;
@@ -260,6 +273,7 @@ internal sealed class DpsSignal {
             // It never establishes identity, party membership or ownership.
             if(!roles.ContainsKey(hit.Source)){uint family=hit.Skill/1000000;SetRole(hit.Source,family==11||family==12?(byte)3:family==17||family==18?(byte)2:(byte)1);}
             if(historical&&last>0&&timestamp<last){if(completed||timestamp<first-5)return;first=Math.Min(first,timestamp);}else if(!StartImpact(timestamp))return;Row row=CombatRow(hit.Source);if(row==null)return;
+            if(!historical&&(hit.Source==Self||party.Contains(hit.Source)))estimate.MarkHit(hit.Target,timestamp);
             row.Damage+=hit.Amount;row.HighestHit=Math.Max(row.HighestHit,hit.Periodic?hit.Amount:hit.PrimaryAmount);row.LastImpact=Math.Max(row.LastImpact,timestamp);Touch(hit.Source,timestamp);row.Hits+=1+hit.Extras;
             RecordSkill(row,hit,timestamp,"damage");
             if(hit.CriticalKnown){row.DamageEvents++;row.DamagePrimary+=hit.PrimaryAmount;if(hit.Critical){row.Criticals++;row.DamageCritical+=hit.PrimaryAmount;}}
@@ -268,9 +282,8 @@ internal sealed class DpsSignal {
                 else if(hit.Position==2){row.FrontHits++;if(hit.Critical)row.FrontCriticalHits++;if(hit.Double&&hit.Critical)row.FrontDoubleCriticalHits++;if(hit.Perfect)row.FrontPerfectHits++;}}
             if(hit.Periodic)row.PeriodicDamage+=hit.Amount;revision++;
     }
-    void ObserveTargetHealth(byte[] b,int start,int end,double timestamp){
-        int p=start+2;uint actor;long hp=-1;
-        if(!Var(b,ref p,end,out actor)||actor==0||p>=end)return;
+    void ObserveTargetHealth(byte[] b,int p,int end,uint actor,double timestamp){
+        long hp=-1;
         int flags=b[p++];if((flags&~3)!=0)return;
         for(int width=4;width<=8;width+=4)if((flags&(width==4?1:2))!=0){
             uint count;if(!Var(b,ref p,end,out count)||count>128||count>(end-p)/(width+1))return;
@@ -311,6 +324,7 @@ internal sealed class DpsSignal {
         // First to last accepted impact, matching offline results and avoiding
         // an idle-time denominator jump when the encounter finishes.
         result.Duration=first==0?0:Math.Max(1,last-first);result.FirstImpact=first;
+        if(result.Active&&options.ShowEncounterEstimate)result.Estimate=estimate.Read(now);
         result.Status=!options.Enabled?"DPS disabled":self==0?"Dash once to identify your character":lastTraffic==0||now-lastTraffic>4?"Waiting for combat data":options.Scope=="party"&&!partyKnown?"Party not detected · showing yourself":actors.Count==0?"Waiting for combat":result.Active?"In combat":"Last encounter";
         foreach(var pair in actors){if(options.Scope=="self"&&pair.Key!=self||options.Scope=="party"&&!(partyKnown?party.Contains(pair.Key):pair.Key==self))continue;string name;byte role;names.TryGetValue(pair.Key,out name);roles.TryGetValue(pair.Key,out role);var v=pair.Value;result.LastImpact=Math.Max(result.LastImpact,v.LastImpact);result.Rows.Add(new Row{Actor=pair.Key,Name=name,Role=role,Damage=v.Damage,PeriodicDamage=v.PeriodicDamage,Hits=v.Hits,Criticals=v.Criticals,DamageEvents=v.DamageEvents,DamagePrimary=v.DamagePrimary,DamageCritical=v.DamageCritical,Healing=v.Healing,HealingReceived=v.HealingReceived,HealingEvents=v.HealingEvents,HealingCriticals=v.HealingCriticals,HealingPrimary=v.HealingPrimary,HealingCritical=v.HealingCritical,ReceivedEvents=v.ReceivedEvents,ReceivedCriticals=v.ReceivedCriticals,ReceivedPrimary=v.ReceivedPrimary,ReceivedCritical=v.ReceivedCritical,Dps=v.Damage/Math.Max(1,result.Duration),Hps=v.Healing/Math.Max(1,result.Duration),ReceivedHps=v.HealingReceived/Math.Max(1,result.Duration),LastImpact=v.LastImpact,HighestHit=v.HighestHit,TaggedDamageEvents=v.TaggedDamageEvents,BackHits=v.BackHits,FrontHits=v.FrontHits,DoubleHits=v.DoubleHits,PerfectHits=v.PerfectHits,BackCriticalHits=v.BackCriticalHits,FrontCriticalHits=v.FrontCriticalHits,BackDoubleCriticalHits=v.BackDoubleCriticalHits,FrontDoubleCriticalHits=v.FrontDoubleCriticalHits,BackPerfectHits=v.BackPerfectHits,FrontPerfectHits=v.FrontPerfectHits});}
         foreach(var pair in activity){if(options.Scope=="self"&&pair.Key!=self||options.Scope=="party"&&!(partyKnown?party.Contains(pair.Key):pair.Key==self))continue;result.LastImpact=Math.Max(result.LastImpact,pair.Value);}

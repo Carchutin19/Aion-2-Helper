@@ -1,3 +1,18 @@
+# Aion 2 Helper v1.24.0 Alpha — Combat Log, DPS Estimates & Performance
+
+- **Combat Log** lists supported outgoing hits with configurable skill icons, names, damage and hit labels. New hits fade in with a brief highlight. Choose where new entries appear, scroll through recent hits and set the inactivity timeout (30 seconds when enabled by default). The scrollbar keeps the log visible while you review it. Width, height, opacity and blur are adjustable.
+- **Floating Combat Text** can show confirmed Front, Back, Critical, Perfect and Double labels. Their appearance can be configured independently, including for separately styled critical hits.
+- **DPS Meter** estimates time remaining beside the elapsed time. The estimate follows recent HP loss on the active enemy, a single known boss or the locked target. It shows a dash when a subject is known but its HP readings are insufficient.
+- **Game Tweaks → Performance** compares two 60-second runs by average FPS, p99 frame time and frames over 50 ms. An in-game countdown shows the time remaining and tells you when to return to the Helper. Apply or restore the FPS limit with Aion closed. The controls refresh automatically when Aion exits and keep the pending limit. The Visuals settings are preserved. The effect on Aion frame pacing awaits live comparison.
+- **Hidden Cube Radar is in testing.** A supported cube triggered the live alert in Verteron. This version reads additional player movement updates for distance, elevation and direction. Location guidance awaits a new cube encounter for live validation.
+- **Overlay efficiency.** The Combat Log reuses rendered rows during fades and highlights. Combat Power and Experience reuse their render data when values are stable. The DPS estimate skips redundant HP parsing and the radar checks less often when no cube is visible.
+
+## Updating
+
+Use the built-in updater or extract the full ZIP into your existing Helper folder while the Helper is closed. Keep your personal JSON files and open the Helper before launching Aion.
+
+---
+
 # Aion 2 Helper v1.23.0 Alpha — Combat Power & Experience
 
 ## New overlays

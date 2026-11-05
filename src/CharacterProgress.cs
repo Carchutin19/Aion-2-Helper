@@ -321,21 +321,29 @@ internal static class CharacterProgressDesign {
     }
 }
 
-internal sealed class CharacterProgressWindow : Form {
+internal sealed class MovableOverlayWindow : Form {
+    internal const int ResizeGrip = 24;
     readonly LayeredImage image = new LayeredImage();
-    readonly bool power;
+    OverlayGlassLayer backdrop;
     string imageKey;
+    Func<Size,Bitmap> paint;
+    Size requestedSize, paintedSize;
     Rectangle presented;
     byte alpha;
-    bool dragging, interactive, resizing;
+    bool dragging, interactive, resizing, blur;
     Point pointer;
     Rectangle start;
     internal Action Clicked;
+    internal Func<Size,Rectangle> ScrollArea;
+    internal Action<int> Scrolled;
+    internal Action<double> ScrollPosition;
+    bool scrolling;
+    internal bool IsScrolling {get{return scrolling;}}
     internal Action<Rectangle> Moved;
+    internal Func<Size,Size> LimitResize;
 
-    internal CharacterProgressWindow(bool power) {
-        this.power = power;
-        Text = power ? "Aion 2 Helper - Combat Power" : "Aion 2 Helper - Experience";
+    internal MovableOverlayWindow(string title) {
+        Text = "Aion 2 Helper - " + title;
         FormBorderStyle = FormBorderStyle.None;
         AutoScaleMode = AutoScaleMode.None;
         StartPosition = FormStartPosition.Manual;
@@ -347,17 +355,28 @@ internal sealed class CharacterProgressWindow : Form {
         get { var p = base.CreateParams; p.ExStyle |= 0x80000 | 0x80 | 0x08000000; return p; }
     }
     internal void InvalidateImage() { imageKey = null; }
-    internal void Render(Rectangle bounds, byte opacity, bool editing, string key, Func<Bitmap> render) {
-        if (opacity == 0) { if (Visible) Hide(); return; }
+    internal void HideOverlay() {
+        if(scrolling){scrolling=false;Capture=false;}
+        if (Visible) Hide();
+        if (backdrop!=null&&backdrop.Visible) backdrop.Hide();
+    }
+    void SyncBackdrop() {
+        if (blur) {
+            if (backdrop==null) backdrop=new OverlayGlassLayer();
+            backdrop.Sync(presented,alpha,Handle,true,12);
+        } else if (backdrop!=null&&backdrop.Visible) backdrop.Hide();
+    }
+    internal void Render(Rectangle bounds, byte opacity, bool editing, string key, Func<Size,Bitmap> render, bool useBlur=false) {
+        if (opacity == 0) { HideOverlay(); return; }
+        blur=useBlur;
         interactive = editing;
         if (!dragging) start = bounds;
         var position = dragging ? presented.Location : bounds.Location;
-        bool changed = key != imageKey;
+        paint=render;
+        Size size=dragging&&resizing&&LimitResize!=null ? requestedSize : bounds.Size;
+        bool changed = key != imageKey || size != paintedSize;
         if (changed) {
-            using (var bitmap = render()) {
-                image.Upload(bitmap);
-                presented.Size = bitmap.Size;
-            }
+            PaintSize(size);
             imageKey = key;
         }
         if (!Visible || changed || opacity != alpha || position != presented.Location) {
@@ -366,49 +385,133 @@ internal sealed class CharacterProgressWindow : Form {
             alpha = opacity;
         }
         if (!Visible) { Show(); OverlayNative.RaiseWithoutFocus(Handle); }
+        SyncBackdrop();
+    }
+    void PaintSize(Size size) {
+        using (var bitmap=paint(size)) {
+            image.Upload(bitmap);
+            presented.Size=bitmap.Size;
+        }
+        paintedSize=size;
+    }
+    bool OverResizeGrip(Point position) {
+        return presented.Contains(position) && position.X>=presented.Right-ResizeGrip && position.Y>=presented.Bottom-ResizeGrip;
+    }
+    Size DragSize(Point delta) {
+        var size=start.Size+(Size)delta;
+        return LimitResize==null?size:LimitResize(size);
+    }
+    void BeginDrag(Point position) {
+        pointer=position;
+        resizing=OverResizeGrip(position);
+        requestedSize=start.Size;
+        dragging=true;
+    }
+    void MoveDrag(Point position) {
+        var delta=position-(Size)pointer;
+        if (!resizing) {
+            presented.Location=new Point(start.X+delta.X,start.Y+delta.Y);
+        } else {
+            if (LimitResize==null) return;
+            requestedSize=DragSize(delta);
+            if (requestedSize==paintedSize) return;
+            PaintSize(requestedSize);
+        }
+        image.Present(Handle,presented.X,presented.Y,alpha);
+        SyncBackdrop();
+    }
+    Rectangle EndDrag(Point position,bool captureLost) {
+        var delta=position-(Size)pointer;
+        var next=start;
+        if (resizing) next.Size=captureLost&&LimitResize!=null?requestedSize:DragSize(delta);
+        else next.Offset(delta);
+        dragging=false;
+        return next;
+    }
+    Rectangle ScrollBounds(){
+        var area=ScrollArea==null?Rectangle.Empty:ScrollArea(presented.Size);
+        if(!area.IsEmpty)area.Offset(presented.Location);
+        return area;
+    }
+    void ScrollToPointer(){
+        var area=ScrollBounds();
+        if(area.Height>0&&ScrollPosition!=null)ScrollPosition(Math.Max(0,Math.Min(1,(Cursor.Position.Y-area.Top)/(double)Math.Max(1,area.Height-1))));
     }
     protected override void WndProc(ref Message m) {
         if (m.Msg == 0x21) { m.Result = new IntPtr(3); return; }
-        if (m.Msg == 0x84) { m.Result = new IntPtr(interactive || power ? 1 : -1); return; }
+        if (m.Msg == 0x84) { m.Result = new IntPtr(interactive || Clicked!=null || ScrollBounds().Contains(Cursor.Position) ? 1 : -1); return; }
+        if(m.Msg==0x20&&ScrollBounds().Contains(Cursor.Position)){OverlayNative.SetCursor(Cursors.Hand.Handle);m.Result=new IntPtr(1);return;}
+        if(m.Msg==0x20A&&Scrolled!=null&&ScrollBounds().Contains(Cursor.Position)){
+            Scrolled((short)(m.WParam.ToInt64()>>16));return;
+        }
+        if(m.Msg==0x201&&ScrollPosition!=null&&ScrollBounds().Contains(Cursor.Position)){
+            scrolling=true;Capture=true;ScrollToPointer();return;
+        }
+        if(m.Msg==0x200&&scrolling){ScrollToPointer();return;}
+        if((m.Msg==0x202||m.Msg==0x215)&&scrolling){scrolling=false;Capture=false;return;}
+        if (m.Msg == 0x20 && interactive && (dragging ? resizing : OverResizeGrip(Cursor.Position))) {
+            OverlayNative.SetCursor(Cursors.SizeNWSE.Handle);
+            m.Result=new IntPtr(1);
+            return;
+        }
         if (m.Msg == 0x201 && interactive) {
-            pointer = Cursor.Position;
-            var point = PointToClient(pointer);
-            resizing = point.X >= Width-12 && point.Y >= Height-12;
-            dragging = true;
+            BeginDrag(Cursor.Position);
             Capture = true;
             return;
         }
-        if (m.Msg == 0x200 && dragging && !resizing) {
-            var delta = Cursor.Position - (Size)pointer;
-            image.Present(Handle,start.X+delta.X,start.Y+delta.Y,alpha);
-            presented.Location = new Point(start.X+delta.X,start.Y+delta.Y);
+        if (m.Msg == 0x200 && dragging) {
+            MoveDrag(Cursor.Position);
             return;
         }
         if ((m.Msg == 0x202 || m.Msg == 0x215) && dragging) {
-            var delta = Cursor.Position - (Size)pointer;
-            var next = start;
-            if (resizing) { next.Width += delta.X; next.Height += delta.Y; }
-            else next.Offset(delta);
-            dragging = false;
+            var next=EndDrag(Cursor.Position,m.Msg==0x215);
             Capture = false;
             if (Moved != null) Moved(next);
             return;
         }
-        if (m.Msg == 0x202 && power && !interactive) {
-            if (Clicked != null) Clicked();
+        if (m.Msg == 0x202 && Clicked!=null && !interactive) {
+            Clicked();
             return;
         }
         base.WndProc(ref m);
     }
-    protected override void Dispose(bool disposing) { if (disposing) image.Dispose(); base.Dispose(disposing); }
+    internal static void VerifyLiveResize() {
+        using(var window=new MovableOverlayWindow("Resize verification")) {
+            var bounds=new Rectangle(-20000,-20000,570,250);
+            window.LimitResize=CombatLogOptions.LimitSize;
+            Func<Size,Bitmap> draw=size=>new Bitmap(size.Width,size.Height);
+            window.Render(bounds,255,true,"sample",draw);
+            var corner=new Point(bounds.Right-18,bounds.Bottom-18);
+            window.BeginDrag(corner);
+            window.MoveDrag(new Point(corner.X-450,corner.Y-200));
+            var compact=new Size(CombatLogOptions.MinWidth,CombatLogOptions.MinHeight);
+            var resized=window.presented;
+            if(resized.Location!=bounds.Location||resized.Size!=compact)
+                throw new Exception("Dragging the visible grip must resize immediately and respect the minimum");
+            window.Render(bounds,255,true,"refreshed sample",draw);
+            resized=window.presented;
+            if(resized.Size!=compact||window.EndDrag(Point.Empty,true)!=new Rectangle(bounds.Location,compact))
+                throw new Exception("Refresh and capture loss must keep the last preview size");
+        }
+    }
+    protected override void Dispose(bool disposing) { if (disposing) { if(backdrop!=null)backdrop.Dispose(); image.Dispose(); } base.Dispose(disposing); }
 }
 
 internal sealed class CharacterProgressWidgets : IDisposable {
     readonly EnergyOverlay owner;
-    readonly CharacterProgressWindow power = new CharacterProgressWindow(true);
-    readonly CharacterProgressWindow xp = new CharacterProgressWindow(false);
+    readonly MovableOverlayWindow power = new MovableOverlayWindow("Combat Power");
+    readonly MovableOverlayWindow xp = new MovableOverlayWindow("Experience");
     double alpha, lastTick;
     CharacterProgressSignal.Reading reading;
+    CharacterProgressOptions powerOptions,xpOptions;
+    Func<Size,Bitmap> paintPower,paintXp;
+    ulong? powerNumber,xpNumber;
+    int xpLevel;
+    string xpLanguage;
+    string powerKey,xpKey;
+    long powerRevision,xpRevision;
+    string statusPowerKey,statusXpKey;
+    bool statusPowerVisible,statusXpVisible;
     internal int NextInterval { get; private set; }
     internal string StatusKey { get; private set; }
     internal object Status {
@@ -427,7 +530,7 @@ internal sealed class CharacterProgressWidgets : IDisposable {
         update(config.CharacterProgress);
         owner.ApplyConfiguration(config);
     }
-    internal void Configure() { power.InvalidateImage(); xp.InvalidateImage(); }
+    internal void Configure() { powerOptions=xpOptions=null;power.InvalidateImage();xp.InvalidateImage(); }
     internal void Maintain(CharacterProgressOptions o, CharacterProgressSignal.Reading live, bool editing, double now, string language) {
         reading = live;
         NextInterval = 1000;
@@ -443,8 +546,11 @@ internal sealed class CharacterProgressWidgets : IDisposable {
         ulong? number = live == null ? null : o.AlternatePower ? live.Secondary : live.Primary;
         if (editing && !number.HasValue) number = o.AlternatePower ? 1248ul : 120ul;
         byte powerOpacity = o.Power.Enabled && !shell && (editing || live != null) ? (byte)255 : (byte)0;
-        string powerKey = number + "/" + o.AlternatePower + "/" + o.Power.Bounds.Size;
-        power.Render(o.Power.Bounds,powerOpacity,editing,powerKey,()=>CharacterProgressDesign.Power(o.Power.Bounds.Size,number,o.AlternatePower,o.Power));
+        if(powerOptions!=o||powerNumber!=number){
+            powerOptions=o;powerNumber=number;powerKey=(++powerRevision).ToString(CultureInfo.InvariantCulture);
+            paintPower=size=>CharacterProgressDesign.Power(size,powerNumber,powerOptions.AlternatePower,powerOptions.Power);
+        }
+        power.Render(o.Power.Bounds,powerOpacity,editing,powerKey,paintPower);
 
         int level = editing ? 10 : live == null ? 0 : live.Level;
         ulong? current = editing ? 28208ul : live == null ? null : live.Xp;
@@ -466,10 +572,15 @@ internal sealed class CharacterProgressWidgets : IDisposable {
         }
         if (o.Experience.Enabled && known && !editing && o.Experience.AutoHide && active && now < deadline)
             NextInterval = Math.Min(NextInterval,Math.Max(1,(int)Math.Ceiling((deadline-now)*1000)));
-        string xpKey = level + "/" + current + "/" + o.ExperienceBounds.Size + "/" + language;
-        xp.Render(o.ExperienceBounds,(byte)Math.Round(alpha*255),editing,xpKey,
-            ()=>CharacterProgressDesign.Experience(o.ExperienceBounds.Size,level,current.GetValueOrDefault(),max,o.Experience,language));
-        StatusKey = powerKey + "/" + power.Visible + "/" + xpKey + "/" + xp.Visible;
+        if(xpOptions!=o||xpLevel!=level||xpNumber!=current||xpLanguage!=language){
+            xpOptions=o;xpLevel=level;xpNumber=current;xpLanguage=language;xpKey=(++xpRevision).ToString(CultureInfo.InvariantCulture);
+            paintXp=size=>CharacterProgressDesign.Experience(size,xpLevel,xpNumber.GetValueOrDefault(),CharacterProgressSignal.Maximum(xpLevel),xpOptions.Experience,xpLanguage);
+        }
+        xp.Render(o.ExperienceBounds,(byte)Math.Round(alpha*255),editing,xpKey,paintXp);
+        if(StatusKey=="disabled"||statusPowerKey!=powerKey||statusXpKey!=xpKey||statusPowerVisible!=power.Visible||statusXpVisible!=xp.Visible){
+            statusPowerKey=powerKey;statusXpKey=xpKey;statusPowerVisible=power.Visible;statusXpVisible=xp.Visible;
+            StatusKey=powerKey+"/"+statusPowerVisible+"/"+xpKey+"/"+statusXpVisible;
+        }
     }
     public void Dispose() { power.Dispose(); xp.Dispose(); }
 }

@@ -341,6 +341,7 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--player-vitals-test"){try{PlayerVitalVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"player-vitals-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==2&&args[0]=="--player-vitals-replay-test"){try{PlayerVitalVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"player-vitals-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--floating-text-test"){try{FloatingTextVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"floating-text-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--hidden-cube-test"){try{HiddenCubeVerification.Run(root,args.Length>1?args[1]:null);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"hidden-cube-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--stagger-effect-test"){try{StaggerScreenEffectVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"stagger-effect-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--progress-test"){try{ProgressVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"progress-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ping-test"){try{PingVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ping-test.txt"),"FAIL: "+ex);return 1;}}
@@ -365,7 +366,7 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--fps-worker")return FpsWorker.Run(root,args);
         if(args.Length>0&&args[0]=="--game-tweaks-test"){try{GameTweaksVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"game-tweaks-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--visual-tweaks-test"){try{VisualTweaksVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"visual-tweaks-test.txt"),"FAIL: "+ex);return 1;}}
-        if(args.Length>0&&args[0]=="--fps-test"){try{FpsSamples.Verify();FpsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"fps-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length>0&&args[0]=="--fps-test"){try{FpsSamples.Verify();FpsBenchmarkResult.Verify();FpsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"fps-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--settings-test") {try{SettingsVisual.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"settings-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ui-test") {try{BarDesign.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ui-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==2&&args[0]=="--capture-recovery-replay-test"){try{CaptureRecoveryVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"capture-recovery-replay-test.txt"),"FAIL: "+ex);return 1;}}

@@ -12,11 +12,15 @@ internal sealed class VisualTweaks {
     internal static readonly string[] Keys={"r.DepthOfFieldQuality","r.SceneColorFringeQuality","r.FilmGrain","r.MotionBlurQuality","r.CustomDepth"};
     internal const string Section="[/Script/Engine.RendererSettings]";
     internal const string SystemSection="[SystemSettings]";
+    const int FrameLimit=5;
+    const string FrameLimitKey="t.MaxFPS",ConsoleSection="[ConsoleVariables]";
     readonly string preferences,backupBase;readonly Func<bool> running;
     internal string ConfigPath="";
     internal sealed class Preferences {public string ConfigPath="";}
     internal sealed class Record {public int Version=2;public string Path,BeforeHash,AfterHash,ManagedHash;}
     internal sealed class State {internal bool[] Enabled={true,true,true,true,true};internal byte[] Snapshot;internal bool Found,CanApply,CanRestore;internal string Message;}
+    internal sealed class PerformanceState {internal byte[] Snapshot;internal string Override,Message;internal bool GameRunning,CanApply,CanRestore;}
+    internal bool GameRunning {get{return running();}}
     internal VisualTweaks(string root,string backups=null,Func<bool> gameRunning=null){
         preferences=Path.Combine(root,"visual-tweaks.json");backupBase=backups??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Aion2Helper","VisualBackups");running=gameRunning??IntroTweaks.Running;
         try{if(File.Exists(preferences)&&new FileInfo(preferences).Length<32768){var p=new JavaScriptSerializer().Deserialize<Preferences>(File.ReadAllText(preferences));if(p!=null)ConfigPath=p.ConfigPath??"";}}catch(IOException){}catch(UnauthorizedAccessException){}catch(ArgumentException){}catch(InvalidOperationException){}
@@ -35,26 +39,51 @@ internal sealed class VisualTweaks {
     static byte[] Read(string path){NoLinks(path);using(var s=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read)){if(s.Length>1024*1024)throw new InvalidOperationException("Engine.ini is too large to edit safely.");var b=new byte[(int)s.Length];int n=0,k;while(n<b.Length&&(k=s.Read(b,n,b.Length-n))>0)n+=k;if(n!=b.Length)throw new IOException("Engine.ini changed while reading.");return b;}}
     string BackupDirectory(string target){string b=Path.GetFullPath(backupBase);if(b.Equals(Path.GetDirectoryName(target),StringComparison.OrdinalIgnoreCase)||b.StartsWith(Path.GetDirectoryName(target)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Visual backups must stay outside the game's configuration folder.");NoLinks(b);return Path.Combine(b,IntroTweaks.Hash(Encoding.UTF8.GetBytes(target.ToUpperInvariant())));}
     static bool ValidHash(string s){return s!=null&&Regex.IsMatch(s,"\\A[a-f0-9]{64}\\z");}
-    Record RecordFor(string target){string p=Path.Combine(BackupDirectory(target),"last-change.json");if(!File.Exists(p))return null;NoLinks(p);if(new FileInfo(p).Length>32768)throw new InvalidOperationException("The visual backup record is invalid.");Record r;try{r=new JavaScriptSerializer().Deserialize<Record>(File.ReadAllText(p));}catch{throw new InvalidOperationException("The visual backup record is invalid.");}if(r==null||(r.Version!=1&&r.Version!=2)||!string.Equals(r.Path,target,StringComparison.OrdinalIgnoreCase)||!ValidHash(r.BeforeHash)||!ValidHash(r.AfterHash)||!ValidHash(r.ManagedHash))throw new InvalidOperationException("The visual backup record is invalid.");return r;}
+    static string Journal(string dir,bool performance){return Path.Combine(dir,performance?"last-performance-change.json":"last-change.json");}
+    Record RecordFor(string target,bool performance=false){string p=Journal(BackupDirectory(target),performance);if(!File.Exists(p))return null;NoLinks(p);if(new FileInfo(p).Length>32768)throw new InvalidOperationException("The configuration backup record is invalid.");Record r;try{r=new JavaScriptSerializer().Deserialize<Record>(File.ReadAllText(p));}catch{throw new InvalidOperationException("The configuration backup record is invalid.");}if(r==null||(r.Version!=1&&r.Version!=2)||!string.Equals(r.Path,target,StringComparison.OrdinalIgnoreCase)||!ValidHash(r.BeforeHash)||!ValidHash(r.AfterHash)||!ValidHash(r.ManagedHash))throw new InvalidOperationException("The configuration backup record is invalid.");return r;}
     byte[] Backup(string target,Record r){string p=Path.Combine(BackupDirectory(target),r.BeforeHash+".ini");if(!File.Exists(p))throw new InvalidOperationException("The visual backup is missing or damaged.");var b=Read(p);if(IntroTweaks.Hash(b)!=r.BeforeHash)throw new InvalidOperationException("The visual backup is missing or damaged.");return b;}
     internal State Inspect(){var s=new State();try{string p=Target();byte[] b=Read(p);var ini=new Ini(b);s.Enabled=ini.Enabled();s.Snapshot=b;s.Found=true;bool open=running(),readOnly=(File.GetAttributes(p)&FileAttributes.ReadOnly)!=0;s.CanApply=!open&&!readOnly;s.Message=open?"Close Aion 2 to apply visual changes. They take effect on the next launch.":readOnly?"Engine.ini is read-only. Make it writable before applying visual changes.":"Ready. Enabled effects use game settings; disabled effects use a zero override.";
         var r=RecordFor(p);if(r!=null&&ini.ManagedHash(r.Version==1?4:Keys.Length)==r.ManagedHash){Backup(p,r);s.CanRestore=s.CanApply;}
     }catch(Exception e){s.Message=e.Message;s.CanApply=s.CanRestore=false;}return s;}
-    void RequireWritable(string p){if(running())throw new InvalidOperationException("Close Aion 2 to apply visual changes. They take effect on the next launch.");NoLinks(p);if((File.GetAttributes(p)&FileAttributes.ReadOnly)!=0)throw new InvalidOperationException("Engine.ini is read-only. Make it writable before applying visual changes.");}
+    internal PerformanceState InspectPerformance(){
+        var state=new PerformanceState();
+        try{
+            string p=Target();var ini=new Ini(state.Snapshot=Read(p));state.Override=ini.CurrentFrameLimit();
+            state.GameRunning=GameRunning;
+            bool readOnly=(File.GetAttributes(p)&FileAttributes.ReadOnly)!=0;
+            state.CanApply=!state.GameRunning&&!readOnly;
+            state.Message=state.GameRunning?"Close Aion 2 to change the FPS limit.":readOnly?"Engine.ini is read-only.":"";
+            var r=RecordFor(p,true);
+            if(r!=null&&ini.FrameLimitHash()==r.ManagedHash){Backup(p,r);state.CanRestore=state.CanApply;}
+        }catch(Exception e){state.Message=e.Message;state.CanApply=state.CanRestore=false;}
+        return state;
+    }
+    void RequireWritable(string p,bool performance){if(running())throw new InvalidOperationException(performance?"Close Aion 2 to change the FPS limit.":"Close Aion 2 to apply visual changes. They take effect on the next launch.");NoLinks(p);if((File.GetAttributes(p)&FileAttributes.ReadOnly)!=0)throw new InvalidOperationException(performance?"Engine.ini is read-only.":"Engine.ini is read-only. Make it writable before applying visual changes.");}
     internal void Apply(bool[] enabled,byte[] expected){if(enabled==null||enabled.Length!=Keys.Length||expected==null)throw new ArgumentException("All effect choices and a current snapshot are required.");Change(enabled,expected,false);}
     internal byte[] Snapshot(){return Read(Target());}
     internal void Restore(){Change(null,null,true);}
-    void Change(bool[] enabled,byte[] expected,bool restore){string p=Target(),dir=BackupDirectory(p);using(var mutex=new Mutex(false,"Local\\Aion2Helper-Visual-"+Path.GetFileName(dir))){bool owned=false;try{
-        try{owned=mutex.WaitOne(0);}catch(AbandonedMutexException){owned=true;}if(!owned)throw new InvalidOperationException("Another visual change is in progress.");RequireWritable(p);var before=Read(p);var ini=new Ini(before);byte[] after;
-        if(restore){var r=RecordFor(p);if(r==null)throw new InvalidOperationException("No visual change is available to restore.");var original=Backup(p,r);int count=r.Version==1?4:Keys.Length;if(ini.ManagedHash(count)!=r.ManagedHash)throw new InvalidOperationException("Visual settings changed outside the helper. Refresh before making another change.");after=IntroTweaks.Hash(before)==r.AfterHash?original:ini.Restore(new Ini(original),count);}
-        else{if(IntroTweaks.Hash(before)!=IntroTweaks.Hash(expected))throw new InvalidOperationException("Engine.ini changed. Refresh status and review your choices before applying.");after=ini.Apply(enabled);}
+    internal void ApplyFrameLimit(int cap,byte[] expected){if((cap!=0&&(cap<20||cap>500))||expected==null)throw new ArgumentException("Choose a limit from 20 to 500 FPS.");Change(null,expected,false,true,cap);}
+    internal void RestoreFrameLimit(){Change(null,null,true,true);}
+    void Change(bool[] enabled,byte[] expected,bool restore,bool performance=false,int cap=0){string p=Target(),dir=BackupDirectory(p);using(var mutex=new Mutex(false,"Local\\Aion2Helper-Visual-"+Path.GetFileName(dir))){bool owned=false;try{
+        try{owned=mutex.WaitOne(0);}catch(AbandonedMutexException){owned=true;}if(!owned)throw new InvalidOperationException("Another configuration change is in progress.");RequireWritable(p,performance);var before=Read(p);var ini=new Ini(before);byte[] after;
+        if(restore){
+            var r=RecordFor(p,performance);
+            if(r==null)throw new InvalidOperationException(performance?"No FPS limit change is available to restore.":"No visual change is available to restore.");
+            var original=Backup(p,r);int count=r.Version==1?4:Keys.Length;
+            if((performance?ini.FrameLimitHash():ini.ManagedHash(count))!=r.ManagedHash)throw new InvalidOperationException(performance?"FPS limit changed outside the Helper. Refresh before making another change.":"Visual settings changed outside the helper. Refresh before making another change.");
+            after=IntroTweaks.Hash(before)==r.AfterHash?original:performance?ini.RestoreFrameLimit(new Ini(original)):ini.Restore(new Ini(original),count);
+        }else{
+            if(IntroTweaks.Hash(before)!=IntroTweaks.Hash(expected))throw new InvalidOperationException("Engine.ini changed. Refresh status and review your choices before applying.");
+            after=performance?ini.ApplyFrameLimit(cap):ini.Apply(enabled);
+        }
         if(IntroTweaks.Hash(before)==IntroTweaks.Hash(after))return;
         Directory.CreateDirectory(dir);string backup=Path.Combine(dir,IntroTweaks.Hash(before)+".ini");if(File.Exists(backup)){if(IntroTweaks.Hash(Read(backup))!=IntroTweaks.Hash(before))throw new InvalidOperationException("The visual backup is missing or damaged.");}else Atomic(backup,before);
-        var record=new Record{Path=p,BeforeHash=IntroTweaks.Hash(before),AfterHash=IntroTweaks.Hash(after),ManagedHash=new Ini(after).ManagedHash()};
-        string journal=Path.Combine(dir,"last-change.json");NoLinks(journal);byte[] previous=File.Exists(journal)?Read(journal):null;
+        var written=new Ini(after);
+        var record=new Record{Path=p,BeforeHash=IntroTweaks.Hash(before),AfterHash=IntroTweaks.Hash(after),ManagedHash=performance?written.FrameLimitHash():written.ManagedHash()};
+        string journal=Journal(dir,performance);NoLinks(journal);byte[] previous=File.Exists(journal)?Read(journal):null;
         // Prepare the recoverable record first, but retain the previous undo if the commit is blocked.
         Atomic(journal,Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(record)));
-        try{RequireWritable(p);if(IntroTweaks.Hash(Read(p))!=record.BeforeHash)throw new InvalidOperationException("Engine.ini changed. Refresh status and review your choices before applying.");Atomic(p,after);}
+        try{RequireWritable(p,performance);if(IntroTweaks.Hash(Read(p))!=record.BeforeHash)throw new InvalidOperationException("Engine.ini changed. Refresh status and review your choices before applying.");Atomic(p,after);}
         catch{if(previous!=null)Atomic(journal,previous);else File.Delete(journal);throw;}
     }finally{if(owned)mutex.ReleaseMutex();}}}
     static void Atomic(string path,byte[] bytes){NoLinks(path);Directory.CreateDirectory(Path.GetDirectoryName(path));string temp=Path.Combine(Path.GetDirectoryName(path),"."+Guid.NewGuid().ToString("N")+".tmp");try{using(var s=new FileStream(temp,FileMode.CreateNew,FileAccess.Write,FileShare.None)){s.Write(bytes,0,bytes.Length);s.Flush(true);}if(File.Exists(path))File.Replace(temp,path,null);else File.Move(temp,path);}finally{if(File.Exists(temp))File.Delete(temp);}}
@@ -71,10 +100,32 @@ internal sealed class VisualTweaks {
             foreach(Match m in Regex.Matches(text,"([^\\r\\n]*)(\\r\\n|\\n|\\r|$)"))if(m.Length!=0)lines.Add(new Line(m.Groups[1].Value,m.Groups[2].Value));newline="\r\n";foreach(var l in lines)if(l.End.Length!=0){newline=l.End;break;}trailing=lines.Count>0&&lines[lines.Count-1].End.Length!=0;
         }
         static string Header(string text){text=text.Trim();int end=text.IndexOf(']');return text.StartsWith("[")&&end>0?text.Substring(0,end+1):null;}
-        static int Key(string text){text=text.Trim();if(text.StartsWith(";")||text.StartsWith("#"))return -1;int e=text.IndexOf('=');if(e<0)return -1;string k=text.Substring(0,e).Trim();for(int i=0;i<Keys.Length;i++)if(k.Equals(Keys[i],StringComparison.OrdinalIgnoreCase))return i;return -1;}
-        static string Destination(int key){return key==4?SystemSection:Section;}
+        static int Key(string text){text=text.Trim();if(text.StartsWith(";")||text.StartsWith("#"))return -1;int e=text.IndexOf('=');if(e<0)return -1;string k=text.Substring(0,e).Trim();for(int i=0;i<Keys.Length;i++)if(k.Equals(Keys[i],StringComparison.OrdinalIgnoreCase))return i;return k.Equals(FrameLimitKey,StringComparison.OrdinalIgnoreCase)?FrameLimit:-1;}
+        static string Destination(int key){return key==4||key==FrameLimit?SystemSection:Section;}
         string SectionAt(int index){for(int i=index;i>=0;i--){string h=Header(lines[i].Text);if(h!=null)return h;}return "";}
-        List<int> Indices(int key){var result=new List<int>();bool section=false;for(int i=0;i<lines.Count;i++){string h=Header(lines[i].Text);if(h!=null)section=h.Equals(Section,StringComparison.OrdinalIgnoreCase)||(key==4&&h.Equals(SystemSection,StringComparison.OrdinalIgnoreCase));else if(section&&Key(lines[i].Text)==key)result.Add(i);}return result;}
+        List<int> Indices(int key){var result=new List<int>();bool section=false;for(int i=0;i<lines.Count;i++){string h=Header(lines[i].Text);if(h!=null){
+            section=key==FrameLimit?h.Equals(SystemSection,StringComparison.OrdinalIgnoreCase)||h.Equals(ConsoleSection,StringComparison.OrdinalIgnoreCase):h.Equals(Section,StringComparison.OrdinalIgnoreCase)||key==4&&h.Equals(SystemSection,StringComparison.OrdinalIgnoreCase);
+        }else if(section&&Key(lines[i].Text)==key)result.Add(i);}return result;}
+        internal string CurrentFrameLimit(){
+            var list=Indices(FrameLimit);if(list.Count==0)return null;
+            int selected=list[list.Count-1];
+            foreach(int i in list)if(SectionAt(i).Equals(ConsoleSection,StringComparison.OrdinalIgnoreCase))selected=i;
+            string text=lines[selected].Text;return text.Substring(text.IndexOf('=')+1).Split(';','#')[0].Trim().Trim('"');
+        }
+        internal string FrameLimitHash(){
+            var b=new StringBuilder();
+            foreach(int i in Indices(FrameLimit))b.Append(SectionAt(i).ToUpperInvariant()).Append(':').Append(lines[i].Text).Append('\n');
+            return IntroTweaks.Hash(Encoding.UTF8.GetBytes(b.ToString()));
+        }
+        internal byte[] ApplyFrameLimit(int cap){
+            Remove(FrameLimit);if(cap>0)Add(FrameLimitKey+"="+cap.ToString(CultureInfo.InvariantCulture),FrameLimit);
+            return Bytes();
+        }
+        internal byte[] RestoreFrameLimit(Ini original){
+            Remove(FrameLimit);
+            foreach(int i in original.Indices(FrameLimit))Add(original.lines[i].Text,FrameLimit,original.SectionAt(i));
+            return Bytes();
+        }
         internal bool[] Enabled(){var flags=new[]{true,true,true,true,true};for(int k=0;k<Keys.Length;k++){var list=Indices(k);if(list.Count==0)continue;int selected=list[list.Count-1];if(k==4)foreach(int i in list)if(SectionAt(i).Equals(SystemSection,StringComparison.OrdinalIgnoreCase))selected=i;string text=lines[selected].Text;string value=text.Substring(text.IndexOf('=')+1).Split(';')[0].Trim().Trim('"');double n;if(double.TryParse(value,NumberStyles.Float,CultureInfo.InvariantCulture,out n))flags[k]=n!=0;}return flags;}
         internal string ManagedHash(int count=5){var b=new StringBuilder();for(int k=0;k<count;k++){b.Append(k).Append(':');foreach(int i in Indices(k)){if(k==4)b.Append(SectionAt(i).ToUpperInvariant()).Append(':');b.Append(lines[i].Text).Append('\n');}}return IntroTweaks.Hash(Encoding.UTF8.GetBytes(b.ToString()));}
         void Remove(int key){var list=Indices(key);for(int n=list.Count-1;n>=0;n--)lines.RemoveAt(list[n]);}

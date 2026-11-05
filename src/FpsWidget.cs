@@ -36,6 +36,9 @@ internal sealed class FpsSamples {
     }
     sealed class Chain {internal readonly Queue<double> Times=new Queue<double>();internal double Last=-1;internal long Arrival;}
     readonly Dictionary<Surface,Chain> chains=new Dictionary<Surface,Chain>();readonly object gate=new object();
+    Surface benchmarkSurface;
+    List<double> benchmarkIntervals;
+    double benchmarkLast;
     readonly int[] fieldColumns={0,-1,-1,-1};readonly int processId;
     internal FpsSamples(int pid){processId=pid;}
     internal void Consume(string line){
@@ -51,10 +54,30 @@ internal sealed class FpsSamples {
         if(pid<=0||double.IsNaN(time)||double.IsInfinity(time)||time<0)return;
         lock(gate){var key=new Surface{Pid=pid,Address=surface};Chain chain;if(!chains.TryGetValue(key,out chain)){if(chains.Count>=8){Surface oldest=default(Surface);long stamp=long.MaxValue;foreach(var pair in chains)if(pair.Value.Arrival<stamp){oldest=pair.Key;stamp=pair.Value.Arrival;}chains.Remove(oldest);}chain=new Chain();chains.Add(key,chain);}
             if(time<=chain.Last)return;chain.Last=time;chain.Arrival=Stopwatch.GetTimestamp();chain.Times.Enqueue(time);
+            if(benchmarkIntervals!=null&&key.Equals(benchmarkSurface)){
+                if(benchmarkLast>=0&&benchmarkIntervals.Count<65536)benchmarkIntervals.Add((time-benchmarkLast)*1000);
+                benchmarkLast=time;
+            }
             while(chain.Times.Count>4096||(chain.Times.Count>1&&time-chain.Times.Peek()>1))chain.Times.Dequeue();
         }
     }
-    internal int? Read(){lock(gate){Chain best=null;long now=Stopwatch.GetTimestamp();foreach(var chain in chains.Values)if((now-chain.Arrival)/(double)Stopwatch.Frequency<=2&&(best==null||chain.Times.Count>best.Times.Count))best=chain;
+    Chain Best(out Surface surface,int pid=0){
+        Chain best=null;long now=Stopwatch.GetTimestamp();surface=default(Surface);
+        foreach(var pair in chains)if((pid==0||pair.Key.Pid==pid)&&(now-pair.Value.Arrival)/(double)Stopwatch.Frequency<=2&&(best==null||pair.Value.Times.Count>best.Times.Count)){
+            best=pair.Value;surface=pair.Key;
+        }
+        return best;
+    }
+    internal bool BeginBenchmark(int pid){lock(gate){
+        var chain=Best(out benchmarkSurface,pid);
+        if(chain==null||chain.Times.Count<2)return false;
+        benchmarkIntervals=new List<double>(8192);benchmarkLast=-1;return true;
+    }}
+    internal List<double> EndBenchmark(){lock(gate){
+        var result=benchmarkIntervals;benchmarkIntervals=null;
+        return result!=null&&result.Count<65536?result:null;
+    }}
+    internal int? Read(){lock(gate){Surface surface;Chain best=Best(out surface);
         if(best==null||best.Times.Count<2)return null;double duration=best.Last-best.Times.Peek();if(duration<=0)return null;return Math.Max(1,Math.Min(9999,(int)Math.Round((best.Times.Count-1)/duration)));}}
     internal static string[] Csv(string line){var result=new List<string>();var cell=new System.Text.StringBuilder();bool quoted=false;for(int i=0;i<line.Length;i++){char c=line[i];if(c=='"'){if(quoted&&i+1<line.Length&&line[i+1]=='"'){cell.Append('"');i++;}else quoted=!quoted;}else if(c==','&&!quoted){result.Add(cell.ToString());cell.Length=0;}else cell.Append(c);}result.Add(cell.ToString());return result.ToArray();}
     // PresentMon can emit dozens of columns per frame. Only materialize the
@@ -104,13 +127,20 @@ internal static class FpsWorker {
         string tool=Path.Combine(root,"tools","presentmon","PresentMon.exe"),session=args[3];Process capture=null;FpsEtw native=null;
         using(var wake=new AutoResetEvent(false))using(var pipe=new NamedPipeClientStream(".",session,PipeDirection.InOut,PipeOptions.Asynchronous))try{
             pipe.Connect(15000);using(var writer=new StreamWriter(pipe,System.Text.Encoding.UTF8,1024,true)){writer.AutoFlush=true;writer.WriteLine(args[4]);
-                var commandReader=new StreamReader(pipe,System.Text.Encoding.UTF8,false,1024,true);int stop=0;
-                var watcher=new Thread(delegate(){try{string line;while((line=commandReader.ReadLine())!=null&&line!="STOP"){int value;if(line.StartsWith("INTERVAL ",StringComparison.Ordinal)&&int.TryParse(line.Substring(9),out value)){Interlocked.Exchange(ref refresh,FpsOptions.NormalizeInterval(value));wake.Set();}}}catch{}Interlocked.Exchange(ref stop,1);try{wake.Set();}catch(ObjectDisposedException){}});watcher.IsBackground=true;watcher.Start();
+                var commandReader=new StreamReader(pipe,System.Text.Encoding.UTF8,false,1024,true);int stop=0;string benchmarkRequest=null;
+                var watcher=new Thread(delegate(){try{string line;while((line=commandReader.ReadLine())!=null&&line!="STOP"){int value;Guid id;
+                    if(line.StartsWith("INTERVAL ",StringComparison.Ordinal)&&int.TryParse(line.Substring(9),out value)){Interlocked.Exchange(ref refresh,FpsOptions.NormalizeInterval(value));wake.Set();}
+                    if(line=="BENCH CANCEL"){Interlocked.Exchange(ref benchmarkRequest,"");wake.Set();}
+                    if(line.StartsWith("BENCH ",StringComparison.Ordinal)&&Guid.TryParseExact(line.Substring(6),"N",out id)){Interlocked.Exchange(ref benchmarkRequest,id.ToString("N"));wake.Set();}
+                }}catch{}Interlocked.Exchange(ref stop,1);try{wake.Set();}catch(ObjectDisposedException){}});watcher.IsBackground=true;watcher.Start();
+                var benchmark=new FpsBenchmarkWorker();
                 uint nativeError=0;var games=new FpsGameDiscovery();bool nativeAttempted=false;
                 bool toolPresent=File.Exists(tool);double nextToolCheck=0;string error="",lastDetail=null;int fallbackExit=0;bool fallbackFailed=false;var errorGate=new object();var samples=new FpsSamples(0);
                 var watch=Stopwatch.StartNew();double noFramesSince=0,captureStarted=0,retryAt=0,retryDelay=30;
                 using(var parent=Process.GetProcessById(parentId))while(Interlocked.CompareExchange(ref stop,0,0)==0&&!parent.HasExited){
-                    games.Update();double now=watch.Elapsed.TotalSeconds;if(now>=nextToolCheck){toolPresent=File.Exists(tool);nextToolCheck=now+2;}int? fps=null;string status="WAITGAME";
+                    games.Update();double now=watch.Elapsed.TotalSeconds;if(now>=nextToolCheck){toolPresent=File.Exists(tool);nextToolCheck=now+2;}int? fps=null;string status="WAITGAME";FpsSamples benchmarkSource=null;
+                    string request=Interlocked.Exchange(ref benchmarkRequest,null);
+                    if(request!=null){if(request.Length==0)benchmark.Cancel();else benchmark.Arm(request,now);}
                     if(games.Ids.Count==0){
                         if(native!=null){native.Dispose();native=null;}
                         if(capture!=null){StopCapture(capture,tool,session,root);capture=null;}
@@ -120,6 +150,7 @@ internal static class FpsWorker {
                         if(!nativeAttempted){nativeAttempted=true;try{native=new FpsEtw(session+"-DXGI",games.Ids);}catch(System.ComponentModel.Win32Exception e){nativeError=(uint)e.NativeErrorCode;}}
                         if(native!=null)try{native.SetProcesses(games.Ids);}catch(System.ComponentModel.Win32Exception e){nativeError=(uint)e.NativeErrorCode;native.Dispose();native=null;}
                         int? direct=native==null?null:native.Value;fps=direct??samples.Read();
+                        if(fps.HasValue)benchmarkSource=direct.HasValue?native.Timings:samples;
                         if(direct.HasValue&&capture!=null){StopCapture(capture,tool,session,root);capture=null;}
                         if(fps.HasValue){noFramesSince=now;retryDelay=30;fallbackFailed=false;}
                         // A short pause or a closed game must not start a second
@@ -139,7 +170,9 @@ internal static class FpsWorker {
                     }
                     string detail;lock(errorGate){detail="Game processes="+games.Ids.Count+"; worker administrator="+FpsMonitor.ProcessIsElevated+"; main window="+games.HasWindow+"; DXGI start error="+nativeError+"; DXGI trace error="+(native==null?0:native.Error)+"; PresentMon present="+toolPresent+"; fallback running="+(capture!=null)+"; fallback exit="+fallbackExit+(error.Length==0?"":"; "+error);}
                     detail=detail.Replace('\r',' ').Replace('\n',' ').Replace(session,"[FPS session]").Replace(args[4],"[redacted]");if(detail!=lastDetail){writer.WriteLine("DETAIL "+detail);lastDetail=detail;}
-                    writer.WriteLine(status);wake.WaitOne(games.Ids.Count==0?1000:Interlocked.CompareExchange(ref refresh,0,0));
+                    benchmark.Update(now,games.Ids,benchmarkSource,writer.WriteLine);
+                    writer.WriteLine(status);int interval=Interlocked.CompareExchange(ref refresh,0,0);
+                    wake.WaitOne(benchmark.Active?Math.Min(interval,250):games.Ids.Count==0?1000:interval);
                 }
 
             }
@@ -150,7 +183,38 @@ internal static class FpsWorker {
 internal sealed class FpsMonitor:IDisposable {
     readonly string root;readonly object gate=new object();NamedPipeServerStream pipe;StreamWriter commands;Process worker;Thread listener;int refreshInterval=250;long lastMessage;int? fps;bool enabled,closed,blocked,workerElevated;long retryAt;int retryDelay=30;string diagnostic="";
     internal string Status="FPS disabled";string reason="",reasonCode="";
+    internal const string BenchmarkComplete="Performance test completed.";
+    string benchmarkId,benchmarkStatus="";long benchmarkRequested,benchmarkStarted;
+    FpsBenchmarkResult previousBenchmark,latestBenchmark;
     internal FpsMonitor(string folder){root=folder;}
+    internal void BeginBenchmark(){lock(gate){
+        benchmarkId=Guid.NewGuid().ToString("N");benchmarkStatus="Return to Aion 2 to start the test.";benchmarkRequested=Stopwatch.GetTimestamp();benchmarkStarted=0;
+        SendBenchmark();
+    }}
+    void SendBenchmark(){if(benchmarkId==null||commands==null)return;try{commands.WriteLine("BENCH "+benchmarkId);}catch(IOException){}}
+    internal void CancelBenchmark(){lock(gate){
+        if(benchmarkId==null)return;
+        benchmarkId=null;benchmarkStatus="Performance test cancelled.";
+        try{if(commands!=null)commands.WriteLine("BENCH CANCEL");}catch(IOException){}
+    }}
+    internal bool BenchmarkState(out string status,out FpsBenchmarkResult previous,out FpsBenchmarkResult latest){lock(gate){
+        if(benchmarkId!=null&&(Stopwatch.GetTimestamp()-benchmarkRequested)/(double)Stopwatch.Frequency>95){
+            CancelBenchmark();benchmarkStatus="Not enough game frames to complete the test.";
+        }
+        status=benchmarkStatus;previous=previousBenchmark;latest=latestBenchmark;return benchmarkId!=null;
+    }}
+    internal static int CountdownSeconds(double elapsed){return Math.Max(0,(int)Math.Ceiling(60-elapsed));}
+    internal int? BenchmarkSeconds {get{lock(gate){
+        return benchmarkId==null||benchmarkStarted==0?(int?)null:CountdownSeconds((Stopwatch.GetTimestamp()-benchmarkStarted)/(double)Stopwatch.Frequency);
+    }}}
+    void AcceptBenchmark(string line){
+        var fields=line.Split(' ');
+        if(fields.Length<3||benchmarkId==null||fields[1]!=benchmarkId)return;
+        if(fields[2]=="RUN"){benchmarkStarted=Stopwatch.GetTimestamp();benchmarkStatus="Measuring for 60 seconds. Keep Aion 2 in the foreground.";return;}
+        var result=FpsBenchmarkResult.Parse(fields);benchmarkId=null;
+        if(result!=null){previousBenchmark=latestBenchmark;latestBenchmark=result;benchmarkStatus=BenchmarkComplete;return;}
+        benchmarkStatus=fields[2]=="FOCUS"?"Test interrupted because Aion 2 lost focus.":"Not enough game frames to complete the test.";
+    }
     static readonly bool IsElevated=ReadElevation();internal static bool ProcessIsElevated {get{return IsElevated;}}
     static bool ReadElevation(){try{using(var identity=WindowsIdentity.GetCurrent())return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);}catch{return false;}}
     internal string Diagnostics {get{lock(gate){int? value=Value;return "Aion 2 Helper "+typeof(FpsMonitor).Assembly.GetName().Version+Environment.NewLine+
@@ -188,8 +252,8 @@ internal sealed class FpsMonitor:IDisposable {
         int ownId;using(var own=Process.GetCurrentProcess())ownId=own.Id;
         var start=new ProcessStartInfo(Application.ExecutablePath,"--fps-worker "+ownId+" 0 "+name+" "+token+" "+refreshInterval){WorkingDirectory=root,UseShellExecute=elevated,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden};if(elevated)start.Verb="runas";
         try{worker=Process.Start(start);workerElevated=elevated;Status="Starting FPS measurement";reason=reasonCode="";blocked=true;
-            listener=new Thread(delegate(){try{var pending=connection.BeginWaitForConnection(null,null);using(var ready=pending.AsyncWaitHandle){if(!ready.WaitOne(20000))throw new TimeoutException("FPS worker connection timed out");connection.EndWaitForConnection(pending);}var reader=new StreamReader(connection);string handshake=reader.ReadLine();if(handshake!=token)throw new IOException("FPS handshake mismatch (received "+(handshake==null?-1:handshake.Length)+" characters)");lock(gate){if(pipe!=connection)return;commands=new StreamWriter(connection){AutoFlush=true};commands.WriteLine("INTERVAL "+refreshInterval);}
-                string line;while((line=reader.ReadLine())!=null){lock(gate){if(pipe!=connection)return;if(line.StartsWith("DETAIL ",StringComparison.Ordinal)){diagnostic=line.Substring(7);if(diagnostic.Length>1024)diagnostic=diagnostic.Substring(0,1024);continue;}AcceptReading(line);}}
+            listener=new Thread(delegate(){try{var pending=connection.BeginWaitForConnection(null,null);using(var ready=pending.AsyncWaitHandle){if(!ready.WaitOne(20000))throw new TimeoutException("FPS worker connection timed out");connection.EndWaitForConnection(pending);}var reader=new StreamReader(connection);string handshake=reader.ReadLine();if(handshake!=token)throw new IOException("FPS handshake mismatch (received "+(handshake==null?-1:handshake.Length)+" characters)");lock(gate){if(pipe!=connection)return;commands=new StreamWriter(connection){AutoFlush=true};commands.WriteLine("INTERVAL "+refreshInterval);SendBenchmark();}
+                string line;while((line=reader.ReadLine())!=null){lock(gate){if(pipe!=connection)return;if(line.StartsWith("DETAIL ",StringComparison.Ordinal)){diagnostic=line.Substring(7);if(diagnostic.Length>1024)diagnostic=diagnostic.Substring(0,1024);continue;}if(line.StartsWith("BENCH ",StringComparison.Ordinal)){AcceptBenchmark(line);continue;}AcceptReading(line);}}
             }catch(Exception ex){lock(gate){if(pipe==connection){diagnostic+="; FPS connection: "+ex.GetType().Name;if(diagnostic.Length>1400)diagnostic=diagnostic.Substring(diagnostic.Length-1400);}}}finally{lock(gate){if(pipe==connection){bool elevatedWorker=workerElevated;try{if(worker!=null&&worker.HasExited)diagnostic+="; FPS worker exit="+worker.ExitCode;}catch(InvalidOperationException){}Stop();blocked=elevatedWorker;retryAt=Stopwatch.GetTimestamp()+(long)(retryDelay*(double)Stopwatch.Frequency);retryDelay=Math.Min(120,retryDelay*2);Status="FPS measurement unavailable";reason=elevatedWorker?"The elevated FPS reader disconnected or did not connect. Turn the FPS counter off and on to retry, then copy the diagnostics if it fails again.":"The FPS reader disconnected or did not connect. It will retry with a delay; copy the diagnostics if this continues.";reasonCode="";if(diagnostic.Length==0)diagnostic="FPS worker exited or did not connect; retry is delayed.";}}}});listener.IsBackground=true;listener.Start();
         }catch(System.ComponentModel.Win32Exception ex){diagnostic="FPS worker start error "+ex.NativeErrorCode;connection.Dispose();pipe=null;Status=ex.NativeErrorCode==1223?"FPS permission request cancelled":"FPS measurement unavailable";reason=ex.NativeErrorCode==1223?"The Windows administrator request was cancelled. You can try again using the administrator button.":"The FPS reader could not start (Windows error {0}). Copy the diagnostics to report this failure.";reasonCode=ex.NativeErrorCode.ToString(CultureInfo.InvariantCulture);blocked=true;}
     }
@@ -246,16 +310,67 @@ internal sealed class FpsOverlay:Form {
     internal string Explanation(string language){return ping?pingMonitor.Explanation(language):monitor.Explanation(language);}
     internal bool NeedsAdministrator {get{return !ping&&monitor.NeedsAdministrator;}}
     internal void AllowAdministrator(){if(!ping)monitor.AllowAdministrator();}
+    bool benchmarking;
+    long benchmarkNoticeUntil;
+    MovableOverlayWindow benchmarkBanner;
+    readonly FpsOptions benchmarkStyle=new FpsOptions{Color="#FFFFFF",BackgroundOpacity=220,Softness=0};
+    internal void BeginBenchmark(){
+        if(previewMode||ping)return;
+        benchmarking=true;benchmarkNoticeUntil=0;monitor.Configure(true,options.RefreshIntervalMs);monitor.BeginBenchmark();monitor.Tick();
+        timer.Interval=250;
+        timer.Start();
+    }
+    internal bool BenchmarkState(out string status,out FpsBenchmarkResult previous,out FpsBenchmarkResult latest){
+        if(benchmarking)monitor.Tick();
+        bool active=monitor.BenchmarkState(out status,out previous,out latest);
+        if(!active&&benchmarking)FinishBenchmark(status==FpsMonitor.BenchmarkComplete);
+        return active;
+    }
+    internal void CancelBenchmark(){
+        if(!benchmarking)return;
+        monitor.CancelBenchmark();FinishBenchmark(false);
+    }
+    void FinishBenchmark(bool completed){
+        benchmarking=false;monitor.Configure(options.Enabled,options.RefreshIntervalMs);
+        benchmarkNoticeUntil=completed?Stopwatch.GetTimestamp()+6*Stopwatch.Frequency:0;
+        if(!completed){
+            if(benchmarkBanner!=null)benchmarkBanner.HideOverlay();
+            if(!options.Enabled)timer.Stop();
+        }
+    }
+    void UpdateBenchmarkBanner(){
+        long now=Stopwatch.GetTimestamp();
+        bool completed=now<benchmarkNoticeUntil;
+        int? seconds=benchmarking?monitor.BenchmarkSeconds:null;
+        if((completed||seconds.HasValue)&&FloatingTextService.GameForeground()){
+            string text=UiLanguage.Text(completed?"You can return to the Helper":"Measuring FPS…",owner.Language);
+            if(seconds.HasValue)text+="  ·  "+TimeSpan.FromSeconds(seconds.Value).ToString(@"mm\:ss",CultureInfo.InvariantCulture);
+            var screen=Screen.FromHandle(FpsBenchmarkWorker.GetForegroundWindow()).WorkingArea;
+            int width=Math.Min(480,screen.Width);
+            var bounds=new Rectangle(screen.X+(screen.Width-width)/2,screen.Y+30,width,46);
+            if(benchmarkBanner==null)benchmarkBanner=new MovableOverlayWindow("FPS benchmark");
+            benchmarkBanner.Render(bounds,255,false,text,size=>FpsDesign.Render(size.Width,size.Height,text,benchmarkStyle,false));
+        }else if(benchmarkBanner!=null)benchmarkBanner.HideOverlay();
+        if(!benchmarking&&!completed&&!options.Enabled)timer.Stop();
+    }
     internal void Configure(FpsOptions value,bool locked,bool preview){
         var next=value.Copy();next.Normalize(ping);
         if(options.Background!=next.Background||options.BackgroundOpacity!=next.BackgroundOpacity||options.Softness!=next.Softness||!string.Equals(options.Color,next.Color,StringComparison.OrdinalIgnoreCase))validImage=false;
         bool lockChanged=editing==locked;options=next;editing=!locked;Bounds=options.Bounds;
-        if(!preview){if(ping)pingMonitor.Configure(options.Enabled,options.RefreshIntervalMs);else monitor.Configure(options.Enabled,options.RefreshIntervalMs);}if(preview)return;
-        timer.Interval=options.RefreshIntervalMs;if(!options.Enabled){timer.Stop();Hide();return;}
+        if(!preview){if(ping)pingMonitor.Configure(options.Enabled,options.RefreshIntervalMs);else monitor.Configure(options.Enabled||benchmarking,options.RefreshIntervalMs);}if(preview)return;
+        bool showingBenchmark=benchmarking||Stopwatch.GetTimestamp()<benchmarkNoticeUntil;
+        timer.Interval=showingBenchmark?250:options.RefreshIntervalMs;if(!options.Enabled){if(!showingBenchmark)timer.Stop();Hide();return;}
         timer.Start();if(lockChanged||!IsHandleCreated){int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);}UpdateWidget();
     }
-    void UpdateWidget(){if(closing||!options.Enabled)return;if(!ping)monitor.Tick();int? value=Value;
-        int interval=ReadingStatus=="Waiting for Aion 2"?Math.Max(1000,options.RefreshIntervalMs):options.RefreshIntervalMs;if(timer.Interval!=interval)timer.Interval=interval;
+    void UpdateWidget(){
+        if(closing)return;
+        if(benchmarking){string status;FpsBenchmarkResult previous,latest;BenchmarkState(out status,out previous,out latest);}
+        if(benchmarking||benchmarkNoticeUntil!=0||benchmarkBanner!=null&&benchmarkBanner.Visible){
+            UpdateBenchmarkBanner();if(Stopwatch.GetTimestamp()>=benchmarkNoticeUntil)benchmarkNoticeUntil=0;
+        }
+        if(!options.Enabled)return;
+        if(!ping&&!benchmarking)monitor.Tick();int? value=Value;
+        int interval=benchmarking||benchmarkNoticeUntil!=0?250:ReadingStatus=="Waiting for Aion 2"?Math.Max(1000,options.RefreshIntervalMs):options.RefreshIntervalMs;if(timer.Interval!=interval)timer.Interval=interval;
         DrawValue(value);
     }
     void DrawValue(int? value){if(rendering)return;rendering=true;
@@ -271,7 +386,7 @@ internal sealed class FpsOverlay:Form {
         Width++;DrawValue(120);if(image.Uploads!=uploads+1)throw new Exception("Resizing FPS must redraw once");DrawValue(121);if(image.Uploads!=uploads+2)throw new Exception("A changed reading must redraw once");
         using(var own=Process.GetCurrentProcess()){uint handles=OverlayNative.GetGuiResources(own.Handle,0);for(int i=0;i<1500;i++)DrawValue(100+i%250);uint after=OverlayNative.GetGuiResources(own.Handle,0);if(after>handles+3)throw new Exception("FPS bitmap/font resources must remain bounded");}
     }
-    protected override void Dispose(bool disposing){if(disposing&&!disposed){disposed=true;closing=true;timer.Stop();timer.Dispose();if(ping)pingMonitor.Dispose();else monitor.Dispose();image.Dispose();workspace.Dispose();}base.Dispose(disposing);}
+    protected override void Dispose(bool disposing){if(disposing&&!disposed){disposed=true;closing=true;timer.Stop();timer.Dispose();if(benchmarkBanner!=null)benchmarkBanner.Dispose();if(ping)pingMonitor.Dispose();else monitor.Dispose();image.Dispose();workspace.Dispose();}base.Dispose(disposing);}
     void SaveGeometry(){var cfg=owner.Configuration;if(ping)cfg.Ping.Bounds=Bounds;else cfg.Fps.Bounds=Bounds;owner.ApplyConfiguration(cfg);}
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80)&~0x40000;return cp;}}
     protected override bool ShowWithoutActivation {get{return true;}}

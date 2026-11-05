@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated November 4, 2026.**
+**Built with the community. Updated November 5, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -8,7 +8,7 @@
 > The application is **Alpha**, the DPS Meter is **Beta**, and Hotbar is **experimental**.
 > Available features can still have limitations. Planned features have no promised release date.
 
-**✅ Available** · **🟡 Ongoing** · **⬜ Planned**
+**✅ Available** · **🟡 Ongoing / In testing** · **⬜ Planned**
 
 > [!TIP]
 > **v1.22.0: VPN / ExitLag connection fix released.** Missing character/overlay detection was corrected for the affected ExitLag tester. Other VPN and routing configurations still need validation. [Release details](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0).
@@ -73,7 +73,7 @@ been reviewed.
 
 | Area | Current focus |
 | :--- | :--- |
-| **FPS & GPU optimization** | Reuse drawing/composition resources, reduce unnecessary updates and continue validation under actual game load. Caching improvements are already included; this work is not marked complete or presented as a guaranteed FPS increase. |
+| **FPS & GPU optimization** | [v1.24.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.24.0) adds **Game Tweaks → Performance**, with a 60-second frame pacing test, an in-game countdown, the two latest results and a reversible FPS limit that preserves Visuals settings. The effect on frame pacing depends on the game and hardware. Overlay drawing and composition optimization continues separately. |
 | **Hotbar compatibility & validation** | Validate more classes, charges/reloads, shared cooldown groups and contextual skill variants. Complete the automatic character-switch live comparison and validate further client/HUD variants of the new export/import workflow. |
 | **Language coverage & review** | German, French and Arabic are available from v1.22.0. Continue translating advanced help that currently falls back to English and reviewing wording/layout. |
 | **Floating Combat Text validation** | Available in v1.21.0. Continue live smoothness checks and expand supported damage/healing event coverage; validate more characters and dense bursts. |
@@ -89,12 +89,12 @@ Released community features and corrections are listed above.
 | ✅ Available | **Staggered screen effect** | Optional centered animation, text/glow colors and Test effect; introduced in [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0). Preview approved and automatic-transition tests pass; separate controlled live trigger comparison remains pending. |
 | ⬜ Planned / feasibility to check | **Hide Helper overlays while game menus are open** | Explore reliable detection of the map, shops, manufacturing stations and other menus, then restore overlays on close. Coverage depends on which menu states can be detected; not included in v1.22.0. |
 | ⬜ Planned / feasibility to check | **Enemy status-effect visual removal** | Explore an option to hide visual effects associated with altered states/debuffs on enemies. Exact scope and compatibility need validation; this is separate from the existing selection-outline option. |
-| ⬜ Planned | **Real-time combat log** | Show supported combat events as they happen, including damage, healing and critical hits. |
-| ⬜ Planned / feasibility to check | **Estimated fight duration in the DPS Meter** | Estimate the time remaining based on the target's remaining HP and recent DPS when both readings are reliable. |
+| ✅ Available in v1.24.0 | **Real-time combat log** | Displays supported outgoing hits with configurable skill icons, names, damage and hit labels. New entries fade in and are briefly outlined. Includes configurable sizing, opacity, blur, inactivity timeout, entry order and scrollable recent history. Healing coverage remains planned. |
+| ✅ Available in v1.24.0 | **Estimated fight duration in the DPS Meter** | Shows an estimate beside elapsed time using recent HP loss. With multiple enemies, it prioritizes a single known boss or uses the locked target. Pauses or insufficient readings show a dash when there is a known subject. |
 | ⬜ Planned | **Snap alignment for overlay widgets** | Extend snap beyond individual Hotbar slots so movable widgets can align with one another while editing the layout. |
-| ⬜ Planned / feasibility to check | **Hit direction in Floating Combat Text** | Label attacks from behind, from the front and from other directions when the combat event provides a reliable direction. |
-| 🟡 Ongoing | **FPS & GPU optimization** | Continue reducing unnecessary drawing and updates; see ongoing work above. |
-| ⬜ Planned | **Special chest radar** | Explore reliable detection and location information for special chests. |
+| ✅ Available in v1.24.0 | **Hit direction in Floating Combat Text** | Optional Front, Back, Critical, Perfect and Double labels from supported combat events. Label appearance is adjustable, with separate controls for independently styled critical hits. |
+| 🟡 Ongoing | **FPS & GPU optimization** | A 60-second frame pacing test and reversible FPS limit are ready for comparison. See ongoing work above for validation status. |
+| 🟡 In testing | **Special chest radar / Hidden Cube Radar** | Detects supported hidden cubes in Verteron and fades the overlay in on detection. Live testing confirmed the alert. Distance, elevation and the arrow depend on confirmed player coordinates and direction of travel. Movement-reading changes are ready for another live check. |
 | ⬜ Planned | **Controller support** | A system for integrating controller input with the Helper. |
 
 ## Personal roadmap

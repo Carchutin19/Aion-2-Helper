@@ -10,13 +10,20 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 internal sealed class FloatingTextStyle {
- public bool Enabled=true,Up=true;
+ public bool Enabled=true,Up=true,ShowHitLabel;
  public int X=1080,Y=460,Scale=100,FontSize=32,Opacity=100,OutlineWidth=2,Travel=105,Spacing=12,Spread=100;
  public double Duration=1.35;
  public string Color="#F3D69A",OutlineColor="#191B23";
- internal static bool Same(FloatingTextStyle a,FloatingTextStyle b){return a.Enabled==b.Enabled&&a.Up==b.Up&&a.X==b.X&&a.Y==b.Y&&a.Scale==b.Scale&&a.FontSize==b.FontSize&&a.Opacity==b.Opacity&&a.OutlineWidth==b.OutlineWidth&&a.Travel==b.Travel&&a.Spacing==b.Spacing&&a.Spread==b.Spread&&a.Duration==b.Duration&&a.Color==b.Color&&a.OutlineColor==b.OutlineColor;}
+ public int HitLabelSize=16,HitLabelOpacity=100,HitLabelOutlineWidth=1;
+ public string HitLabelColor="#D8E9F3",HitLabelOutline="#191B23";
+ internal static bool Same(FloatingTextStyle a,FloatingTextStyle b){return a.Enabled==b.Enabled&&a.Up==b.Up&&a.X==b.X&&a.Y==b.Y&&a.Scale==b.Scale&&a.FontSize==b.FontSize&&a.Opacity==b.Opacity&&a.OutlineWidth==b.OutlineWidth&&a.Travel==b.Travel&&a.Spacing==b.Spacing&&a.Spread==b.Spread&&a.Duration==b.Duration&&a.Color==b.Color&&a.OutlineColor==b.OutlineColor&&a.ShowHitLabel==b.ShowHitLabel&&a.HitLabelSize==b.HitLabelSize&&a.HitLabelOpacity==b.HitLabelOpacity&&a.HitLabelOutlineWidth==b.HitLabelOutlineWidth&&a.HitLabelColor==b.HitLabelColor&&a.HitLabelOutline==b.HitLabelOutline;}
  internal FloatingTextStyle Copy(){return (FloatingTextStyle)MemberwiseClone();}
- internal void Normalize(){X=Clamp(X,-100000,100000);Y=Clamp(Y,-100000,100000);Scale=Clamp(Scale,50,200);FontSize=Clamp(FontSize,12,64);Opacity=Clamp(Opacity,0,100);OutlineWidth=Clamp(OutlineWidth,0,6);Travel=Clamp(Travel,0,400);Spacing=Clamp(Spacing,0,40);Spread=Clamp(Spread,0,160);Duration=double.IsNaN(Duration)||double.IsInfinity(Duration)?1.35:Math.Max(.4,Math.Min(6,Duration));if(!EnergyBarOptions.ValidColor(Color))Color="#F3D69A";if(!EnergyBarOptions.ValidColor(OutlineColor))OutlineColor="#191B23";}
+ internal void Normalize(){X=Clamp(X,-100000,100000);Y=Clamp(Y,-100000,100000);Scale=Clamp(Scale,50,200);FontSize=Clamp(FontSize,12,64);Opacity=Clamp(Opacity,0,100);OutlineWidth=Clamp(OutlineWidth,0,6);Travel=Clamp(Travel,0,400);Spacing=Clamp(Spacing,0,40);Spread=Clamp(Spread,0,160);Duration=double.IsNaN(Duration)||double.IsInfinity(Duration)?1.35:Math.Max(.4,Math.Min(6,Duration));if(!EnergyBarOptions.ValidColor(Color))Color="#F3D69A";if(!EnergyBarOptions.ValidColor(OutlineColor))OutlineColor="#191B23";
+  HitLabelSize=Clamp(HitLabelSize,10,32);HitLabelOpacity=Clamp(HitLabelOpacity,0,100);HitLabelOutlineWidth=Clamp(HitLabelOutlineWidth,0,6);
+  if(!EnergyBarOptions.ValidColor(HitLabelColor))HitLabelColor="#D8E9F3";
+  if(!EnergyBarOptions.ValidColor(HitLabelOutline))HitLabelOutline="#191B23";
+ }
+ internal FloatingTextStyle LabelStyle(){return new FloatingTextStyle{Scale=Scale,FontSize=HitLabelSize,OutlineWidth=HitLabelOutlineWidth,Color=HitLabelColor,OutlineColor=HitLabelOutline};}
  static int Clamp(int x,int lo,int hi){return Math.Max(lo,Math.Min(hi,x));}
  internal static FloatingTextStyle Defaults(int kind){return kind==1?new FloatingTextStyle{X=820,Y=540,Up=false,Travel=75,Color="#EF887F",OutlineColor="#291C25",Duration=1.45}:kind==2?new FloatingTextStyle{X=960,Y=610,Travel=110,Color="#82DFC0",OutlineColor="#132B28",Duration=1.6}:new FloatingTextStyle();}
  internal Rectangle Anchor {get{return new Rectangle(X-80,Y-32,160,64);}}
@@ -38,16 +45,22 @@ internal sealed class FloatingTextOptions {
  internal static string Name(int kind){return kind==0?"Damage dealt":kind==1?"Damage taken":kind==3?"Critical damage":"Healing received";}
 }
 
+[Flags]
+internal enum FloatingHitLabel { None=0, Critical=1, Back=2, Front=4, Perfect=8, Double=16 }
+
 // Separate from meter accounting/scope. Only exact decoded impacts involving
 // our flow-scoped identity are eligible. Never infer damage/healing from HP.
 internal sealed class FloatingTextSignal {
- internal sealed class Impact {internal int Kind;internal uint Amount;internal bool Critical;internal double Time;internal long Epoch;}
+ internal sealed class Impact {internal int Kind;internal uint Amount;internal bool Critical;internal FloatingHitLabel Label;internal double Time;internal long Epoch;}
  sealed class Flow {internal uint Self,Map;internal string Name,IdentitySource;internal double Traffic;internal readonly Dictionary<uint,Parent> Parents=new Dictionary<uint,Parent>();}
  sealed class Parent {internal uint Owner;internal double At;}
  readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();readonly Queue<Impact> pending=new Queue<Impact>();
+ readonly Queue<CombatLogEntry> combatLog=new Queue<CombatLogEntry>(CombatLogOptions.Capacity);
+ bool logEnabled;
+ long logRevision;
  internal Func<double> ReceiptClock;
  string active;bool enabled,isolated;readonly bool[] channels=new bool[3];long epoch,accepted,dropped,rejected;internal Action Changed;
- internal bool NeedsIdentity {get{lock(gate)return enabled&&active==null;}}
+ internal bool NeedsIdentity {get{lock(gate)return (enabled||logEnabled)&&active==null;}}
  static readonly Impact[] Empty=new Impact[0];
  internal long Epoch {get{lock(gate)return epoch;}}
  internal void Configure(FloatingTextOptions options,bool isolated){lock(gate){this.isolated=isolated;bool next=!isolated&&options.NeedsCapture;if(next!=enabled){enabled=next;pending.Clear();epoch++;}if(isolated)Clear();for(int i=0;i<3;i++)channels[i]=options.Style(i).Enabled;}}
@@ -55,20 +68,24 @@ internal sealed class FloatingTextSignal {
  // Called from the decoder after SkillSignal consumes the same frame, never
  // from a UI timer that could reintroduce pre-reset or pre-map state.
  internal void Adopt(SkillSlotsSignal.View own,string frameFlow,double now){if(own==null||own.Self==0||own.Flow!=frameFlow)return;lock(gate){if(isolated||active!=null)return;Flow f;if(!flows.TryGetValue(own.Flow,out f)){if(flows.Count>=4)return;flows[own.Flow]=f=new Flow();}if(f.Map!=0&&own.Map!=f.Map)return;f.Map=own.Map;f.Self=own.Self;f.IdentitySource="confirmed shared hotbar";f.Traffic=now;active=own.Flow;pending.Clear();epoch++;}}
- void Clear(){flows.Clear();pending.Clear();active=null;epoch++;}
+ internal void ConfigureCombatLog(bool next){lock(gate){if(logEnabled==next)return;logEnabled=next;ClearLog();}}
+ internal CombatLogEntry[] ReadCombatLog(ref long seen){lock(gate){if(seen==logRevision)return null;seen=logRevision;return combatLog.ToArray();}}
+ void ClearLog(){combatLog.Clear();logRevision++;}
+ void ClearImpacts(){pending.Clear();epoch++;ClearLog();}
+ void Clear(){flows.Clear();ClearImpacts();active=null;}
  internal void Reset(){lock(gate)Clear();Notify();}
  void Notify(){var changed=Changed;if(changed!=null)changed();}
  internal Impact[] Drain(double now){lock(gate){if(pending.Count==0)return Empty;var result=new List<Impact>();while(pending.Count>0){var x=pending.Dequeue();if(enabled&&channels[x.Kind]&&x.Epoch==epoch&&now>=x.Time-.25&&now-x.Time<=2)result.Add(x);else dropped++;}return result.ToArray();}}
  internal void Consume(byte[] b,int s,int e,double t,string key){
   if(b==null||s<0||e>b.Length||e-s<2||e-s>65536||string.IsNullOrEmpty(key)||double.IsNaN(t)||double.IsInfinity(t))return;if(ReceiptClock!=null){t=ReceiptClock();if(double.IsNaN(t)||double.IsInfinity(t))return;}bool notify=false;
   lock(gate){if(isolated)return;int op=b[s]*256+b[s+1];Flow f;if(!flows.TryGetValue(key,out f)){if(op!=0x3336&&op!=0x2136)return;if(flows.Count>=4){string oldest=null;double stamp=double.MaxValue;foreach(var pair in flows)if(pair.Key!=active&&pair.Value.Traffic<stamp){oldest=pair.Key;stamp=pair.Value.Traffic;}if(oldest==null)return;flows.Remove(oldest);}flows[key]=f=new Flow();}
-   if(t<f.Traffic)return;if(f.Traffic>0&&t-f.Traffic>30){f.Self=0;f.Name=null;f.Parents.Clear();if(active==key){active=null;pending.Clear();epoch++;notify=true;}}f.Traffic=t;
-   if(op==0x2136&&e-s==48){uint map=BitConverter.ToUInt32(b,s+6);if(map==0||map>=10000000)return;if(f.Map!=0&&f.Map!=map){f.Self=0;f.Name=null;f.Parents.Clear();if(active==key){active=null;pending.Clear();epoch++;notify=true;}}f.Map=map;}
-   else if(op==0x3336){uint actor;string name;byte role;if(DpsSignal.PlayerIdentity(b,s,e,true,out actor,out name,out role)){if(active!=key||f.Self!=actor||f.Name!=name){pending.Clear();epoch++;f.Parents.Clear();}f.Self=actor;f.Name=name;f.IdentitySource="received own profile";active=key;notify=true;}}
+   if(t<f.Traffic)return;if(f.Traffic>0&&t-f.Traffic>30){f.Self=0;f.Name=null;f.Parents.Clear();if(active==key){active=null;ClearImpacts();notify=true;}}f.Traffic=t;
+   if(op==0x2136&&e-s==48){uint map=BitConverter.ToUInt32(b,s+6);if(map==0||map>=10000000)return;if(f.Map!=0&&f.Map!=map){f.Self=0;f.Name=null;f.Parents.Clear();if(active==key){active=null;ClearImpacts();notify=true;}}f.Map=map;}
+   else if(op==0x3336){uint actor;string name;byte role;if(DpsSignal.PlayerIdentity(b,s,e,true,out actor,out name,out role)){if(active!=key||f.Self!=actor||f.Name!=name){ClearImpacts();f.Parents.Clear();}f.Self=actor;f.Name=name;f.IdentitySource="received own profile";active=key;notify=true;}}
    else if(active==key&&f.Self!=0){
     if(op==0x4136){uint actor,parent;if(DpsSignal.EffectParent(b,s,e,out actor,out parent)){if(f.Parents.Count<128||f.Parents.ContainsKey(actor))f.Parents[actor]=new Parent{Owner=parent,At=t};}}
-    else if(op==0x4236){int p=s+2;uint actor;if(DpsSignal.Var(b,ref p,e,out actor)&&e-p==2&&b[p]==0){f.Parents.Remove(actor);if(actor==f.Self){f.Self=0;active=null;pending.Clear();epoch++;notify=true;}}}
-    else if(enabled&&(op==0x0438||op==0x0538)){
+    else if(op==0x4236){int p=s+2;uint actor;if(DpsSignal.Var(b,ref p,e,out actor)&&e-p==2&&b[p]==0){f.Parents.Remove(actor);if(actor==f.Self){f.Self=0;active=null;ClearImpacts();notify=true;}}}
+    else if((enabled||logEnabled)&&(op==0x0438||op==0x0538)){
      DpsSignal.Hit hit;bool heal=false,ok;
      if(op==0x0538){heal=DpsSignal.HealingTick(b,s,e,out hit);ok=heal||DpsSignal.Periodic(b,s,e,out hit);}
      else{ok=DpsSignal.Direct(b,s,e,out hit);if(ok)heal=DpsSignal.HealingSkill(hit.Skill);}
@@ -78,10 +95,25 @@ internal sealed class FloatingTextSignal {
      if(op==0x0438&&!heal&&!hit.CriticalKnown){rejected++;return;}
      uint source=hit.Source;Parent owner;if(f.Parents.TryGetValue(source,out owner)&&t>=owner.At&&t-owner.At<=120)source=owner.Owner;
      int kind=heal?(hit.Target==f.Self?2:-1):source==f.Self&&hit.Target!=f.Self?0:hit.Target==f.Self&&source!=f.Self?1:-1;
-     if(kind>=0&&channels[kind]){if(pending.Count>=128){pending.Dequeue();dropped++;}pending.Enqueue(new Impact{Kind=kind,Amount=hit.Amount,Critical=hit.CriticalKnown&&hit.Critical,Time=t,Epoch=epoch});accepted++;notify=true;}
+     bool publishText=enabled&&kind>=0&&channels[kind];
+     bool publishLog=logEnabled&&kind==0&&hit.Amount!=0;
+     if(publishText||publishLog){
+      var label=heal?FloatingHitLabel.None:HitLabel(hit);
+      if(publishText){if(pending.Count>=128){pending.Dequeue();dropped++;}pending.Enqueue(new Impact{Kind=kind,Amount=hit.Amount,Critical=hit.CriticalKnown&&hit.Critical,Label=label,Time=t,Epoch=epoch});accepted++;notify=true;}
+      if(publishLog){if(combatLog.Count==CombatLogOptions.Capacity)combatLog.Dequeue();combatLog.Enqueue(new CombatLogEntry(t,hit.Skill,hit.Amount,label,++logRevision));}
+     }
     }
    }
   }if(notify)Notify();
+ }
+ internal static FloatingHitLabel HitLabel(DpsSignal.Hit hit){
+  var label=hit.CriticalKnown&&hit.Critical?FloatingHitLabel.Critical:FloatingHitLabel.None;
+  if(!hit.TagsKnown)return label;
+  if(hit.Position==1)label|=FloatingHitLabel.Back;
+  if(hit.Position==2)label|=FloatingHitLabel.Front;
+  if(hit.Double)label|=FloatingHitLabel.Double;
+  if(hit.Perfect)label|=FloatingHitLabel.Perfect;
+  return label;
  }
  internal object Status {get{lock(gate){Flow f;return new{enabled,transportFlowId=SupportDiagnostics.FlowId(active),ownActor=active!=null&&flows.TryGetValue(active,out f)?f.Self:0,identitySource=active!=null&&flows.TryGetValue(active,out f)?f.IdentitySource:null,epoch,pending=pending.Count,accepted,dropped,rejected,source="decoded own impacts; announced healing, not effective healing"};}}}
 }
@@ -90,6 +122,22 @@ internal static class FloatingTextMotion {
  internal static double Alpha(double age,double duration){if(age<0||age>=duration)return 0;double p=age/duration;return Math.Min(1,p/.09)*Math.Min(1,(1-p)/.34);}
  internal static float Offset(double age,FloatingTextStyle o){double p=Math.Max(0,Math.Min(1,age/o.Duration));return (o.Up?-1:1)*(float)(o.Travel*o.Scale/100.0*p);}
  internal static string Number(uint amount,int kind,bool critical){string n=amount.ToString("N0",CultureInfo.InvariantCulture).Replace(',',' ');return (kind==1?"−":kind==2?"+":"")+n+(critical?"!!":"");}
+ internal static FloatingHitLabel SampleLabel(int kind,bool critical){return kind==2?FloatingHitLabel.None:critical?FloatingHitLabel.Critical|FloatingHitLabel.Back:FloatingHitLabel.Front;}
+ internal static string Label(FloatingHitLabel label,string language){
+  var parts=new List<string>(5);
+  if((label&FloatingHitLabel.Critical)!=0)parts.Add(UiLanguage.Text("Critical",language));
+  if((label&FloatingHitLabel.Double)!=0)parts.Add(UiLanguage.Text("Double",language));
+  if((label&FloatingHitLabel.Perfect)!=0)parts.Add(UiLanguage.Text("Perfect",language));
+  if((label&FloatingHitLabel.Back)!=0)parts.Add(UiLanguage.Text("Back",language));
+  if((label&FloatingHitLabel.Front)!=0)parts.Add(UiLanguage.Text("Front",language));
+  return string.Join(" · ",parts);
+ }
+ internal static Bitmap PreviewGlyph(uint amount,int kind,bool critical,FloatingTextStyle style,string language){
+  using(var painter=new FloatingGlyphPainter()){
+   painter.Configure(style);
+   return painter.RenderImpact(amount,kind,critical,SampleLabel(kind,critical),language);
+  }
+ }
  internal static RectangleF Separate(RectangleF desired,IList<RectangleF> occupied,bool up,float gap){for(int pass=0;pass<=occupied.Count;pass++){bool moved=false;foreach(var other in occupied){var padded=other;padded.Inflate(gap,gap);if(!padded.IntersectsWith(desired))continue;desired.Y=up?padded.Bottom: padded.Top-desired.Height;moved=true;}if(!moved)return desired;}return desired;}
  internal static Bitmap Glyph(string value,FloatingTextStyle o){
   float size=o.FontSize*o.Scale/100f,edge=o.OutlineWidth*o.Scale/100f;using(var path=new GraphicsPath()){
@@ -120,11 +168,32 @@ internal sealed class FloatingTextSurface:IDisposable {
 }
 
 internal sealed class FloatingGlyphPainter:IDisposable {
+ readonly Dictionary<string,Bitmap> labels=new Dictionary<string,Bitmap>();
  readonly FontFamily family;readonly StringFormat format=(StringFormat)StringFormat.GenericTypographic.Clone();readonly GraphicsPath path=new GraphicsPath();readonly Matrix move=new Matrix();SolidBrush fill;Pen edge;FloatingTextStyle style;internal int Rasterizations;
  internal FloatingGlyphPainter(){try{family=new FontFamily("Bahnschrift");}catch(ArgumentException){family=new FontFamily("Segoe UI");}format.FormatFlags|=StringFormatFlags.NoWrap;}
- internal void Configure(FloatingTextStyle next){if(style!=null&&FloatingTextStyle.Same(style,next))return;style=next.Copy();if(fill!=null)fill.Dispose();if(edge!=null)edge.Dispose();fill=new SolidBrush(ColorTranslator.FromHtml(next.Color));edge=next.OutlineWidth==0?null:new Pen(ColorTranslator.FromHtml(next.OutlineColor),next.OutlineWidth*next.Scale/50f){LineJoin=LineJoin.Round};}
+ internal void Configure(FloatingTextStyle next){if(style!=null&&FloatingTextStyle.Same(style,next))return;style=next.Copy();ClearLabels();if(fill!=null)fill.Dispose();if(edge!=null)edge.Dispose();fill=new SolidBrush(ColorTranslator.FromHtml(next.Color));edge=next.OutlineWidth==0?null:new Pen(ColorTranslator.FromHtml(next.OutlineColor),next.OutlineWidth*next.Scale/50f){LineJoin=LineJoin.Round};}
+ internal Bitmap RenderImpact(uint amount,int kind,bool critical,FloatingHitLabel label,string language){
+  Bitmap number=Render(FloatingTextMotion.Number(amount,kind,critical));
+  if(!style.ShowHitLabel||style.HitLabelOpacity==0||label==FloatingHitLabel.None||kind==2)return number;
+  using(number){
+   string key=language+"/"+(int)label;
+   Bitmap caption;
+   if(!labels.TryGetValue(key,out caption)){
+    if(labels.Count>=32)ClearLabels();
+    labels[key]=caption=FloatingTextMotion.Glyph(FloatingTextMotion.Label(label,language),style.LabelStyle());
+   }
+   int width=Math.Max(number.Width,caption.Width);
+   var combined=new Bitmap(width,number.Height+caption.Height-4,PixelFormat.Format32bppPArgb);
+   using(var g=Graphics.FromImage(combined))using(var attributes=new ImageAttributes()){
+    g.DrawImageUnscaled(number,(width-number.Width)/2,0);
+    FloatingTextMotion.Sprite(g,caption,(width-caption.Width)/2,number.Height-4,style.HitLabelOpacity/100.0,attributes,new ColorMatrix());
+   }
+   return combined;
+  }
+ }
+ void ClearLabels(){foreach(var label in labels.Values)label.Dispose();labels.Clear();}
  internal Bitmap Render(string text){Rasterizations++;path.Reset();path.AddString(text,family,(int)(family.IsStyleAvailable(FontStyle.Bold)?FontStyle.Bold:FontStyle.Regular),style.FontSize*style.Scale/100f,PointF.Empty,format);var box=path.GetBounds();int pad=(int)Math.Ceiling(style.OutlineWidth*style.Scale/100f+5);move.Reset();move.Translate(pad-box.Left,pad-box.Top);path.Transform(move);var b=new Bitmap(Math.Max(1,(int)Math.Ceiling(box.Width)+pad*2),Math.Max(1,(int)Math.Ceiling(box.Height)+pad*2),PixelFormat.Format32bppPArgb);using(var g=Graphics.FromImage(b)){g.SmoothingMode=SmoothingMode.AntiAlias;if(edge!=null)g.DrawPath(edge,path);g.FillPath(fill,path);}return b;}
- public void Dispose(){if(fill!=null)fill.Dispose();if(edge!=null)edge.Dispose();family.Dispose();format.Dispose();path.Dispose();move.Dispose();}
+ public void Dispose(){ClearLabels();if(fill!=null)fill.Dispose();if(edge!=null)edge.Dispose();family.Dispose();format.Dispose();path.Dispose();move.Dispose();}
 }
 
 // Four lazily cached quarter-pixel phases keep slow motion smooth while the
@@ -146,16 +215,16 @@ internal sealed class FloatingTextWindow:Form {
  internal FloatingTextWindow(EnergyOverlay owner,int kind,bool isolated){this.owner=owner;this.kind=kind;this.isolated=isolated;Text="Aion 2 Helper - "+FloatingTextOptions.Name(kind);FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;}
  internal bool HasEntries {get{return entries.Count>0;}}
  internal long CanvasPixels {get{return (long)canvas.Width*canvas.Height;}}
- internal void Configure(FloatingTextStyle next,bool locked,FloatingTextStyle critical=null){bool criticalChanged=(inlineCritical==null)!=(critical==null)||inlineCritical!=null&&critical!=null&&!FloatingTextStyle.Same(inlineCritical,critical);inlineCritical=critical==null?null:critical.Copy();if(critical!=null)criticalGlyphs.Configure(critical);bool changed=criticalChanged||!FloatingTextStyle.Same(style,next);if(changed)Clear();style=next.Copy();dirty|=editing==locked||changed;editing=!locked;glyphs.Configure(style);var extent=style.Copy();if(critical!=null){extent.FontSize=Math.Max(extent.FontSize,critical.FontSize);extent.Scale=Math.Max(extent.Scale,critical.Scale);}float scale=extent.Scale/100f;int width=Math.Min(1200,Math.Max(480,(int)(extent.FontSize*scale*20+100)));trail=Math.Max(240,Math.Min(800,(extent.FontSize*scale+Math.Max(style.OutlineWidth,critical==null?0:critical.OutlineWidth)*scale*2+style.Spacing+12)*6));int leading=(int)(style.Travel*scale)+100,height=leading+(int)trail+100;var nextCanvas=new Rectangle(style.X-width/2,style.Y-(style.Up?leading:(int)trail+100),width,height);if(canvas.Size!=nextCanvas.Size)ReleaseSurface();canvas=nextCanvas;if(editGlyph!=null&&changed){editGlyph.Dispose();editGlyph=null;}if(editing)Bounds=canvas;int flags=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?flags&~0x20:flags|0x20);}
+ internal void Configure(FloatingTextStyle next,bool locked,FloatingTextStyle critical=null){bool criticalChanged=(inlineCritical==null)!=(critical==null)||inlineCritical!=null&&critical!=null&&!FloatingTextStyle.Same(inlineCritical,critical);inlineCritical=critical==null?null:critical.Copy();if(critical!=null)criticalGlyphs.Configure(critical);bool changed=criticalChanged||!FloatingTextStyle.Same(style,next);if(changed)Clear();style=next.Copy();dirty|=editing==locked||changed;editing=!locked;glyphs.Configure(style);var extent=style.Copy();if(critical!=null){extent.FontSize=Math.Max(extent.FontSize,critical.FontSize);extent.Scale=Math.Max(extent.Scale,critical.Scale);}float scale=extent.Scale/100f;int labelSize=Math.Max(style.ShowHitLabel?style.HitLabelSize:0,critical!=null&&critical.ShowHitLabel?critical.HitLabelSize:0);int width=Math.Min(1200,Math.Max(480,(int)(Math.Max(extent.FontSize*20,labelSize*22)*scale+100)));trail=Math.Max(240,Math.Min(800,((extent.FontSize+labelSize)*scale+Math.Max(style.OutlineWidth,critical==null?0:critical.OutlineWidth)*scale*2+style.Spacing+12)*6));int leading=(int)(style.Travel*scale)+100,height=leading+(int)trail+100;var nextCanvas=new Rectangle(style.X-width/2,style.Y-(style.Up?leading:(int)trail+100),width,height);if(canvas.Size!=nextCanvas.Size)ReleaseSurface();canvas=nextCanvas;if(editGlyph!=null&&changed){editGlyph.Dispose();editGlyph=null;}if(editing)Bounds=canvas;int flags=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?flags&~0x20:flags|0x20);}
  void Expire(double now){for(int n=entries.Count-1;n>=0;n--)if(now-entries[n].At>=entries[n].Style.Duration){entries[n].Dispose();entries.RemoveAt(n);naturalExpirations++;dirty=true;}}
  void RemoveOldest(bool capacity){entries[0].Dispose();entries.RemoveAt(0);visualDrops++;if(capacity)capacityEvictions++;else placementEvictions++;}
- internal void Add(uint amount,bool critical,double at){Expire(at);var glyph=new FloatingNativeGlyph((critical&&inlineCritical!=null?criticalGlyphs:glyphs).Render(FloatingTextMotion.Number(amount,kind,critical)));while(entries.Count>=16)RemoveOldest(true);RectangleF placed;for(;;){occupied.Clear();foreach(var item in entries)occupied.Add(item.Rect(at,style));int columns=Math.Max(1,Math.Min(3,(canvas.Width-40)/(glyph.Width+style.Spacing)));float pitch=Math.Min((glyph.Width+style.Spacing+2)*style.Spread/100f,Math.Max(0,(canvas.Width-glyph.Width)/2f-20));placed=RectangleF.Empty;float best=float.MaxValue;for(int candidate=0;candidate<columns;candidate++){int slot=(serial+candidate)%columns;float lane=columns==3?(slot==0?0:slot==1?-pitch:pitch):columns==2?(slot==0?-pitch/2:pitch/2):0;var desired=new RectangleF(canvas.Width/2f-glyph.Width/2f+lane,style.Y-canvas.Top-glyph.Height/2f,glyph.Width,glyph.Height);var p=FloatingTextMotion.Separate(desired,occupied,style.Up,Math.Max(.5f,style.Spacing));float shift=Math.Abs(p.Y-desired.Y);if(p.Top>=2&&p.Bottom<=canvas.Height-2&&shift<best){placed=p;best=shift;}}if(!placed.IsEmpty||entries.Count==0)break;RemoveOldest(false);}if(placed.IsEmpty){glyph.Dispose();visualDrops++;placementEvictions++;return;}serial++;entries.Add(new Entry{Glyph=glyph,At=at,X=placed.X,Y=placed.Y,Style=style.Copy(),Opacity=(critical&&inlineCritical!=null?inlineCritical:style).Opacity});peakActive=Math.Max(peakActive,entries.Count);dirty=true;}
+ internal void Add(uint amount,bool critical,double at,FloatingHitLabel label=FloatingHitLabel.None){Expire(at);var glyph=new FloatingNativeGlyph((critical&&inlineCritical!=null?criticalGlyphs:glyphs).RenderImpact(amount,kind,critical,label,owner.Language));while(entries.Count>=16)RemoveOldest(true);RectangleF placed;for(;;){occupied.Clear();foreach(var item in entries)occupied.Add(item.Rect(at,style));int columns=Math.Max(1,Math.Min(3,(canvas.Width-40)/(glyph.Width+style.Spacing)));float pitch=Math.Min((glyph.Width+style.Spacing+2)*style.Spread/100f,Math.Max(0,(canvas.Width-glyph.Width)/2f-20));placed=RectangleF.Empty;float best=float.MaxValue;for(int candidate=0;candidate<columns;candidate++){int slot=(serial+candidate)%columns;float lane=columns==3?(slot==0?0:slot==1?-pitch:pitch):columns==2?(slot==0?-pitch/2:pitch/2):0;var desired=new RectangleF(canvas.Width/2f-glyph.Width/2f+lane,style.Y-canvas.Top-glyph.Height/2f,glyph.Width,glyph.Height);var p=FloatingTextMotion.Separate(desired,occupied,style.Up,Math.Max(.5f,style.Spacing));float shift=Math.Abs(p.Y-desired.Y);if(p.Top>=2&&p.Bottom<=canvas.Height-2&&shift<best){placed=p;best=shift;}}if(!placed.IsEmpty||entries.Count==0)break;RemoveOldest(false);}if(placed.IsEmpty){glyph.Dispose();visualDrops++;placementEvictions++;return;}serial++;entries.Add(new Entry{Glyph=glyph,At=at,X=placed.X,Y=placed.Y,Style=style.Copy(),Opacity=(critical&&inlineCritical!=null?inlineCritical:style).Opacity});peakActive=Math.Max(peakActive,entries.Count);dirty=true;}
  internal void Clear(){foreach(var x in entries)x.Dispose();entries.Clear();dirty=true;if(Visible)Hide();}
  internal void ReleaseSurface(){if(surface!=null){surface.Dispose();surface=null;}dirtyRect=Rectangle.Empty;}
  internal void Render(double now,bool show,bool testing){if(!SupportDiagnostics.Enabled){RenderCore(now,show,testing);return;}long at=Stopwatch.GetTimestamp();try{RenderCore(now,show,testing);}finally{long elapsed=Stopwatch.GetTimestamp()-at;diagnosticRenderCalls++;diagnosticRenderTicks+=elapsed;diagnosticRenderPeak=Math.Max(diagnosticRenderPeak,elapsed);}}
  void RenderCore(double now,bool show,bool testing){Expire(now);if(!show||entries.Count==0&&!editing){if(Visible)Hide();return;}if(!dirty&&entries.Count==0)return;dirty=false;if(surface==null){surface=new FloatingTextSurface(canvas.Width,canvas.Height);allocations++;}var g=surface.Draw;surface.Clear(dirtyRect);RectangleF union=RectangleF.Empty;
   foreach(var x in entries){double age=now-x.At;var pos=x.Rect(now,style);float alpha=(float)(FloatingTextMotion.Alpha(age,x.Style.Duration)*x.Opacity/100);if(alpha<=0)continue;union=union.IsEmpty?pos:RectangleF.Union(union,pos);x.Glyph.Draw(surface,pos.X,pos.Y,alpha);}
-  if(editing){surface.FlushNative();var anchor=new Rectangle(canvas.Width/2-95,style.Y-canvas.Top-35,190,70);using(var fill=new SolidBrush(Color.FromArgb(25,15,19,26)))g.FillRectangle(fill,anchor);using(var pen=new Pen(Color.FromArgb(160,ColorTranslator.FromHtml(style.Color)))){pen.DashStyle=DashStyle.Dash;g.DrawRectangle(pen,anchor);}using(var font=new Font("Segoe UI",9))using(var brush=new SolidBrush(Color.FromArgb(230,ColorTranslator.FromHtml(style.Color))))g.DrawString(UiLanguage.Text(FloatingTextOptions.Name(kind),owner.Language),font,brush,anchor.Left+8,anchor.Top+3);if(entries.Count==0){if(editGlyph==null)editGlyph=glyphs.Render(FloatingTextMotion.Number(kind==0?12480u:kind==1?2180u:4360u,kind,kind==3));g.DrawImageUnscaled(editGlyph,canvas.Width/2-editGlyph.Width/2,style.Y-canvas.Top-editGlyph.Height/2+7);}using(var pen=new Pen(Color.FromArgb(190,Color.White),2))g.DrawLine(pen,anchor.Right-13,anchor.Bottom-4,anchor.Right-4,anchor.Bottom-13);union=new RectangleF(0,0,canvas.Width,canvas.Height);}
+  if(editing){surface.FlushNative();var anchor=new Rectangle(canvas.Width/2-95,style.Y-canvas.Top-35,190,70);using(var fill=new SolidBrush(Color.FromArgb(25,15,19,26)))g.FillRectangle(fill,anchor);using(var pen=new Pen(Color.FromArgb(160,ColorTranslator.FromHtml(style.Color)))){pen.DashStyle=DashStyle.Dash;g.DrawRectangle(pen,anchor);}using(var font=new Font("Segoe UI",9))using(var brush=new SolidBrush(Color.FromArgb(230,ColorTranslator.FromHtml(style.Color))))g.DrawString(UiLanguage.Text(FloatingTextOptions.Name(kind),owner.Language),font,brush,anchor.Left+8,anchor.Top+3);if(entries.Count==0){if(editGlyph==null)editGlyph=glyphs.RenderImpact(kind==0||kind==3?12480u:kind==1?2180u:4360u,kind,kind==3,FloatingTextMotion.SampleLabel(kind,kind==3),owner.Language);g.DrawImageUnscaled(editGlyph,canvas.Width/2-editGlyph.Width/2,style.Y-canvas.Top-editGlyph.Height/2+7);}using(var pen=new Pen(Color.FromArgb(190,Color.White),2))g.DrawLine(pen,anchor.Right-13,anchor.Bottom-4,anchor.Right-4,anchor.Bottom-13);union=new RectangleF(0,0,canvas.Width,canvas.Height);}
   if(union.IsEmpty){dirtyRect=Rectangle.Empty;if(Visible)Hide();return;}union.Inflate(2,2);var crop=Rectangle.Intersect(Rectangle.FromLTRB((int)Math.Floor(union.Left),(int)Math.Floor(union.Top),(int)Math.Ceiling(union.Right),(int)Math.Ceiling(union.Bottom)),new Rectangle(Point.Empty,canvas.Size));dirtyRect=crop;if(crop.IsEmpty)return;surface.Present(Handle,crop,canvas.Location);presentations++;presentedPixels+=(long)crop.Width*crop.Height;if(!Visible&&!isolated){Show();OverlayNative.RaiseWithoutFocus(Handle);}
  }
  internal object Status {get{return new{visible=Visible,editing,active=entries.Count,uploads=allocations,surfaceAllocations=allocations,presentations,presentedPixels,glyphRasterizations=glyphs.Rasterizations,visualDrops,capacityEvictions,placementEvictions,naturalExpirations,peakActive,capacity=16,canvasWidth=canvas.Width,canvasHeight=canvas.Height,fontSize=style.FontSize,scale=style.Scale,spacing=style.Spacing,spread=style.Spread,duration=style.Duration,travel=style.Travel,up=style.Up,inlineCriticalFontSize=inlineCritical==null?0:inlineCritical.FontSize,inlineCriticalScale=inlineCritical==null?0:inlineCritical.Scale,diagnosticRenderCalls,meanRenderMilliseconds=diagnosticRenderCalls==0?0:diagnosticRenderTicks*1000.0/Stopwatch.Frequency/diagnosticRenderCalls,maximumRenderMilliseconds=diagnosticRenderPeak*1000.0/Stopwatch.Frequency,x=style.X,y=style.Y};}}
@@ -200,8 +269,8 @@ internal sealed class FloatingTextService:IDisposable {
  double nextForeground;bool foreground;
  internal void Maintain(){Maintain(false);}
  void Maintain(bool drawFrame){if(disposed)return;if(!options.NeedsCapture&&test<0){timer.Stop();for(int i=0;i<4;i++)windows[i].Clear();signal.Drain(DpsHistory.UtcNow());return;}double utc=DpsHistory.UtcNow(),now=clock.Elapsed.TotalSeconds;long current=signal.Epoch;if(epoch!=current){epoch=current;for(int i=0;i<4;i++)windows[i].Clear();}var impacts=signal.Drain(utc);bool existing=false;for(int i=0;i<4;i++)existing|=windows[i].HasEntries;if(test<0&&locked&&impacts.Length==0&&!existing){timer.Stop();return;}if(now>=nextForeground){foreground=!isolated&&GameForeground();nextForeground=now+.15;}
-  foreach(var x in impacts)if(foreground&&test<0&&options.Enabled&&options.Style(x.Kind).Enabled)windows[options.Channel(x.Kind,x.Critical)].Add(x.Amount,x.Critical,now-Math.Min(.15,Math.Max(0,utc-x.Time)));
-  if(test>=0&&now>=nextTest){bool critical=test==3||((int)(now*10)%2)==0;int target=test==3?(options.CriticalOwnWidget?3:0):options.Channel(test,critical);windows[target].Add(test==0||test==3?12480u:test==1?2180u:4360u,critical,now);nextTest=now+.48;}
+  foreach(var x in impacts)if(foreground&&test<0&&options.Enabled&&options.Style(x.Kind).Enabled)windows[options.Channel(x.Kind,x.Critical)].Add(x.Amount,x.Critical,now-Math.Min(.15,Math.Max(0,utc-x.Time)),x.Label);
+  if(test>=0&&now>=nextTest){bool critical=test==3||((int)(now*10)%2)==0;int target=test==3?(options.CriticalOwnWidget?3:0):options.Channel(test,critical);windows[target].Add(test==0||test==3?12480u:test==1?2180u:4360u,critical,now,FloatingTextMotion.SampleLabel(test,critical));nextTest=now+.48;}
   bool animate=test>=0;for(int i=0;i<4;i++)animate|=windows[i].HasEntries;if(animate&&!drawFrame){if(!timer.Enabled)timer.Start();return;}animate=test>=0;for(int i=0;i<4;i++){bool preview=test==i||test==0&&i==3&&options.CriticalWidget||test==3&&i==(options.CriticalOwnWidget?3:0);bool show=preview||options.Enabled&&options.Style(i).Enabled&&(i!=3||options.CriticalWidget)&&(!locked||foreground);if(!show)windows[i].Clear();windows[i].Render(now,show,preview);animate|=show&&windows[i].HasEntries;}if(animate){if(!timer.Enabled)timer.Start();}else timer.Stop();
  }
  internal object Status {get{return new{enabled=options.Enabled,testing=Testing,testCategory=test,timer=timer.Enabled,pacing=timer.Mode,signal=signal.Status,damageDealt=windows[0].Status,damageTaken=windows[1].Status,healingReceived=windows[2].Status,separateCriticals=options.SeparateCriticalDamage,criticalOwnWidget=options.CriticalWidget,criticalDamage=windows[3].Status};}}

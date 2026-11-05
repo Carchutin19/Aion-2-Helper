@@ -97,7 +97,7 @@ internal static class DpsVerification {
         for(uint i=100;i<229;i++)send(EnemyTargetVerification.Player(i,"Player"+i,8000,9000,false),141,"bounded");send(Energy(52),142,"bounded");send(Npc(99),142.1,"bounded");send(Hit(228,100,false),142.2,"bounded");Check(signal.Read(142.2).Rows.Count==0,"Candidate identity batch has a fixed maximum of128 players");send(Hit(100,100,false),142.3,"bounded");Check(Find(signal.Read(142.3),100).Name=="Player100","Bounded staging retains validated identities without unrelated names");
         for(int i=0;i<5;i++)send(EnemyTargetVerification.Player(300,"Flow"+i,8000,9000,false),143+i,"candidate"+i);send(Energy(52),148,"candidate0");send(Npc(99),148.1,"candidate0");send(Hit(300,100,false),148.2,"candidate0");Check(signal.Read(148.2).Rows.Count==0,"Only four candidate connections are retained; oldest is evicted");
     }
-    internal static void Run(string root){ResourceIdentityVerification.Run();VerifyStagedProfiles();VerifyCharacterNotice(root);VerifySkillCatalogue(root);VerifyAnalysis(root);
+    internal static void Run(string root){ResourceIdentityVerification.Run();VerifyStagedProfiles();VerifyCharacterNotice(root);VerifySkillCatalogue(root);VerifyAnalysis(root);VerifyEncounterEstimate();
         DpsSignal.Hit e;byte[] hit=Hit(42,1263,true);Check(DpsSignal.Direct(hit,0,hit.Length,out e)&&e.Amount==1263&&e.Extras==2,"Included additional impacts must not be added twice");
         for(int end=0;end<hit.Length-2;end++)Check(!DpsSignal.Direct(hit,0,end,out e),"Truncated hit must fail closed");
         byte[] tick=Tick(98,10,15390002,194);Check(DpsSignal.Periodic(tick,0,tick.Length,out e)&&e.Amount==194,"Fire Wall current impact");
@@ -155,6 +155,53 @@ internal static class DpsVerification {
     internal static DpsHistoryRecord HistorySample(double timestamp,double duration=24.5){var s=DpsDesign.Sample();var r=new DpsHistoryRecord{Id=Guid.NewGuid().ToString("N"),Started=timestamp-duration,Ended=timestamp,Duration=duration,Reason="Inactivity",Scope="party",SelfActor=2,Map=600021,PartyKnown=true,Party=new List<uint>{1,2,3}};foreach(var p in s.Rows)r.Players.Add(DpsHistoryPlayer.Capture(p,p.Name,p.Role,r.Duration));return r;}
     static byte[] Hex(string value){var result=new byte[value.Length/2];for(int i=0;i<result.Length;i++)result[i]=Convert.ToByte(value.Substring(i*2,2),16);return result;}
     static byte[] TargetHp(uint actor,long hp){var b=new List<byte>(new byte[]{0,0x8d});V(b,actor);b.AddRange(new byte[]{2,1,0});b.AddRange(BitConverter.GetBytes(hp));return b.ToArray();}
+    static byte[] EstimateNpc(uint actor,uint template){
+        var b=new List<byte>{0x41,0x36};V(b,actor);b.AddRange(new byte[3]);b.AddRange(BitConverter.GetBytes(template));
+        b.AddRange(new byte[21]);V(b,10000);V(b,10000);b.AddRange(new byte[52]);return b.ToArray();
+    }
+    static void VerifyEncounterEstimate(){
+        var signal=new DpsSignal();
+        var options=new DpsOptions{Enabled=true,Scope="self",IdleSeconds=60};
+        signal.Configure(options);
+        Feed(signal,Energy(42),100);
+        Feed(signal,EstimateNpc(99,2100752),100);
+        Feed(signal,Hit(42,10,false),100);
+        Check(signal.Read(100).Estimate.Subject==DpsEncounterEstimate.Kind.Remaining&&!signal.Read(100).Estimate.Seconds.HasValue,"ETA waits for HP samples");
+        for(int i=1;i<=4;i++)Feed(signal,TargetHp(99,10000-i*1000),100+i);
+        Check(signal.Read(104).Estimate.Seconds==6,"ETA uses actual HP drop rather than metered damage");
+
+        Feed(signal,EstimateNpc(98,2100753),104.1);
+        Feed(signal,Hit(42,10,false,98),104.1);
+        Check(signal.Read(104.1).Estimate.Subject==DpsEncounterEstimate.Kind.None,"ETA cannot predict the whole pack");
+        Feed(signal,new byte[]{0x34,0x38,0,0,0,99},104.2);
+        Check(signal.Read(104.2).Estimate.Subject==DpsEncounterEstimate.Kind.Target&&signal.Read(104.2).Estimate.Seconds==6,"ETA uses locked target in a pack");
+        Feed(signal,Identity(43,"Beta"),104.3);
+        Feed(signal,EstimateNpc(97,2300104),104.4);
+        Feed(signal,Hit(43,10,false,97),104.4);
+        Check(signal.Read(104.4).Estimate.Subject==DpsEncounterEstimate.Kind.Target,"Bystander does not elect a boss");
+        Feed(signal,Hit(42,10,false,97),104.5);
+        for(int i=1;i<=4;i++)Feed(signal,TargetHp(97,10000-i*1000),104.5+i);
+        var boss=signal.Read(108.5).Estimate;
+        Check(boss.Subject==DpsEncounterEstimate.Kind.Boss&&boss.Seconds==6&&DpsDesign.EstimateLabel(boss,"es")=="Jefe ~0:06","ETA prefers the engaged boss and localizes the header");
+
+        Feed(signal,TargetHp(97,6000),111.6);
+        Check(signal.Read(111.6).Estimate.Subject==DpsEncounterEstimate.Kind.Boss&&!signal.Read(111.6).Estimate.Seconds.HasValue,"Stalled HP blanks the countdown");
+        Feed(signal,Hit(42,10,false,97),111.6);
+        for(int i=1;i<=4;i++)Feed(signal,TargetHp(97,6000-i*500),111.6+i);
+        Check(signal.Read(115.6).Estimate.Seconds==8,"ETA recovers using the new pace after a pause");
+        Feed(signal,TargetHp(97,8000),115.7);
+        Check(!signal.Read(115.7).Estimate.Seconds.HasValue,"Major healing invalidates the previous pace");
+        Feed(signal,EstimateNpc(96,2300171),115.8);
+        Feed(signal,Hit(42,10,false,96),115.8);
+        Check(signal.Read(115.8).Estimate.Subject==DpsEncounterEstimate.Kind.None,"Two engaged bosses without a target are ambiguous");
+        Feed(signal,new byte[]{0x42,0x36,96,0,7},115.9);
+        Check(signal.Read(115.9).Estimate.Subject==DpsEncounterEstimate.Kind.Boss,"Despawn removes the extra boss");
+        options.ShowEncounterEstimate=false;signal.Configure(options);
+        Check(signal.Read(115.9).Estimate.Subject==DpsEncounterEstimate.Kind.None,"ETA can be disabled");
+        options.ShowEncounterEstimate=true;signal.Configure(options);
+        signal.ResetTransport();
+        Check(signal.Read(116).Estimate.Subject==DpsEncounterEstimate.Kind.None,"Transport reset clears ETA");
+    }
     static void VerifyTargetRecovery(){
         var signal=new DpsSignal();signal.Configure(new DpsOptions{Enabled=true,Scope="self"});Feed(signal,Energy(42),1);
         Feed(signal,TargetHp(99,10000),2);Feed(signal,MetricHit(42,99,100,15210000,false,position:2),2.1);
@@ -171,8 +218,10 @@ internal static class DpsVerification {
     static void VerifyHitTags(){
         DpsSignal.Hit decoded;var real=Hex("0438CED1013600D805E4D012015C038800021B99596B010000009E55E52404D603D603D603D6030100");
         Check(DpsSignal.Direct(real,0,real.Length,out decoded)&&decoded.TagsKnown&&decoded.Position==2&&decoded.Double&&!decoded.Perfect&&decoded.Critical&&decoded.Amount==4709&&decoded.PrimaryAmount==2829,"Captured Front Double Critical retains its original amounts");
+        Check(FloatingTextSignal.HitLabel(decoded)==(FloatingHitLabel.Front|FloatingHitLabel.Double|FloatingHitLabel.Critical),"Floating text preserves the captured Front Double Critical combination");
         real=Hex("0438CED1013600D805E4D0120171038400010D20596B020000009E55F21103E501E501E5010200");
         Check(DpsSignal.Direct(real,0,real.Length,out decoded)&&decoded.TagsKnown&&decoded.Position==1&&decoded.Perfect&&!decoded.Double&&decoded.Critical,"Captured Back Perfect Critical metadata");
+        Check(FloatingTextSignal.HitLabel(decoded)==(FloatingHitLabel.Back|FloatingHitLabel.Perfect|FloatingHitLabel.Critical),"Floating text preserves the captured Back Perfect Critical combination");
         var variable=MetricHit(42,99,1000,15210000,true,false,12,2,16384);Check(DpsSignal.Direct(variable,0,variable.Length,out decoded)&&decoded.TagsKnown&&decoded.Double&&decoded.Perfect&&decoded.Position==2,"Restoration varint length must not shift hit tags");
         var unknown=MetricHit(42,99,900,15210000,false,false,4,7);Check(DpsSignal.Direct(unknown,0,unknown.Length,out decoded)&&!decoded.TagsKnown&&decoded.Amount==900,"Unknown position keeps damage without fabricated tags");
         var missing=MetricHit(42,99,800,15210000,false,false,0,0,0,false);Check(DpsSignal.Direct(missing,0,missing.Length,out decoded)&&!decoded.TagsKnown&&decoded.Amount==800,"Absent plotter is unavailable rather than a zero positional count");

@@ -152,6 +152,11 @@ MEASUREMENT|MESSUNG|MESURE|القياس
 Refresh interval|Aktualisierungsintervall|Intervalle d’actualisation|فاصل التحديث
 Copy FPS diagnostics|FPS-Diagnose kopieren|Copier le diagnostic FPS|نسخ تشخيص الإطارات
 DPS Meter|DPS-Messung|Compteur de DPS|مقياس الضرر في الثانية
+Time left|Restzeit|Restant|الوقت المتبقي
+Boss|Boss|Boss|الزعيم
+Target|Ziel|Cible|الهدف
+Show estimated time remaining|Geschätzte Restzeit anzeigen|Afficher le temps restant estimé|إظهار الوقت المتبقي المقدّر
+Uses recent health changes for the boss or selected enemy.|Basiert auf dem jüngsten Lebensverlust des Bosses oder des gewählten Gegners.|Se base sur la perte récente de vie du boss ou de l’ennemi choisi.|يُحسب من انخفاض نقاط الصحة مؤخرًا للزعيم أو العدو المحدد.
 Enable DPS Meter|DPS-Messung aktivieren|Activer le compteur de DPS|تفعيل مقياس الضرر
 Damage|Schaden|Dégâts|الضرر
 Healing|Heilung|Soins|العلاج
@@ -164,6 +169,82 @@ Clear history|Verlauf löschen|Effacer l’historique|مسح السجل
 Delete|Löschen|Supprimer|حذف
 Total|Gesamt|Total|الإجمالي
 Critical|Kritisch|Critique|حرِج
+Back|Rücken|Dos|من الخلف
+Front|Frontal|Frontal|من الأمام
+Double|Doppelt|Double|مزدوج
+Perfect|Perfekt|Parfait|مثالي
+HIT LABEL|TREFFERBEZEICHNUNG|TYPE DE COUP|نوع الضربة
+◉   Combat Log|◉   Kampflog|◉   Journal de combat|◉   سجل القتال
+◉   Hidden Cube Radar|◉   Radar für versteckte Würfel|◉   Radar de cubes cachés|◉   رادار المكعبات المخفية
+Hidden Cube Radar|Radar für versteckte Würfel|Radar de cubes cachés|رادار المكعبات المخفية
+Nearby hidden cubes|Versteckte Würfel in der Nähe|Cubes cachés à proximité|المكعبات المخفية القريبة
+Enable Hidden Cube Radar|Würfelradar aktivieren|Activer le radar de cubes cachés|تفعيل رادار المكعبات المخفية
+Shows an alert when the game reports a supported nearby cube.|Meldet vom Spiel erkannte Würfel in der Nähe.|Signale les cubes proches pris en charge et détectés par le jeu.|ينبه عند اكتشاف اللعبة مكعبًا قريبًا مدعومًا.
+Sample hidden cube|Beispielwürfel|Exemple de cube caché|مثال لمكعب مخفي
+Hidden cube|Versteckter Würfel|Cube caché|مكعب مخفي
+Detected|Erkannt|Détecté|تم الاكتشاف
+Move to refresh your position|Bewege dich, um deine Position zu aktualisieren|Déplacez-vous pour actualiser votre position|تحرك لتحديث موقعك
+Move to locate cube|Bewege dich, um den Würfel zu orten|Déplacez-vous pour localiser le cube|تحرك لتحديد موقع المكعب
+Performance|Leistung|Performances|الأداء
+Frame pacing test|Test der Bildrate|Test de fluidité|اختبار سلاسة الإطارات
+FPS limit|FPS-Limit|Limite d’IPS|حد الإطارات في الثانية
+Custom FPS limit|Eigenes FPS-Limit|Limite d’IPS personnalisée|حد مخصص للإطارات في الثانية
+Use game settings|Spieleinstellungen|Paramètres du jeu|إعدادات اللعبة
+Run the same route twice to compare FPS and slow frames. Return to Aion 2 after starting the test and keep it in focus.|Laufe dieselbe Strecke zweimal, um FPS und langsame Bilder zu vergleichen. Kehre nach dem Start zu Aion 2 zurück und lasse das Spiel im Vordergrund.|Parcourez le même trajet deux fois pour comparer les IPS et les images lentes. Revenez à Aion 2 après le lancement du test et laissez le jeu au premier plan.|اسلك المسار نفسه مرتين لمقارنة معدل الإطارات والإطارات البطيئة. عد إلى Aion 2 بعد بدء الاختبار وأبقِ اللعبة في المقدمة.
+Set a limit to try steadier frame pacing. Close Aion 2 to apply it, then relaunch and measure again.|Teste ein Limit für gleichmäßigere Bildzeiten. Schließe Aion 2, übernimm das Limit, starte das Spiel erneut und miss noch einmal.|Essayez une limite pour améliorer la régularité des images. Fermez Aion 2 pour l’appliquer, puis relancez le jeu et mesurez à nouveau.|جرّب تحديد المعدل لتحسين انتظام الإطارات. أغلق Aion 2 لتطبيق الحد ثم أعد تشغيل اللعبة والقياس.
+This changes only the FPS limit in Engine.ini. Visual effects are configured separately.|Dies ändert nur das FPS-Limit in Engine.ini. Visuelle Effekte werden separat eingestellt.|Seule la limite d’IPS dans Engine.ini est modifiée. Les effets visuels se règlent séparément.|يتغير حد الإطارات في Engine.ini فقط. تُضبط المؤثرات البصرية بشكل منفصل.
+Measure for 60 seconds|60 Sekunden messen|Mesurer pendant 60 secondes|القياس لمدة 60 ثانية
+Cancel performance test|Leistungstest abbrechen|Annuler le test|إلغاء اختبار الأداء
+Apply FPS limit|FPS-Limit anwenden|Appliquer la limite d’IPS|تطبيق حد الإطارات
+Restore previous FPS limit|Vorheriges FPS-Limit wiederherstellen|Rétablir la limite précédente|استعادة الحد السابق للإطارات
+FPS limit updated. Relaunch Aion 2 to test it.|FPS-Limit geändert. Starte Aion 2 erneut, um es zu testen.|Limite mise à jour. Relancez Aion 2 pour la tester.|تم تحديث حد الإطارات. أعد تشغيل Aion 2 لتجربته.
+Close Aion 2 to change the FPS limit.|Schließe Aion 2, um das FPS-Limit zu ändern.|Fermez Aion 2 pour modifier la limite d’IPS.|أغلق Aion 2 لتغيير حد الإطارات.
+Engine.ini is read-only.|Engine.ini ist schreibgeschützt.|Engine.ini est en lecture seule.|ملف Engine.ini للقراءة فقط.
+An existing FPS override uses a value outside this control.|Das vorhandene FPS-Limit liegt außerhalb des einstellbaren Bereichs.|La limite existante est hors de la plage de ce réglage.|حد الإطارات الحالي خارج نطاق هذا الإعداد.
+Choose a limit from 20 to 500 FPS.|Wähle ein Limit zwischen 20 und 500 FPS.|Choisissez une limite entre 20 et 500 IPS.|اختر حدًا بين 20 و500 إطار في الثانية.
+No FPS limit change is available to restore.|Es gibt keine Änderung des FPS-Limits zum Wiederherstellen.|Aucune modification de la limite à annuler.|لا يوجد تغيير في حد الإطارات يمكن استعادته.
+FPS limit changed outside the Helper. Refresh before making another change.|Das FPS-Limit wurde extern geändert. Aktualisiere den Status vor weiteren Änderungen.|La limite a été modifiée en dehors du Helper. Actualisez avant de la modifier.|تغيّر حد الإطارات خارج Helper. حدّث الحالة قبل إجراء تغيير آخر.
+The configuration backup record is invalid.|Der Eintrag der Konfigurationssicherung ist ungültig.|L’entrée de sauvegarde de la configuration est invalide.|سجل النسخة الاحتياطية للإعدادات غير صالح.
+Another configuration change is in progress.|Eine andere Konfigurationsänderung läuft.|Une autre modification de configuration est en cours.|هناك تغيير آخر في الإعدادات قيد التنفيذ.
+Return to Aion 2 to start the test.|Kehre zu Aion 2 zurück, um den Test zu starten.|Revenez à Aion 2 pour démarrer le test.|عد إلى Aion 2 لبدء الاختبار.
+Measuring for 60 seconds. Keep Aion 2 in the foreground.|Messung für 60 Sekunden. Lass Aion 2 im Vordergrund.|Mesure pendant 60 secondes. Laissez Aion 2 au premier plan.|يستمر القياس 60 ثانية. أبقِ Aion 2 في المقدمة.
+Performance test completed.|Leistungstest abgeschlossen.|Test de fluidité terminé.|اكتمل اختبار السلاسة.
+Measuring FPS…|FPS werden gemessen…|Mesure des IPS…|جارٍ قياس معدل الإطارات…
+You can return to the Helper|Du kannst zum Helper zurückkehren|Vous pouvez revenir au Helper|يمكنك العودة إلى Helper الآن
+Performance test cancelled.|Leistungstest abgebrochen.|Test de fluidité annulé.|أُلغي اختبار السلاسة.
+Test interrupted because Aion 2 lost focus.|Test unterbrochen, weil Aion 2 nicht mehr im Vordergrund war.|Test interrompu car Aion 2 a quitté le premier plan.|توقف الاختبار لأن Aion 2 خرج من المقدمة.
+Not enough game frames to complete the test.|Nicht genug Spielbilder für einen vollständigen Test.|Nombre d’images insuffisant pour terminer le test.|عدد إطارات اللعبة غير كافٍ لإكمال الاختبار.
+Previous test|Vorheriger Test|Test précédent|الاختبار السابق
+Latest test|Letzter Test|Dernier test|الاختبار الأخير
+{0} · {1:0.0} FPS average · p99 {2:0.0} ms · {3} frames over 50 ms|{0} · {1:0.0} FPS im Mittel · p99 {2:0.0} ms · {3} Bilder über 50 ms|{0} · {1:0.0} IPS en moyenne · p99 {2:0.0} ms · {3} images au-delà de 50 ms|{0} · متوسط {1:0.0} إطار/ث · p99 ‏{2:0.0} مللي ثانية · {3} إطارات تجاوزت 50 مللي ثانية
+Same height|Auf gleicher Höhe|À la même hauteur|على الارتفاع نفسه
+{0} m above|{0} m höher|{0} m plus haut|أعلى بـ {0} م
+{0} m below|{0} m tiefer|{0} m plus bas|أسفل بـ {0} م
+Relative to your movement|Relativ zur Bewegungsrichtung|Selon votre direction de déplacement|بالنسبة إلى اتجاه حركتك
+Combat Log|Kampflog|Journal de combat|سجل القتال
+Your recent hits in real time|Deine letzten Treffer in Echtzeit|Vos derniers coups en temps réel|ضرباتك الأخيرة في الوقت الفعلي
+Enable combat log|Kampflog aktivieren|Activer le journal de combat|تفعيل سجل القتال
+Auto-hide when inactive|Bei Inaktivität ausblenden|Masquer en cas d’inactivité|الإخفاء عند عدم النشاط
+Hide after inactivity|Ausblenden nach Inaktivität|Masquer après une période d’inactivité|الإخفاء بعد عدم النشاط
+Panel width|Panelbreite|Largeur du panneau|عرض اللوحة
+Panel height|Panelhöhe|Hauteur du panneau|ارتفاع اللوحة
+Line format|Zeilenformat|Format des lignes|تنسيق السطر
+Icon, name and damage|Symbol, Name und Schaden|Icône, nom et dégâts|الأيقونة والاسم والضرر
+Icon and damage|Symbol und Schaden|Icône et dégâts|الأيقونة والضرر
+Name and damage|Name und Schaden|Nom et dégâts|الاسم والضرر
+Show timestamps|Uhrzeit anzeigen|Afficher l’heure|إظهار الوقت
+New entries at the bottom|Neue Einträge unten|Nouvelles entrées en bas|السجلات الجديدة في الأسفل
+Use the bar on the right to review earlier hits. The log stays visible while you scroll.|Nutze die Leiste rechts, um frühere Treffer anzusehen. Das Protokoll bleibt beim Scrollen sichtbar.|Utilisez la barre à droite pour relire les coups précédents. Le journal reste visible pendant le défilement.|استخدم الشريط على اليمين لمراجعة الضربات السابقة. يظل السجل ظاهرًا أثناء التمرير.
+Sample combat events|Beispieltreffer|Exemples de coups|أمثلة على الضربات
+Shows your supported outgoing hits while Aion is in focus. Recent hits are kept for this session.|Zeigt unterstützte eigene Treffer bei aktivem Aion. Die letzten Treffer bleiben für diese Sitzung erhalten.|Affiche vos coups pris en charge lorsque Aion est au premier plan. Les coups récents sont conservés pour la session.|يعرض ضرباتك المدعومة عندما تكون نافذة Aion نشطة. تُحفظ الضربات الأخيرة لهذه الجلسة.
+SAMPLE|VORSCHAU|APERÇU|معاينة
+Waiting for your first hit|Warte auf deinen ersten Treffer|En attente de votre premier coup|في انتظار ضربتك الأولى
+Show hit label|Trefferbezeichnung anzeigen|Afficher le type de coup|إظهار نوع الضربة
+Hit label size|Schriftgröße der Trefferbezeichnung|Taille du texte du type de coup|حجم نص نوع الضربة
+Hit label opacity|Deckkraft der Trefferbezeichnung|Opacité du type de coup|عتامة نوع الضربة
+Hit label color|Farbe der Trefferbezeichnung|Couleur du type de coup|لون نوع الضربة
+Hit label outline color|Konturfarbe der Trefferbezeichnung|Couleur du contour du type de coup|لون حدود نوع الضربة
+Hit label outline thickness|Konturstärke der Trefferbezeichnung|Épaisseur du contour du type de coup|سُمك حدود نوع الضربة
 Critical damage|Kritischer Schaden|Dégâts critiques|الضرر الحرج
 Floating Combat Text|Schwebender Kampftext|Texte de combat flottant|نصوص القتال العائمة
 Damage dealt, damage taken and received healing|Verursachter und erlittener Schaden sowie erhaltene Heilung|Dégâts infligés, dégâts subis et soins reçus|الضرر المُلحَق والمستلَم والعلاج المستلَم

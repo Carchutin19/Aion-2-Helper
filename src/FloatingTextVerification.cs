@@ -24,6 +24,81 @@ internal static class FloatingTextVerification {
   s.Reset();Check(s.Drain(t+5).Length==0,"Transport reset clears queue");options.Enabled=false;s.Configure(options,false);Feed(s,Profile(),t+6);Feed(s,hit,t+6.1);Check(s.Drain(t+6.2).Length==0,"Disabled feature ignores gameplay");options.Enabled=true;s.Configure(options,true);Feed(s,Profile(),t+7);Feed(s,hit,t+7.1);Check(s.Drain(t+7.2).Length==0,"Preview mode cannot acquire gameplay data");
   s.Configure(options,false);var random=new Random(991);for(int i=0;i<3000;i++){var b=new byte[random.Next(0,150)];random.NextBytes(b);s.Consume(b,0,b.Length,t+8+i*.001,"fuzz");}Check(s.Drain(t+12).Length==0,"Malformed envelopes cannot synthesize text");
  }
+ static void CombatLog(string root){
+  var signal=new FloatingTextSignal();
+  var text=new FloatingTextOptions();
+  signal.Configure(text,false);
+  signal.ConfigureCombatLog(true);
+  double now=DpsHistory.UtcNow();long seen=-1;
+  var own=Direct(12,99,2486,13350000,3);
+  Feed(signal,own,now);
+  Check(signal.ReadCombatLog(ref seen).Length==0,"Combat log requires own identity");
+  Feed(signal,Profile(),now);
+  Feed(signal,Direct(99,12,80),now+.01);
+  Feed(signal,Direct(55,99,500),now+.02);
+  Feed(signal,Direct(12,77,800,18120000),now+.03);
+  Feed(signal,own,now+.04);
+  Feed(signal,Tick(12,99,320,15390002,1539000011),now+.05);
+  var entries=signal.ReadCombatLog(ref seen);
+  Check(entries.Length==2&&entries[0].Skill==13350000&&entries[0].Amount==2486&&entries[0].Label==(FloatingHitLabel.Critical|FloatingHitLabel.Back)&&entries[1].Amount==320,"Log preserves outgoing skills and damage without the DPS or floating widgets");
+  Check(signal.Drain(now+.06).Length==0&&signal.ReadCombatLog(ref seen)==null,"Log and floating text have independent reads");
+  for(int i=0;i<180;i++)Feed(signal,Direct(12,99,(uint)(1000+i)),now+.1+i*.001);
+  entries=signal.ReadCombatLog(ref seen);
+  Check(entries.Length==CombatLogOptions.Capacity&&entries[entries.Length-1].Amount==1179,"Bounded log retains the newest hits");
+  text.Enabled=true;signal.Configure(text,false);
+  Feed(signal,own,now+.5);
+  Check(signal.Drain(now+.51).Length==1&&signal.ReadCombatLog(ref seen).Length==CombatLogOptions.Capacity,"Same hit can reach both widgets without duplicating the log");
+  Feed(signal,Profile(13),now+.6);
+  Check(signal.ReadCombatLog(ref seen).Length==0,"New character clears the prior log");
+  signal.ConfigureCombatLog(false);
+  Feed(signal,Direct(13,99,18),now+.7);
+  Check(signal.ReadCombatLog(ref seen).Length==0,"Disabled log collects nothing");
+  Check(new CombatLogOptions().IdleSeconds==30,"Combat log inactivity defaults to 30 seconds");
+  var options=new CombatLogOptions{Enabled=true,Blur=true,AutoHide=true,IdleSeconds=8,BackgroundOpacity=66,Format=2,ShowTime=false};
+  var recent=new[]{new CombatLogEntry(now,13350000,2486,FloatingHitLabel.Critical)};
+  Check(options.ShowForActivity(recent,false,now+7.99)&&!options.ShowForActivity(recent,false,now+8),"Combat log hides after configured inactivity");
+  Check(options.ShowForActivity(recent,true,now+50)&&!options.ShowForActivity(new CombatLogEntry[0],false,now),"Editing bypasses auto-hide, live waits for the first hit");
+  recent[0]=new CombatLogEntry(now+50,13350000,2486,FloatingHitLabel.Critical);
+  Check(options.ShowForActivity(recent,false,now+50),"A new hit restores the hidden log");
+  var previous=new[]{new CombatLogEntry(now,13350000,2486,FloatingHitLabel.Critical,3)};
+  CombatLogMotion.MarkArrivals(new CombatLogEntry[0],previous,4);
+  var burst=new[]{previous[0],new CombatLogEntry(now,13350000,2486,FloatingHitLabel.Critical,4)};
+  CombatLogMotion.MarkArrivals(previous,burst,4.1);
+  Check(burst[0].AppearedAt==4&&burst[1].AppearedAt==4.1&&CombatLogMotion.Opacity(0)<CombatLogMotion.Opacity(.1)&&CombatLogMotion.Opacity(.2)==255,
+   "Identical hits fade separately and existing rows do not restart");
+  Check(CombatLogMotion.Highlight(0)>CombatLogMotion.Highlight(.3)&&CombatLogMotion.Highlight(.65)==0,"Newest row highlight fades away");
+  using(var painter=new CombatLogPainter()){
+   var size=new Size(420,166);
+   for(int frame=0;frame<25;frame++)using(var image=painter.Render(size,options,burst,"es",false,false,4.1+frame*.04)){}
+   Check(painter.RasterizedRows==2,"Fades and highlights reuse the same rasterized rows");
+   using(var image=painter.Render(size,options,burst,"en",false,false,6)){}
+   Check(painter.RasterizedRows==4,"Changing language invalidates cached row text");
+  }
+  var json=new JavaScriptSerializer();
+  var copy=CombatLogOptions.Read(json.Deserialize<Dictionary<string,object>>(json.Serialize(new{combatLog=options})));
+  Check(CombatLogOptions.Same(copy,options)&&!copy.ShowIcon&&copy.ShowName,"Combat log settings round trip");
+  MovableOverlayWindow.VerifyLiveResize();
+  using(var owner=new EnergyOverlay(root,true)){
+   var form=new HelperSettings(owner);
+   try{form.VerifyCombatLog(root);}finally{form.Close();}
+  }
+ }
+ static void HitLabels(){
+  var label=FloatingHitLabel.Critical|FloatingHitLabel.Back|FloatingHitLabel.Perfect;
+  Check(FloatingTextMotion.Label(label,"es")=="Crítico · Perfecto · Espalda","Confirmed combinations are localized");
+  Check(FloatingTextSignal.HitLabel(new DpsSignal.Hit{Position=1,Perfect=true,Critical=true})==FloatingHitLabel.None,"Unconfirmed metadata cannot produce a label");
+  var o=new FloatingTextOptions{SeparateCriticalDamage=true};
+  Check(!o.DamageDealt.ShowHitLabel&&!o.CriticalDamage.ShowHitLabel,"Labels are opt-in for existing settings");
+  o.DamageDealt.ShowHitLabel=true;o.DamageDealt.HitLabelColor="#0099FF";o.CriticalDamage.ShowHitLabel=true;o.CriticalDamage.HitLabelColor="#FF3300";
+  var json=new JavaScriptSerializer();var saved=FloatingTextOptions.Read(json.Deserialize<Dictionary<string,object>>(json.Serialize(new{floatingText=o})));
+  Check(saved.InlineCritical().HitLabelColor=="#FF3300"&&saved.DamageDealt.HitLabelColor=="#0099FF","Inline criticals retain their own persisted label style");
+  using(var painter=new FloatingGlyphPainter()){
+   painter.Configure(saved.CriticalDamage);
+   using(var number=painter.RenderImpact(2486,3,true,FloatingHitLabel.None,"en"))
+   using(var tagged=painter.RenderImpact(2486,3,true,label,"en"))
+    Check(tagged.Height>number.Height&&tagged.Width>=number.Width,"A combined number and label occupy one measured sprite");
+  }
+ }
  static void Bursts(){foreach(bool up in new[]{true,false}){var occupied=new List<RectangleF>();for(int i=0;i<16;i++){int column=i%3;float x=column==0?320:column==1?100:540;var desired=new RectangleF(x,450,160+(i%3)*8,36+(i%2)*6);var placed=FloatingTextMotion.Separate(desired,occupied,up,12);foreach(var previous in occupied){var gap=previous;gap.Inflate(5,5);Check(!gap.IntersectsWith(placed),"Burst numbers retain readable separation in both directions");}Check(placed.Top>0&&placed.Bottom<950,"Default sixteen-number burst fits the configured trail");occupied.Add(placed);}}var reader=new FloatingTextSignal();var options=new FloatingTextOptions{Enabled=true};double now=1000;reader.ReceiptClock=delegate{return now;};reader.Configure(options,false);Feed(reader,Profile(),now+1.5);Feed(reader,Direct(12,99,100,type:3),now+1.5);var events=reader.Drain(now);Check(events.Length==1&&events[0].Critical&&events[0].Time==now,"Floating text also uses reception clock when Npcap drifts ahead");}
  static void LateEnable(){double now=DpsHistory.UtcNow();var s=new FloatingTextSignal();var o=new FloatingTextOptions();s.Configure(o,false);Feed(s,Profile(),now);Feed(s,Direct(12,99,100),now+.01);Check(s.Drain(now+.02).Length==0,"Disabled channel observes identity but emits no combat");o.Enabled=true;s.Configure(o,false);Feed(s,Direct(12,99,100),now+.03);Check(s.Drain(now+.04).Length==1,"Enabling after login retains received identity");o.Enabled=false;s.Configure(o,false);o.Enabled=true;s.Configure(o,false);Feed(s,Direct(12,99,101),now+.05);Check(s.Drain(now+.06).Length==1,"Toggling on and off cannot lose character identity");s.Reset();var shared=new SkillSlotsSignal.View{Self=12,Map=1010,Flow="live"};s.Adopt(shared,"different",now+.07);Feed(s,Direct(12,99,102),now+.08,"different");Check(s.Drain(now+.09).Length==0,"Shared identity cannot cross flows");s.Adopt(shared,"live",now+.1);Feed(s,Direct(12,99,103),now+.11,"live");Check(s.Drain(now+.12).Length==1,"Same-flow confirmed bar restores missing float identity");s.Reset();Feed(s,Direct(12,99,104),now+.13,"live");Check(s.Drain(now+.14).Length==0,"Shared identity is not retained across reset");}
  static void NativePixels(string root){var style=FloatingTextStyle.Defaults(0);style.FontSize=26;using(var original=FloatingTextMotion.Glyph("12 480!!",style))using(var native=new FloatingNativeGlyph((Bitmap)original.Clone()))using(var surface=new FloatingTextSurface(260,90)){
@@ -57,5 +132,5 @@ internal static class FloatingTextVerification {
   using(var image=new Bitmap(1440,470,PixelFormat.Format32bppPArgb))using(var g=Graphics.FromImage(image))using(var b=new SolidBrush(Color.FromArgb(20,25,33))){g.FillRectangle(b,0,0,1440,470);Label(g,"Así aparece, se mueve y desaparece",40,25,28,Color.White,true);var o=FloatingTextStyle.Defaults(0);o.FontSize=42;o.Travel=95;double[] ages={.04,.16,.55,.95,1.3};for(int i=0;i<ages.Length;i++){int x=40+i*278;Label(g,ages[i].ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)+" s",x,96,17,Color.FromArgb(155,168,183));using(var pen=new Pen(Color.FromArgb(50,129,151,161))){pen.DashStyle=DashStyle.Dash;g.DrawLine(pen,x+116,150,x+116,360);}using(var glyph=FloatingTextMotion.Glyph("12 480!!",o))using(var attributes=new ImageAttributes())FloatingTextMotion.Sprite(g,glyph,x+116-glyph.Width/2f,300+FloatingTextMotion.Offset(ages[i],o),FloatingTextMotion.Alpha(ages[i],o.Duration),attributes,new ColorMatrix());}Label(g,"Duración y recorrido ajustables por categoría. Puedes invertir la dirección para que baje.",40,403,17,Color.FromArgb(160,176,188));image.Save(Path.Combine(folder,"floating-text-motion.png"));}
  }
  static void BurstReference(string folder){using(var image=new Bitmap(1200,720,PixelFormat.Format32bppPArgb))using(var g=Graphics.FromImage(image))using(var background=new SolidBrush(Color.FromArgb(20,25,33))){g.FillRectangle(background,0,0,1200,720);Label(g,"Ráfagas legibles",35,25,30,Color.White,true);Label(g,"Varias columnas + filas separadas automáticamente. Cada impacto conserva su número.",35,75,17,Color.FromArgb(153,169,185));var o=FloatingTextStyle.Defaults(0);o.FontSize=34;var occupied=new List<RectangleF>();using(var attributes=new ImageAttributes()){for(int i=0;i<12;i++){using(var glyph=FloatingTextMotion.Glyph(FloatingTextMotion.Number((uint)(12480-i*731),0,i%4==0),o)){int col=i%3;float x=col==0?510:col==1?245:775;var rect=FloatingTextMotion.Separate(new RectangleF(x,200,glyph.Width,glyph.Height),occupied,true,15);occupied.Add(rect);FloatingTextMotion.Sprite(g,glyph,rect.X,rect.Y,.65+.35*(i/11.0),attributes,new ColorMatrix());}}}Label(g,"Separación ajustable por categoría · sin sumar impactos ni inventar cantidades",35,653,17,Color.FromArgb(153,169,185));image.Save(Path.Combine(folder,"floating-text-burst.png"));}}
- internal static void Run(string root){Settings();Signals();Bursts();LateEnable();string folder=Path.Combine(root,"designs");References(folder);BurstReference(folder);NativePixels(root);using(var owner=new EnergyOverlay(root,true)){Native(owner,root);var c=owner.Configuration;c.FloatingText.Enabled=true;owner.ApplyConfiguration(c);var form=new HelperSettings(owner);try{form.VerifyFloatingText(root);}finally{form.Close();}owner.FloatingText.ToggleTest(0);Check(owner.FloatingText.Testing,"Manual preview starts");owner.FloatingText.StopTest();Check(!owner.FloatingText.Testing,"Same preview can be stopped");var saved=owner.Configuration;owner.ApplyConfiguration(saved);Check(!owner.FloatingText.Testing,"Settings do not restart tests");}File.WriteAllText(Path.Combine(root,"floating-text-test.txt"),"PASS: exact own/incoming/healing routing, explicit critical !!, ignored bystanders/outgoing heals/unknown types, periodic families, flow/map/identity reset, stale rejection, queue cap, malformed frames, isolated mode, independent persistence/copy/undo, fade/direction, rendered references and EN/ES settings, manual test lifecycle.");}
+ internal static void Run(string root){Settings();Signals();HitLabels();Bursts();LateEnable();string folder=Path.Combine(root,"designs");References(folder);BurstReference(folder);NativePixels(root);CombatLog(root);using(var owner=new EnergyOverlay(root,true)){Native(owner,root);var c=owner.Configuration;c.FloatingText.Enabled=true;owner.ApplyConfiguration(c);var form=new HelperSettings(owner);try{form.VerifyFloatingText(root);}finally{form.Close();}owner.FloatingText.ToggleTest(0);Check(owner.FloatingText.Testing,"Manual preview starts");owner.FloatingText.StopTest();Check(!owner.FloatingText.Testing,"Same preview can be stopped");var saved=owner.Configuration;owner.ApplyConfiguration(saved);Check(!owner.FloatingText.Testing,"Settings do not restart tests");}File.WriteAllText(Path.Combine(root,"floating-text-test.txt"),"PASS: exact own/incoming/healing routing, explicit critical !!, opt-in hit labels and separate critical styling, ignored bystanders/outgoing heals/unknown types, periodic families, flow/map/identity reset, stale rejection, queue cap, malformed frames, isolated mode, independent persistence/copy/undo, fade/direction, rendered references and EN/ES settings, manual test lifecycle.");}
 }
