@@ -13,14 +13,31 @@ internal sealed class PlayerVitalSignal {
         internal readonly PlayerShieldSignal Shields=new PlayerShieldSignal();
         internal uint Self,Map;
         internal uint? Hp,HpMaximum,Mp,MpMaximum;
+        internal uint? Flight,FlightMaximum;
+        internal double FlightTime,FlightIncrease;
         internal double Traffic,ProfileTime,HpTime,MpTime;
         internal string LastClear="New connection";
         internal double ClearedAt;
-        internal void Clear(string reason,double time){Self=0;Hp=HpMaximum=Mp=MpMaximum=null;ProfileTime=HpTime=MpTime=0;Shields.Clear();LastClear=reason;ClearedAt=time;}
+        internal void ClearFlight(){Flight=FlightMaximum=null;FlightTime=FlightIncrease=0;}
+        internal bool UpdateFlight(uint? current,uint? maximum,double time){
+            if(time<FlightTime||(!current.HasValue&&!maximum.HasValue))return false;
+            bool maxChanged=maximum.HasValue&&FlightMaximum.HasValue&&maximum!=FlightMaximum;
+            if(maxChanged)FlightIncrease=0;
+            if(current.HasValue){
+                if(current<Flight)FlightIncrease=0;
+                else if(current>Flight&&!maxChanged)FlightIncrease=time;
+                Flight=current;
+            }
+            if(maximum.HasValue)FlightMaximum=maximum;
+            FlightTime=time;
+            return true;
+        }
+        internal void Clear(string reason,double time){Self=0;Hp=HpMaximum=Mp=MpMaximum=null;ProfileTime=HpTime=MpTime=0;ClearFlight();Shields.Clear();LastClear=reason;ClearedAt=time;}
     }
     internal struct Points {
         internal uint Actor;
         internal uint? Hp,HpMaximum,Mp,MpMaximum;
+        internal uint? Flight,FlightMaximum;
         internal bool Energy;
     }
     readonly object gate=new object();
@@ -42,6 +59,10 @@ internal sealed class PlayerVitalSignal {
                 // Controlled 4620 -> 4591 change matched both the game UI and
                 // the next own profile. Kind8 is an explicit MP maximum.
                 if(width==4&&kind==8){if(value<=0||value>10000000||result.MpMaximum.HasValue)return false;result.MpMaximum=(uint)value;}
+                // Flight and landing changed kind 6. Equipping wings sent kind 13
+                // at 350000, matching 3500 in the UI and the next full recharge.
+                if(width==4&&kind==6&&value>=0&&value<=100000000)result.Flight=(uint)value;
+                if(width==4&&kind==13&&value>0&&value<=100000000)result.FlightMaximum=(uint)value;
                 if(width==8&&(kind==0||kind==7)){
                     if(value<0||value>1000000000||(kind==7&&value==0))return false;
                     if(kind==0){if(result.Hp.HasValue)return false;result.Hp=(uint)value;}
@@ -66,8 +87,9 @@ internal sealed class PlayerVitalSignal {
             if(op==0x3336){
                 EnemyTargetSignal.Player player;
                 if(EnemyTargetSignal.PlayerState(b,start,end,true,out player)&&time>=f.ProfileTime){
-                    if(f.Self!=player.Actor)f.Shields.Clear();
+                    if(f.Self!=player.Actor){f.Shields.Clear();f.ClearFlight();}
                     f.Self=player.Actor;f.Hp=player.Current;f.HpMaximum=player.Maximum;f.Mp=player.Mana;f.MpMaximum=player.ManaMaximum;
+                    f.UpdateFlight(player.Flight,player.FlightMaximum,time);
                     f.ProfileTime=f.HpTime=f.MpTime=time;active=key;changed=true;
                 }
             }else if(op==0x2136&&end-start==48&&BitConverter.ToUInt32(b,start+2)<=10000){
@@ -91,6 +113,7 @@ internal sealed class PlayerVitalSignal {
                             if(points.Hp.HasValue)f.Hp=points.Hp;if(points.HpMaximum.HasValue)f.HpMaximum=points.HpMaximum;f.HpTime=time;changed=true;
                         }
                         if(time>=f.MpTime&&(points.Mp.HasValue||points.MpMaximum.HasValue)){if(points.Mp.HasValue)f.Mp=points.Mp;if(points.MpMaximum.HasValue)f.MpMaximum=points.MpMaximum;f.MpTime=time;changed=true;}
+                        changed=f.UpdateFlight(points.Flight,points.FlightMaximum,time)||changed;
                     }
                 }
             }else if(op==0x1b92){
@@ -124,5 +147,20 @@ internal sealed class PlayerVitalSignal {
         }
     }
     internal Sample Read(bool mana,double now){return ReadView(mana,now).Value;}
+    internal struct FlightReading {
+        internal uint Current,Maximum;
+        internal double Time;
+        internal bool Recharging;
+        internal bool Known {get{return Maximum!=0;}}
+    }
+    internal FlightReading ReadFlight(double now){
+        lock(gate){
+            Flow f;
+            if(!enabled||active==null||!flows.TryGetValue(active,out f)||f.Self==0||now-f.Traffic>5
+                ||!f.Flight.HasValue||!f.FlightMaximum.HasValue||f.Flight.Value>f.FlightMaximum.Value)return new FlightReading();
+            bool recovering=f.FlightIncrease>0&&(f.Flight==f.FlightMaximum||now-f.FlightIncrease<=3);
+            return new FlightReading{Current=f.Flight.Value,Maximum=f.FlightMaximum.Value,Time=f.FlightTime,Recharging=recovering};
+        }
+    }
     internal object Diagnostics(bool mana,double now){return ReadView(mana,now).Diagnostics();}
 }

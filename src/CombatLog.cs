@@ -272,7 +272,7 @@ internal sealed class CombatLogOverlay : IDisposable {
         if(now<nextMaintenance&&ReferenceEquals(lastOptions,o)&&wasEditing==editing&&language==owner.Language)return;
         lastOptions=o;
         bool game=o.Enabled&&!isolated&&FloatingTextService.GameForeground();
-        bool show=o.Enabled&&!isolated&&(game||editing)&&!DpsDesign.ShellUiActive();
+        bool show=o.Enabled&&!isolated&&(game||editing)&&!owner.WidgetsSuppressed&&!DpsDesign.ShellUiActive();
         NextInterval=250;
         nextMaintenance=now+.25;
         if (!show) { window.HideOverlay(); return; }

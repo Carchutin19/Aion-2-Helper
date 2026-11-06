@@ -4,7 +4,7 @@
 
 [🧭 Public roadmap](ROADMAP.md) · [Latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Report an issue](https://github.com/Carchutin19/Aion-2-Helper/issues)
 
-**Alpha software — actively in development.** Player HP/MP, XP, Energy/Stagger and experimental Our target/Target of target progress bars, Combat Power and FPS/Ping widgets and a
+**Alpha software — actively in development.** Player HP/MP, XP, Energy, Flight Energy, Stagger and experimental Our target/Target of target progress bars, Combat Power and FPS/Ping widgets and a
 DPS Meter in **Beta**, pet collection and an offline atlas, scheduled Rift notifications, a gathering overlay, floating combat text, an experimental skill Hotbar with character presets, and optional intro/visual tweaks are available now. **The DPS Meter is in Beta and still incomplete: combat
 data is partial, some events are not yet supported, and we are actively working
 on broader coverage and validation.** Behavior may vary between PCs and game
@@ -18,19 +18,42 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.24.0 release — Combat Log, DPS Estimates & Performance](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.24.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.24.0/Aion-2-Helper-v1.24.0-windows-x64.zip).
+The [v1.25.0 release — Flight Energy & Overlay Visibility](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.25.0/Aion-2-Helper-v1.25.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
-for player HP/MP, Experience, Combat Power, Energy/Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
+for player HP/MP, Experience, Combat Power, Energy, Flight Energy, Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
-This helps the helper receive your character's initial HP/MP and maximum-stamina
-stats when you enter the world. Opening it after character entry can miss that stat and leave
+This helps the Helper receive your character's initial HP/MP, Flight Energy and
+maximum stamina when you enter the world. Opening it after character entry can miss that stat and leave
 a saved/default reference that may affect auto-hide. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
+
+## Discord
+
+Join the [Aion 2 Helper Discord community](https://discord.gg/yf7SDZMyd8) to stay
+up to date with new releases, share feedback, report issues and chat with other
+players. We'd love to hear your ideas and help shape the next updates together!
+
+## Support the project ☕
+
+Enjoying Aion 2 Helper? Donations are welcome — coffee is our favorite buff! ☕
+
+Support is completely optional. The app is free to use, and feedback, bug reports,
+or a friendly thank-you are always appreciated too.
+
+You can support the project through **Donations** on the
+[Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.25.0
+
+- **Progress bar → Flight Energy** adds a customizable bar with live values. Show it only while recharging and optionally hide it at 100% after a configurable delay. Changes to maximum Flight Energy, including from wings, are reflected automatically.
+- **General → Show widgets only when Aion is in the foreground** hides locked overlays when you switch away from the game. Unlock widgets to place and resize them anywhere.
+- **Windows tray menu** opens from the hidden-icons panel with the Helper's dark styling and its Settings, Lock/Unlock and Quit commands.
+- **Hidden Cube Radar** accumulates short movement updates and keeps the last verified travel direction while the position is available. The radar remains in testing.
 
 ## New in v1.24.0
 
@@ -79,43 +102,6 @@ changes during play are still updated automatically when the game sends them.
 
 See the [release notes](RELEASE-NOTES.md) for evidence and remaining limits.
 The executable is unsigned; Windows may still show a SmartScreen reputation warning.
-
-## Moving your configuration to a new version
-
-**The built-in updater preserves your settings automatically.** If you extract
-a new version into a different folder, close the Helper first, keep a backup of
-the old folder and copy these existing files beside the new `Aion2Helper.exe`:
-
-| File | Contents |
-| :--- | :--- |
-| `overlay-settings.json` | Widget settings, positions, colors, sizes and visibility. |
-| `hotbar-profiles.json` | Hotbar layouts/labels per character and server. |
-| `pets-state.json` | Saved pet collection records and pins. |
-
-Skip files that do not exist. Optional files are `combat-history*.json*` for
-combat history, `update-settings.json` for update preferences, and
-`game-launch.json`, `game-tweaks.json` and `visual-tweaks.json` for local
-installation/launch/tweak preferences. Machine-specific paths may need to be
-selected again on another PC. Game-tweak backup files remain in
-`%LOCALAPPDATA%\Aion2Helper`; copying preferences alone does not transfer them.
-This is separate from the game's HUD export/import workflow. Do not share
-personal configuration publicly without checking its contents.
-
-## Discord
-
-Join the [Aion 2 Helper Discord community](https://discord.gg/yf7SDZMyd8) to stay
-up to date with new releases, share feedback, report issues and chat with other
-players. We'd love to hear your ideas and help shape the next updates together!
-
-## Support the project ☕
-
-Enjoying Aion 2 Helper? Donations are welcome — coffee is our favorite buff! ☕
-
-Support is completely optional. The app is free to use, and feedback, bug reports,
-or a friendly thank-you are always appreciated too.
-
-You can support the project through **Donations** on the
-[Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
 
 ## New in v1.21.0: Floating Combat Text
 
@@ -927,6 +913,27 @@ These are development goals, **not features included in the current version**:
 
 The availability and scope of future modules depend on what can be reliably read
 or measured. They are not included in the current build.
+
+## Moving your configuration to a new version
+
+**The built-in updater preserves your settings automatically.** If you extract
+a new version into a different folder, close the Helper first, keep a backup of
+the old folder and copy these existing files beside the new `Aion2Helper.exe`:
+
+| File | Contents |
+| :--- | :--- |
+| `overlay-settings.json` | Widget settings, positions, colors, sizes and visibility. |
+| `hotbar-profiles.json` | Hotbar layouts/labels per character and server. |
+| `pets-state.json` | Saved pet collection records and pins. |
+
+Skip files that do not exist. Optional files are `combat-history*.json*` for
+combat history, `update-settings.json` for update preferences, and
+`game-launch.json`, `game-tweaks.json` and `visual-tweaks.json` for local
+installation/launch/tweak preferences. Machine-specific paths may need to be
+selected again on another PC. Game-tweak backup files remain in
+`%LOCALAPPDATA%\Aion2Helper`; copying preferences alone does not transfer them.
+This is separate from the game's HUD export/import workflow. Do not share
+personal configuration publicly without checking its contents.
 
 ## Getting started
 

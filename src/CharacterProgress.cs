@@ -339,6 +339,7 @@ internal sealed class MovableOverlayWindow : Form {
     internal Action<double> ScrollPosition;
     bool scrolling;
     internal bool IsScrolling {get{return scrolling;}}
+    internal Rectangle PresentedBounds {get{return presented;}}
     internal Action<Rectangle> Moved;
     internal Func<Size,Size> LimitResize;
 
@@ -542,7 +543,7 @@ internal sealed class CharacterProgressWidgets : IDisposable {
             StatusKey = "disabled";
             return;
         }
-        bool shell = (o.Power.Enabled || o.Experience.Enabled) && DpsDesign.ShellUiActive();
+        bool shell = (o.Power.Enabled || o.Experience.Enabled) && (owner.WidgetsSuppressed || DpsDesign.ShellUiActive());
         ulong? number = live == null ? null : o.AlternatePower ? live.Secondary : live.Primary;
         if (editing && !number.HasValue) number = o.AlternatePower ? 1248ul : 120ul;
         byte powerOpacity = o.Power.Enabled && !shell && (editing || live != null) ? (byte)255 : (byte)0;

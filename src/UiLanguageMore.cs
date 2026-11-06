@@ -12,7 +12,17 @@ internal static class UiLanguageMore {
  internal static bool TryText(string text,string language,out string result){Dictionary<string,string> map;result=null;return maps.TryGetValue(language,out map)&&map.TryGetValue(text,out result);}
  internal static bool TryEnglish(string text,out string result){return reverse.TryGetValue(text,out result);}
  internal static int Count(string language){Dictionary<string,string> map;return maps.TryGetValue(language,out map)?map.Count:0;}
- const string Data=@"Finishing diagnostic report|Diagnosebericht wird abgeschlossen|Finalisation du rapport de diagnostic|جارٍ إنهاء تقرير التشخيص
+ const string Data=@"Show widgets only when Aion is in the foreground|Widgets nur anzeigen, wenn Aion im Vordergrund ist|Afficher les widgets uniquement quand Aion est au premier plan|عرض الأدوات فقط عندما يكون Aion في المقدمة
+Unlocked widgets stay visible so you can move and resize them.|Entsperrte Widgets bleiben sichtbar, damit du sie verschieben und skalieren kannst.|Les widgets déverrouillés restent visibles pour que tu puisses les déplacer et les redimensionner.|تظل الأدوات غير المقفلة مرئية لتتمكن من نقلها وتغيير حجمها.
+Flight Energy|Flugenergie|Énergie de vol|طاقة الطيران
+Enable Flight Energy|Flugenergieleiste aktivieren|Activer la barre d’énergie de vol|تفعيل شريط طاقة الطيران
+Flight energy and recovery|Flugenergie und Regeneration|Énergie de vol et récupération|طاقة الطيران واستعادتها
+Show only while recharging|Nur beim Aufladen anzeigen|Afficher uniquement pendant la recharge|العرض أثناء الشحن فقط
+Shows when flight energy starts recovering. Unlocked widgets stay visible.|Wird angezeigt, sobald sich die Flugenergie regeneriert. Entsperrte Widgets bleiben sichtbar.|S’affiche quand l’énergie de vol commence à se régénérer. Les widgets déverrouillés restent visibles.|يظهر عند بدء استعادة طاقة الطيران. تظل الأدوات غير المقفلة مرئية.
+If flight energy is missing, open the Helper before entering your character so it can receive the maximum.|Falls die Flugenergie fehlt, öffne den Helper vor dem Einloggen mit deinem Charakter, damit er den Maximalwert empfängt.|Si l’énergie de vol manque, ouvre le Helper avant de connecter ton personnage pour recevoir la valeur maximale.|إذا كانت بيانات طاقة الطيران مفقودة، افتح Helper قبل الدخول بشخصيتك لتلقي القيمة القصوى.
+Flight Energy disabled|Flugenergieleiste deaktiviert|Barre d’énergie de vol désactivée|شريط طاقة الطيران معطّل
+Waiting for flight energy data|Warte auf Flugenergiedaten|En attente des données d’énergie de vol|بانتظار بيانات طاقة الطيران
+Finishing diagnostic report|Diagnosebericht wird abgeschlossen|Finalisation du rapport de diagnostic|جارٍ إنهاء تقرير التشخيص
 Starting diagnostics|Diagnose wird gestartet|Démarrage du diagnostic|جارٍ بدء التشخيص
 Could not write the diagnostic report. Check that the Helper folder is writable.|Der Diagnosebericht konnte nicht gespeichert werden. Prüfe die Schreibrechte im Helper-Ordner.|Impossible d’enregistrer le rapport. Vérifiez les droits d’écriture du dossier du Helper.|تعذّر حفظ تقرير التشخيص. تأكد من إمكانية الكتابة في مجلد Helper.
 Floating Text|Kampftext|Texte flottant|نصوص القتال

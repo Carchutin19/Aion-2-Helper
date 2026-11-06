@@ -5,7 +5,7 @@ using System.Text;
 // Target-of-target uses received focus announcements for NPCs or selected
 // remote players. It never treats our Tab selection or an attack as their focus.
 internal sealed class EnemyTargetSignal {
-    internal sealed class Player {internal uint Actor,Current,Maximum,Mana,ManaMaximum;internal int StateOffset,RelationCandidate=-1,Faction,Server;internal uint ClassCode;internal string Name;internal double Time,Born;}
+    internal sealed class Player {internal uint Actor,Current,Maximum,Mana,ManaMaximum;internal uint? Flight,FlightMaximum;internal int StateOffset,RelationCandidate=-1,Faction,Server;internal uint ClassCode;internal string Name;internal double Time,Born;}
     sealed class Focus {internal uint Target;internal double Time;}
     sealed class Flow {internal readonly Dictionary<uint,Player> Players=new Dictionary<uint,Player>();internal readonly Dictionary<uint,Focus> Targets=new Dictionary<uint,Focus>();internal uint Map,Self;internal double Traffic;}
     readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();volatile bool enabled;
@@ -22,17 +22,24 @@ internal sealed class EnemyTargetSignal {
         // the original boundary and a one-byte longer variant (Abyss own/remote
         // captures). Decode only these bounded layouts, with complete field
         // validation. An ambiguous result is unknown, never a guessed maximum.
-        Player original,extended;bool first=ReadPlayerState(b,at,end,actor,name,out original),second=ReadPlayerState(b,at+1,end,actor,name,out extended);
+        Player original,extended;bool first=ReadPlayerState(b,at,end,actor,name,own,out original),second=ReadPlayerState(b,at+1,end,actor,name,own,out extended);
         if(first==second)return false;player=first?original:extended;player.RelationCandidate=candidate;player.Faction=faction;player.Server=server;player.ClassCode=classCode;return true;
     }
-    static bool ReadPlayerState(byte[] b,int at,int end,uint actor,string name,out Player player){
+    static bool ReadPlayerState(byte[] b,int at,int end,uint actor,string name,bool own,out Player player){
         player=null;if(at<0||at>end-20)return false;int flags=BitConverter.ToUInt16(b,at),p=at+2;
         for(int n=0;n<4;n++){float v=BitConverter.ToSingle(b,p+4*n);if(float.IsNaN(v)||float.IsInfinity(v)||Math.Abs(v)>(n==3?720:1000000))return false;}
         p+=18;int[] bits={1,2,4,8,16,32},lengths={12,4,2,12,12,4};
         for(int i=0;i<bits.Length;i++)if((flags&bits[i])!=0){if(p>end-lengths[i])return false;p+=lengths[i];}
         uint current,max;if(p>=end||b[p++]>3||!DpsSignal.Var(b,ref p,end,out current)||!DpsSignal.Var(b,ref p,end,out max)||max==0||max>1000000000||current>max||p>end-52)return false;
         uint mp=BitConverter.ToUInt32(b,p),mpmax=BitConverter.ToUInt32(b,p+4);if(mpmax==0||mpmax>10000000||mp>mpmax)return false;
-        player=new Player{Actor=actor,Name=name,Current=current,Maximum=max,Mana=mp,ManaMaximum=mpmax,StateOffset=at};return true;
+        player=new Player{Actor=actor,Name=name,Current=current,Maximum=max,Mana=mp,ManaMaximum=mpmax,StateOffset=at};
+        // Relative to the validated resource block, including variable-length HP.
+        // Own profiles carry partial and full flight values even without 008D.
+        if(own){
+            uint flight=BitConverter.ToUInt32(b,p+44),flightMax=BitConverter.ToUInt32(b,p+48);
+            if(flightMax>0&&flightMax<=100000000&&flight<=flightMax){player.Flight=flight;player.FlightMaximum=flightMax;}
+        }
+        return true;
     }
     static void Trim(Flow f,uint incoming){if(f.Players.ContainsKey(incoming)||f.Players.Count<256)return;uint remove=0;double oldest=double.MaxValue;foreach(var pair in f.Players)if(pair.Key!=f.Self&&pair.Value.Time<oldest){remove=pair.Key;oldest=pair.Value.Time;}if(remove!=0)f.Players.Remove(remove);}
     internal void Consume(byte[] b,int start,int end,double time,string key){if(!enabled||b==null||start<0||end>b.Length||end-start<2||end-start>65536||key==null||double.IsNaN(time)||double.IsInfinity(time))return;lock(gate){if(!enabled)return;Flow f;if(!flows.TryGetValue(key,out f)){if(flows.Count>=4){string remove=null;double oldest=double.MaxValue;foreach(var pair in flows)if(pair.Value.Traffic<oldest){oldest=pair.Value.Traffic;remove=pair.Key;}if(remove!=null)flows.Remove(remove);}flows[key]=f=new Flow();}if(f.Traffic>0&&time-f.Traffic>30){f.Players.Clear();f.Targets.Clear();f.Self=0;}f.Traffic=Math.Max(f.Traffic,time);int op=(b[start]<<8)|b[start+1],p=start+2;uint actor,target;uint? current,max;bool energy;Player player;

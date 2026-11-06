@@ -342,7 +342,7 @@ internal sealed class FpsOverlay:Form {
         long now=Stopwatch.GetTimestamp();
         bool completed=now<benchmarkNoticeUntil;
         int? seconds=benchmarking?monitor.BenchmarkSeconds:null;
-        if((completed||seconds.HasValue)&&FloatingTextService.GameForeground()){
+        if((completed||seconds.HasValue)&&!owner.WidgetsSuppressed&&FloatingTextService.GameForeground()){
             string text=UiLanguage.Text(completed?"You can return to the Helper":"Measuring FPS…",owner.Language);
             if(seconds.HasValue)text+="  ·  "+TimeSpan.FromSeconds(seconds.Value).ToString(@"mm\:ss",CultureInfo.InvariantCulture);
             var screen=Screen.FromHandle(FpsBenchmarkWorker.GetForegroundWindow()).WorkingArea;
@@ -373,7 +373,11 @@ internal sealed class FpsOverlay:Form {
         int interval=benchmarking||benchmarkNoticeUntil!=0?250:ReadingStatus=="Waiting for Aion 2"?Math.Max(1000,options.RefreshIntervalMs):options.RefreshIntervalMs;if(timer.Interval!=interval)timer.Interval=interval;
         DrawValue(value);
     }
-    void DrawValue(int? value){if(rendering)return;rendering=true;
+    internal void RefreshVisibility(){
+        if(benchmarking||benchmarkNoticeUntil!=0)UpdateBenchmarkBanner();
+        if(options.Enabled)DrawValue(Value);
+    }
+    void DrawValue(int? value){if(owner.WidgetsSuppressed){if(Visible)Hide();return;}if(rendering)return;rendering=true;
         try{bool changed=!validImage||Width!=imageWidth||Height!=imageHeight||value!=imageValue||editing!=imageEditing;
             if(changed){string text=(value.HasValue?value.Value.ToString(CultureInfo.InvariantCulture):"\u2014")+(ping?" ms":" FPS");using(var bitmap=FpsDesign.Render(Width,Height,text,options,editing,workspace))image.Upload(bitmap);validImage=true;imageWidth=Width;imageHeight=Height;imageValue=value;imageEditing=editing;}
             if(changed||Left!=imageX||Top!=imageY||(!previewMode&&!Visible)){image.Present(Handle,Left,Top,255);imageX=Left;imageY=Top;}

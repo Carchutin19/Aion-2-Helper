@@ -107,8 +107,8 @@ internal sealed class ProgressLabelCache {
 }
 
 internal static class ProgressBarPreview {
-    internal static Bitmap Render(int width,double ratio,EnergyBarOptions o,StaggerCountdownOptions countdown,BarDesign.GlowWorkspace workspace){
-        var labels=ProgressBarText.Labels(o,true,(uint)Math.Round(100*ratio),100);int min=0,max=112;
+    internal static Bitmap Render(int width,double ratio,EnergyBarOptions o,StaggerCountdownOptions countdown,BarDesign.GlowWorkspace workspace,uint maximum=100){
+        var labels=ProgressBarText.Labels(o,true,(uint)Math.Round(maximum*ratio),maximum);int min=0,max=112;
         foreach(var label in labels){int y=(label.Position<3?26:64)+label.Offset;min=Math.Min(min,y);max=Math.Max(max,y+24);}
         int countdownY=countdown==null?0:(countdown.Position<3?0:88)+countdown.OffsetY;if(countdown!=null&&countdown.Enabled){min=Math.Min(min,countdownY);max=Math.Max(max,countdownY+24);}
         var result=new Bitmap(width+10,max-min,PixelFormat.Format32bppPArgb);using(var g=Graphics.FromImage(result)){g.Clear(Color.Transparent);g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;using(var bar=BarDesign.RenderEmissive(width,4,ratio,false,true,1,o,workspace))g.DrawImageUnscaled(bar,0,52-min);
@@ -154,14 +154,15 @@ internal sealed class StaggerOverlay:Form {
     StaggerOptions options=new StaggerOptions();bool editing,editingSample,disposed,dragging;int hit,wake;Point mouse;Rectangle original;string imageKey;byte alpha;Point location;double raise;
     internal StaggerOverlay(EnergyOverlay parent,StaggerSignal source,bool previewMode){owner=parent;signal=source;preview=previewMode;screenEffect=new StaggerScreenEffect(signal.Read,preview);signal.Changed=Wake;Text="Aion 2 Helper - Stagger";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;timer.Interval=250;timer.Tick+=delegate{Pulse();};}
     internal long EffectRevision {get{return screenEffect.Revision;}}
-    internal void TestScreenEffect(Rectangle area){screenEffect.Test(area);}
+    internal void TestScreenEffect(Rectangle area){if(!owner.WidgetsSuppressed)screenEffect.Test(area);}
     internal object ScreenEffectStatus {get{return screenEffect.Status;}}
     internal string ReadingStatus {get{var s=signal.Read();return !options.Bar.Enabled?"Stagger bar disabled":s==null?"Waiting for enemy stagger data":s.Current+" / "+s.Maximum;}}
     internal object Status {get{var s=signal.Read();double utc=DpsHistory.UtcNow();return new{enabled=options.Bar.Enabled,visible=Visible,visualPreviewOnly=options.Bar.Enabled&&editing&&!StaggerSignal.DisplayAvailable(s,utc),transportFlowId=SupportDiagnostics.FlowId(s==null?null:s.Flow),actor=s==null?0:s.Actor,current=s==null?0:s.Current,maximum=s==null?0:s.Maximum,state=s==null?(byte?)null:s.State,available=StaggerSignal.Available(s),groggy=s!=null&&s.Groggy,sampleAgeSeconds=s==null?(double?)null:utc-s.Time,trafficAgeSeconds=s==null?(double?)null:utc-s.Traffic,zeroAgeSeconds=s==null||!s.ZeroStarted.HasValue?(double?)null:Math.Max(0,utc-s.ZeroStarted.Value),visibilityReason=!options.Bar.Enabled?"disabled":DpsDesign.ShellUiActive()?"Windows shell in foreground":editing?"editing":s==null?"no gauge":!StaggerSignal.Fresh(s,utc)?"capture inactive":!StaggerSignal.Available(s)?"stagger phase unavailable":StaggerSignal.ZeroExpired(s,utc)?"zero gauge for five seconds":motion.Opacity<=0?"initial fade":"gauge available",selection="Last directly attacked enemy; latest gauge fallback before identification",confirmedTarget=s!=null&&s.ConfirmedTarget,depletionSerial=s==null?0:s.BurstSerial,screenEffect=screenEffect.Status,countdownEstimated=true,visualFillEstimated=s!=null&&StaggerDisplayProgress.Read(s,utc,options.Countdown.ReferenceSeconds).Refilling,displayedPercentage=motion.Value*100};}}
     Rectangle Core {get{return new Rectangle(Left+5,Top+5,Width-10,Height-10);}set{Bounds=new Rectangle(value.X-5,value.Y-5,value.Width+10,value.Height+10);}}
     internal void Configure(StaggerOptions next,bool locked){options=next.Copy();options.Normalize();editing=!locked;signal.Configure(options.Bar.Enabled&&!preview);screenEffect.Configure(options.ScreenEffect,options.Bar.Enabled,signal.Read());Core=options.Bounds;int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);imageKey=null;if(options.Bar.Enabled)timer.Start();else{timer.Stop();if(Visible)Hide();texts.Clear();}Pulse();}
     void Wake(){if(disposed||!IsHandleCreated||Interlocked.CompareExchange(ref wake,1,0)!=0)return;try{BeginInvoke((Action)delegate{Interlocked.Exchange(ref wake,0);Pulse();});}catch(InvalidOperationException){Interlocked.Exchange(ref wake,0);}}
-    void Pulse(){if(disposed||!options.Bar.Enabled)return;var s=signal.Read();double now=clock.Elapsed.TotalSeconds,utc=DpsHistory.UtcNow();bool known=StaggerSignal.Fresh(s,utc)&&StaggerSignal.Available(s);screenEffect.Observe(s,utc);
+    internal void RefreshVisibility(){Pulse();}
+    void Pulse(){if(disposed||!options.Bar.Enabled)return;var s=signal.Read();double now=clock.Elapsed.TotalSeconds,utc=DpsHistory.UtcNow();bool known=StaggerSignal.Fresh(s,utc)&&StaggerSignal.Available(s);if(owner.WidgetsSuppressed)screenEffect.Stop();else screenEffect.Observe(s,utc);
         bool sample=!preview&&editing&&!StaggerSignal.DisplayAvailable(s,utc);uint current=preview||sample?65u:known?s.Current:0,maximum=preview||sample?100u:known?s.Maximum:0;bool fresh=preview||known||sample;double ratio=maximum==0?0:(double)current/maximum;
         if(sample!=editingSample){editingSample=sample;motion.SnapValue(ratio);}
         var progress=StaggerDisplayProgress.Read(s,utc,options.Countdown.ReferenceSeconds);
@@ -169,7 +170,7 @@ internal sealed class StaggerOverlay:Form {
         // A linear countdown must reach its endpoint without smoothing lag.
         // Keep the visual motion value in sync for a seamless actual refill.
         if(!preview&&!sample&&progress.Refilling)motion.SnapValue(progress.Ratio);
-        bool visible=(editing||preview||StaggerSignal.DisplayAvailable(s,utc))&&motion.Opacity>0&&!DpsDesign.ShellUiActive();byte opacity=visible?(byte)Math.Round(motion.Opacity*255):(byte)0;
+        bool visible=(editing||preview||StaggerSignal.DisplayAvailable(s,utc))&&motion.Opacity>0&&!owner.WidgetsSuppressed&&!DpsDesign.ShellUiActive();byte opacity=visible?(byte)Math.Round(motion.Opacity*255):(byte)0;
         if(opacity==0){if(Visible)Hide();texts.Clear();}else{string key=Core.Size+"/"+(int)Math.Round(motion.Value*Core.Width)+"/"+BarDesign.EnergyColor(motion.Value,options.Bar).ToArgb()+"/"+editing+"/"+fresh;if(imageKey!=key){imageKey=key;using(var bitmap=BarDesign.RenderEmissive(Core.Width,Core.Height,motion.Value,editing,fresh,1,options.Bar,glow))image.Upload(bitmap);alpha=0;}if(alpha!=opacity||location!=Location||!Visible){image.Present(Handle,Left,Top,opacity);alpha=opacity;location=Location;}if(!Visible)Show();if(now>=raise){raise=now+1;OverlayNative.RaiseWithoutFocus(Handle);}
             texts.Update(Core,options.Bar,fresh,current,maximum,opacity,options.Countdown,sample?4.0:progress.Remaining);
         }

@@ -54,6 +54,22 @@ internal static class HiddenCubeVerification {
         var otherMovement=Move(12,1200,1000);otherMovement[0]=0x28;
         Feed(signal,otherMovement,118);
         Check(signal.Read(118).Distance<reading.Distance&&signal.Read(118).Direction.HasValue,"Radar follows the additional movement layouts supported by enemy distance");
+        Feed(signal,Map(1010),119);
+        Feed(signal,Move(12,1025,1000),119.1);
+        Feed(signal,Move(12,1050,1000),119.2);
+        Check(!signal.Read(119.2).Direction.HasValue,"Movement below the threshold does not establish a heading");
+        Feed(signal,Move(12,1075,1000),119.3);
+        reading=signal.Read(119.3);
+        Check(reading.Direction.HasValue&&reading.Direction.Value.Y<-.99,"Short samples accumulate into a verified heading");
+        Feed(signal,Move(12,1075,1000),125);
+        Check(signal.Read(125).Direction==reading.Direction,"Fresh stationary positions preserve the last verified heading");
+        Feed(signal,Move(12,1075,1025),125.1);
+        Feed(signal,Move(12,1075,1050),125.2);
+        Feed(signal,Move(12,1075,1075),125.3);
+        reading=signal.Read(125.3);
+        Check(reading.Direction.HasValue&&reading.Direction.Value.X<-.99,"A new sustained turn updates the heading");
+        Feed(signal,Move(12,6000,1075),126);
+        Check(signal.Read(126).Distance.HasValue&&!signal.Read(126).Direction.HasValue,"A position jump discards the old heading while preserving distance");
         signal.Reset();
         Check(signal.Read(110).Count==0,"Reset clears cube state");
         Check(HiddenCubeOverlay.Fade(0,true,.12,240)==.5&&HiddenCubeOverlay.Fade(1,false,.24,240)==0,"Fade in and out use the configured duration");
@@ -67,7 +83,7 @@ internal static class HiddenCubeVerification {
             try{form.VerifyHiddenCube(root);}finally{form.Close();}
         }
         if(fixture!=null)Replay(fixture);
-        File.WriteAllText(Path.Combine(root,"hidden-cube-test.txt"),"PASS: own-flow cube appearance, foreign and unrelated objects, stale position, multi-cube opening/removal, map reset, fade, preferences, localized preview"+(fixture==null?".":", and recorded Verteron lifecycle."));
+        File.WriteAllText(Path.Combine(root,"hidden-cube-test.txt"),"PASS: own-flow cube appearance, foreign and unrelated objects, stale position, multi-cube opening/removal, map reset, accumulated movement, stationary heading, turns, position jumps, fade, preferences, localized preview"+(fixture==null?".":", and recorded Verteron lifecycle."));
     }
     static void Replay(string fixture){
         var signal=new HiddenCubeSignal();signal.Configure(true);

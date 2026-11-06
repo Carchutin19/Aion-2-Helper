@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated November 5, 2026.**
+**Built with the community. Updated November 6, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -17,6 +17,7 @@
 
 | Feature | What is included | First release |
 | :--- | :--- | :---: |
+| **Foreground-only overlays** | Optional setting in General. Locked overlays hide when Aion loses focus. Unlock widgets to edit their layout outside the game. | [v1.25.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0) |
 | **VPN / ExitLag connection recovery** | Restores detection for verified alternate game connections. Confirmed on the affected ExitLag setup; other VPN/routing configurations remain under validation. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
 | **Custom HP & MP bars** | Independent live player bars; adjustable size, position, visibility, text, colors, glow and outlines. | [v1.15.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.15.0) |
 | **DPS text scaling** | Independent scaling for meter names, values, headings and tabs. | [v1.16.2](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.16.2) |
@@ -42,6 +43,9 @@ is described separately from cases that still need more testing.
 
 | Status | Report / correction | Update |
 | :--- | :--- | :---: |
+| ✅ Released | **Flight Energy missing after login:** reads the current value and maximum from the own-character profile, then applies live changes. The 2,500 → 3,500 wings change and subsequent full recharge were checked in game. | [v1.25.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0) |
+| 🟡 Correction released · live retest pending | **Hidden Cube Radar shows distance without a compass:** accumulates short movement samples and retains the last verified direction while a position is available. The radar remains in testing. | [v1.25.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0) |
+| 🟡 Investigating | **New Hotbar skill delayed inside an instance:** Illusory Clone appeared after leaving the instance, when the Helper received a fresh full bar. The assignment at unlock still needs investigation. | Ongoing |
 | ✅ Released | **Hotbar on new characters and when re-enabled:** checked the initial assignments, a level 3 skill unlock and the switch between skill presets 1 and 2. Re-enabling the Helper Hotbar restores the detected bar and preserves cooldown tracking. | [v1.23.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0) |
 | ✅ Confirmed in tested cases | **Assassin Q/E icons stuck on the base skill:** Q follows the verified stun trigger for **Shadow Fall**. E follows the verified critical-hit and evasion triggers for **Heart Gore** and **Whirlwind Slice**. The corrected build was confirmed in game and picked the expected icon before all 14 recorded casts in replay. Priority when two E variants are ready together still needs a live check. | [v1.23.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0) |
 | ✅ Confirmed in tested cases | **Enemy HP missing without target lock:** the health bar appears when landing a supported attack without locking the enemy. Confirmed in game with a normal enemy. | [v1.23.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0) |
@@ -53,7 +57,7 @@ is described separately from cases that still need more testing.
 | ✅ Confirmed | **Hotbar not populating on an affected PC:** corrected a supported assigned-skill record being rejected. Live skills and cooldowns were confirmed by the community tester. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | ✅ Confirmed | **Original hotbar hiding did not persist:** replaced automatic saved-settings edits with an original-preserving exported HUD copy. Import/select it in game, **Save and leave the editor**. The game can stay open; the companion confirmed this workflow works. [Guide](docs/HOTBAR.md). | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
 | ✅ Reviewed | **Crowded Hotbar/Pets Widget settings:** clearer section spacing, aligned controls and numbered HUD instructions. Collection and Atlas layouts are retained. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
-| 🟡 Change shipped; feedback welcome | **Tray menu closing too quickly:** switched to a reusable native context menu. Local command/lifetime checks passed; further Windows hidden-icon-panel confirmation is welcome. | [v1.19.1](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.19.1) |
+| ✅ Released | **Windows hidden-icons menu closes on right-click:** uses the native notification-area popup with the Helper's dark styling and existing commands. | [v1.25.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0) |
 | ✅ Confirmed in tested zones | **Abyss / Pesadilla recovery:** live entry/exit tests confirmed Pesadilla Hotbar recovery and Abyss HP/MP, focus and own pet soul notices. Other zone profiles remain under validation. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | ✅ Confirmed in tested cases | **Selected-player HP and target of target:** neutral players and normal 1v1 rivals now use received HP/focus. Neutral-player and 1v1 colors were visually confirmed. Hostile Abyss-player colors and other PvP/party modes remain unvalidated. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
 | ✅ Reproduction corrected | **NPC bars disappearing in crowded cities:** independent bounded NPC/player caches prevent player updates evicting stationary NPCs. Exact recorded comparison: 3/12 missing warehouse selections to 0/12; short live bars/colors check passed. Neutral NPC palette covers confirmed profiles only. | [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0) |
@@ -87,17 +91,23 @@ Released community features and corrections are listed above.
 | Status | Request | Intended scope |
 | :--- | :--- | :--- |
 | ✅ Available | **Staggered screen effect** | Optional centered animation, text/glow colors and Test effect; introduced in [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0). Preview approved and automatic-transition tests pass; separate controlled live trigger comparison remains pending. |
-| ⬜ Planned / feasibility to check | **Hide Helper overlays while game menus are open** | Explore reliable detection of the map, shops, manufacturing stations and other menus, then restore overlays on close. Coverage depends on which menu states can be detected; not included in v1.22.0. |
+| ⬜ Planned / feasibility to check | **Hide Helper overlays while game menus are open** | Explore reliable detection of the map, shops, manufacturing stations and other menus, then restore overlays on close. In-game menu detection remains a separate investigation from the released foreground-only setting. |
 | ⬜ Planned / feasibility to check | **Enemy status-effect visual removal** | Explore an option to hide visual effects associated with altered states/debuffs on enemies. Exact scope and compatibility need validation; this is separate from the existing selection-outline option. |
 | ✅ Available in v1.24.0 | **Real-time combat log** | Displays supported outgoing hits with configurable skill icons, names, damage and hit labels. New entries fade in and are briefly outlined. Includes configurable sizing, opacity, blur, inactivity timeout, entry order and scrollable recent history. Healing coverage remains planned. |
 | ✅ Available in v1.24.0 | **Estimated fight duration in the DPS Meter** | Shows an estimate beside elapsed time using recent HP loss. With multiple enemies, it prioritizes a single known boss or uses the locked target. Pauses or insufficient readings show a dash when there is a known subject. |
 | ⬜ Planned | **Snap alignment for overlay widgets** | Extend snap beyond individual Hotbar slots so movable widgets can align with one another while editing the layout. |
 | ✅ Available in v1.24.0 | **Hit direction in Floating Combat Text** | Optional Front, Back, Critical, Perfect and Double labels from supported combat events. Label appearance is adjustable, with separate controls for independently styled critical hits. |
 | 🟡 Ongoing | **FPS & GPU optimization** | A 60-second frame pacing test and reversible FPS limit are ready for comparison. See ongoing work above for validation status. |
-| 🟡 In testing | **Special chest radar / Hidden Cube Radar** | Detects supported hidden cubes in Verteron and fades the overlay in on detection. Live testing confirmed the alert. Distance, elevation and the arrow depend on confirmed player coordinates and direction of travel. Movement-reading changes are ready for another live check. |
+| 🟡 In testing | **Special chest radar / Hidden Cube Radar** | Detects supported hidden cubes in Verteron and fades the overlay in on detection. Live testing confirmed the alert. Distance, elevation and the arrow depend on confirmed player coordinates and direction of travel. [v1.25.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0) improves direction tracking. The compass still needs a live check at another cube. |
 | ⬜ Planned | **Controller support** | A system for integrating controller input with the Helper. |
 
 ## Personal roadmap
+
+### ✅ Released in [v1.25.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0) · November 6, 2026
+
+| Feature | What changed and what was checked |
+| :--- | :--- |
+| **Flight Energy bar** | Customizable bar under **Progress bar**, with an option to show it only during recovery and a configurable full-bar delay and fade. Flight, landing, recovery and the wings capacity change were checked in game. |
 
 ### ✅ Released in [v1.23.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.23.0) · November 4, 2026
 
@@ -110,6 +120,7 @@ Released community features and corrections are listed above.
 
 | Feature | Intended scope |
 | :--- | :--- |
+| **Hotbar availability and press feedback** | Investigate whether range and skill requirements can reliably dim unavailable skills, and add a visible press effect. |
 | **Player interaction menu** | A custom action menu for selected friendly or neutral players, with convenient access to supported interactions. |
 | **World-boss tracker** | Supported active-boss information, locations, timers based on detection time and optional notifications. |
 | **Custom cast bar** | A customizable casting-progress overlay with adjustable information, appearance, size and position. This is separate from Hotbar cooldowns. |

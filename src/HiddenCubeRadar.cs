@@ -39,6 +39,7 @@ internal sealed class HiddenCubeOptions {
 }
 
 internal sealed class HiddenCubeSignal {
+    const double MinHeadingStepSquared=75*75, MaxPositionStepSquared=4000*4000;
     internal struct Reading {
         internal int Count;
         internal double? Distance, Elevation;
@@ -50,11 +51,12 @@ internal sealed class HiddenCubeSignal {
     string active,name;
     uint map,self;
     double lastTraffic;
-    EnemyDetailReader.Position position, headingFrom;
+    EnemyDetailReader.Position position, headingAnchor;
+    PointF? heading;
     internal ClientPositionReader ClientPositions;
-    internal void Configure(bool value){lock(gate){if(enabled!=value){enabled=value;cubes.Clear();}}}
+    internal void Configure(bool value){lock(gate){if(enabled!=value){enabled=value;cubes.Clear();headingAnchor=position;heading=null;}}}
     internal void Reset(){lock(gate){active=null;map=self=0;name=null;lastTraffic=0;ClearLocation();}}
-    void ClearLocation(){cubes.Clear();position=headingFrom=new EnemyDetailReader.Position();}
+    void ClearLocation(){cubes.Clear();position=headingAnchor=new EnemyDetailReader.Position();heading=null;}
     // Verteron: local replay confirmed 1200039. The second template and
     // lifecycle are corroborated by dr89mh/aion2-cube-radar, docs/FINDINGS.md.
     static bool IsCube(uint template){return template==1200039||template==1200041;}
@@ -66,11 +68,21 @@ internal sealed class HiddenCubeSignal {
     }
     void UpdatePosition(EnemyDetailReader.Position next,double time,bool teleport=false){
         if(!next.Known||position.Known&&time<position.Time)return;
-        double dx=next.X-position.X,dy=next.Y-position.Y;
-        double distanceSquared=dx*dx+dy*dy;
-        if(teleport||!position.Known||time-position.Time>5||distanceSquared>16000000)headingFrom=new EnemyDetailReader.Position();
-        else if(distanceSquared>=5625)headingFrom=position;
         next.Time=time;
+        double dx=next.X-position.X,dy=next.Y-position.Y;
+        if(teleport||!position.Known||dx*dx+dy*dy>MaxPositionStepSquared){
+            heading=null;
+            headingAnchor=next;
+        }else if(time-position.Time>5){
+            headingAnchor=next;
+        }else{
+            // Accumulate small samples and keep the verified heading through stationary updates.
+            double x=next.X-headingAnchor.X,y=next.Y-headingAnchor.Y;
+            if(x*x+y*y>=MinHeadingStepSquared){
+                heading=new PointF((float)x,(float)y);
+                headingAnchor=next;
+            }
+        }
         position=next;
     }
     internal void Consume(byte[] b,int start,int end,double time,string flow){
@@ -147,8 +159,8 @@ internal sealed class HiddenCubeSignal {
             result.Elevation=(target.Z-position.Z)/100.0;
             // The top of the dial is the last observed direction of travel.
             // It does not depend on an assumed north axis or camera yaw.
-            if(headingFrom.Known&&now-headingFrom.Time<=5){
-                double fx=position.X-headingFrom.X,fy=position.Y-headingFrom.Y;
+            if(heading.HasValue){
+                double fx=heading.Value.X,fy=heading.Value.Y;
                 double tx=target.X-position.X,ty=target.Y-position.Y;
                 double length=Math.Sqrt((fx*fx+fy*fy)*(tx*tx+ty*ty));
                 if(length>1)result.Direction=new PointF((float)((fx*ty-fy*tx)/length),(float)(-(fx*tx+fy*ty)/length));

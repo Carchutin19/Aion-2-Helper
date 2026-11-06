@@ -35,7 +35,8 @@ internal sealed class RiftCounterOverlay:Form {
     internal void Configure(RiftCounterOptions next,bool locked){if(!RiftCounterOptions.SameAppearance(options,next)||language!=owner.Language||editing==locked)renderKey=null;options=next.Copy();options.Normalize();editing=!locked;language=owner.Language;Bounds=Fit(options.ActualBounds);int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);Present();}
     static Rectangle Fit(Rectangle b){var area=Screen.FromRectangle(b).WorkingArea;b.Width=Math.Min(b.Width,area.Width);b.Height=Math.Min(b.Height,area.Height);b.X=Math.Max(area.Left,Math.Min(area.Right-b.Width,b.X));b.Y=Math.Max(area.Top,Math.Min(area.Bottom-b.Height,b.Y));return b;}
     internal void Update(string text,bool show){remaining=text??"00:00";available=show;Present();}
-    void Present(){if(disposed)return;bool show=options.Enabled&&options.Opacity>0&&(editing||available)&&(!DpsDesign.ShellUiActive()||preview);if(!show){if(Visible)Hide();return;}string text=editing?"09:59":remaining,key=text+"/"+editing+"/"+Width+"/"+Height;
+    internal void RefreshVisibility(){Present();}
+    void Present(){if(disposed)return;bool show=options.Enabled&&options.Opacity>0&&(editing||available)&&!owner.WidgetsSuppressed&&(!DpsDesign.ShellUiActive()||preview);if(!show){if(Visible)Hide();return;}string text=editing?"09:59":remaining,key=text+"/"+editing+"/"+Width+"/"+Height;
         if(key!=renderKey){using(var bitmap=paint.Render(options,language,text,editing))image.Upload(bitmap);renderKey=key;alpha=0;}
         byte next=(byte)Math.Round(options.Opacity*2.55);if(alpha!=next||presented!=Location||!preview&&!Visible){image.Present(Handle,Left,Top,next);alpha=next;presented=Location;}if(!Visible&&!preview)Show();
     }
@@ -69,6 +70,7 @@ internal sealed class RiftService:IDisposable {
         if(now>=nextNotice){nextNotice=now.AddSeconds(60-now.Second).AddMilliseconds(-now.Millisecond);var notice=ledger.Poll(now,region,options.Rift,options.Enabled&&gameOpen);if(notice!=null){submitted++;lastNotice=notice.Closing?"closing":notice.Opening?"opening":"warning";if(emit!=null)emit(notice);else notifications.ShowRift(notice.Opening,notice.Minutes,notice.At,notice.Closing);}}
         counter.Update(active==null?null:RiftCalendar.Remaining(active.Closing,now),gameOpen&&active!=null);
     }
+    internal void RefreshVisibility(){counter.RefreshVisibility();}
     internal object Status {get{return new{region=Region,server=Identity.Server,scheduled=true,gameOpen=gameOpen,submittedNotifications=submitted,lastScheduledNotice=lastNotice,nextOpening=nextOpening.HasValue?nextOpening.Value.ToString("o"):null,opening=active==null?null:active.Opening.ToString("o"),closing=active==null?null:active.Closing.ToString("o"),ledgerError=ledger.Error,counter=counter.Status};}}
     public void Dispose(){if(disposed)return;disposed=true;counter.Dispose();}
 }

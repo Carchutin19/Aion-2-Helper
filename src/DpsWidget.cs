@@ -282,9 +282,10 @@ internal sealed class DpsOverlay:Form {
     internal string ReadingStatus {get{return signal.Read((DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds).Status;}}
     internal object WindowStatus {get{return new{visible=Visible,opacity=motion.Opacity,x=Left,y=Top,width=Width,height=Height,backgroundBlur=options.BackgroundBlur,compositionAccepted=blurApplied,backdropFailure=backdrop==null?null:backdrop.Failure};}}
     void HideBackdrop(){blurApplied=false;if(backdrop!=null)backdrop.Sync(Rectangle.Empty,0,IntPtr.Zero,false);}
+    internal void RefreshVisibility(){UpdateWidget();}
     void UpdateWidget(){if(closing||rendering||!options.Enabled)return;rendering=true;try{long tick=Stopwatch.GetTimestamp();double now=tick/(double)Stopwatch.Frequency;
         if(preview||cached==null||now>=nextPoll){double utc=(DateTime.UtcNow-new DateTime(1970,1,1)).TotalSeconds;cached=signal.Read(utc);motion.Set(cached,options,now,utc);nextPoll=now+options.RefreshIntervalMs/1000.0;}
-        bool shell=!preview&&DpsDesign.ShellUiActive();bool barsChanged=motion.Step(now,editing||preview,options);var s=cached;double stamp=Math.Round(s.Duration,1);bool panelChanged=!valid||revision!=s.Revision||duration!=stamp||status!=s.Status||lastEstimate.Subject!=s.Estimate.Subject||lastEstimate.Seconds!=s.Estimate.Seconds;bool changed=panelChanged||barsChanged;byte alpha=(byte)Math.Round(motion.Opacity*255);
+        bool shell=owner.WidgetsSuppressed||!preview&&DpsDesign.ShellUiActive();bool barsChanged=motion.Step(now,editing||preview,options);var s=cached;double stamp=Math.Round(s.Duration,1);bool panelChanged=!valid||revision!=s.Revision||duration!=stamp||status!=s.Status||lastEstimate.Subject!=s.Estimate.Subject||lastEstimate.Seconds!=s.Estimate.Seconds;bool changed=panelChanged||barsChanged;byte alpha=(byte)Math.Round(motion.Opacity*255);
         if(changed&&(alpha>0||preview)&&!shell){if(panelChanged)workspace.ReplacePanel(DpsDesign.Render(Width,Height,s,options,editing,language,workspace,null,false));using(var bitmap=DpsDesign.Compose(workspace,s,options,motion.Ratios))image.Upload(bitmap);revision=s.Revision;duration=stamp;status=s.Status;lastEstimate=s.Estimate;valid=true;}
         else if(changed)valid=false;
         if((alpha==0||shell)&&!preview){if(Visible)Hide();imageAlpha=-1;}

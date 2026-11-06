@@ -10,6 +10,67 @@ internal static class PlayerVitalVerification {
     static void Var(List<byte> b,uint value){do{byte n=(byte)(value&127);value>>=7;b.Add((byte)(n|(value>0?128:0)));}while(value>0);}
     static byte[] Delta(uint actor,uint? hp=null,uint? maximum=null,uint? mp=null,uint? mpMaximum=null){var b=new List<byte>{0,0x8d};Var(b,actor);b.Add((byte)((mp.HasValue||mpMaximum.HasValue?1:0)|(hp.HasValue||maximum.HasValue?2:0)));if(mp.HasValue||mpMaximum.HasValue){Var(b,(uint)((mp.HasValue?1:0)+(mpMaximum.HasValue?1:0)));if(mp.HasValue){b.Add(1);b.AddRange(BitConverter.GetBytes(mp.Value));}if(mpMaximum.HasValue){b.Add(8);b.AddRange(BitConverter.GetBytes(mpMaximum.Value));}}if(hp.HasValue||maximum.HasValue){Var(b,(uint)((hp.HasValue?1:0)+(maximum.HasValue?1:0)));if(hp.HasValue){b.Add(0);b.AddRange(BitConverter.GetBytes((long)hp.Value));}if(maximum.HasValue){b.Add(7);b.AddRange(BitConverter.GetBytes((long)maximum.Value));}}return b.ToArray();}
     static void Feed(PlayerVitalSignal s,byte[] b,double t,string flow="A"){s.Consume(b,0,b.Length,t,flow);}
+    static byte[] FlightPoint(uint actor,byte kind,uint value){
+        var bytes=new List<byte>{0,0x8d};Var(bytes,actor);bytes.AddRange(new byte[]{1,1,kind});bytes.AddRange(BitConverter.GetBytes(value));return bytes.ToArray();
+    }
+    static void VerifyFlightProfile(){
+        var signal=new PlayerVitalSignal();signal.Configure(true);
+        var profile=EnemyTargetVerification.Player(542,"Charlottia",7024,7024,true);
+        // The fixture's last 52 bytes are the resource block beginning at MP.
+        Buffer.BlockCopy(BitConverter.GetBytes(244000u),0,profile,profile.Length-8,4);
+        Buffer.BlockCopy(BitConverter.GetBytes(250000u),0,profile,profile.Length-4,4);
+        Feed(signal,profile,100);
+        var flight=signal.ReadFlight(100);
+        Check(flight.Current==244000&&flight.Maximum==250000&&!flight.Recharging,"Own profile initializes flight without a wings or recharge event");
+        Feed(signal,FlightPoint(542,6,248000),101);
+        Check(signal.ReadFlight(101).Recharging,"Flight deltas recover against the maximum from the profile");
+        Feed(signal,FlightPoint(542,13,350000),102);
+        Feed(signal,profile,101.5);
+        Check(signal.ReadFlight(102).Maximum==350000,"Older profile cannot undo the wings maximum");
+        var map=new byte[48];map[0]=0x21;map[1]=0x36;Buffer.BlockCopy(BitConverter.GetBytes(1010u),0,map,6,4);Feed(signal,map,103);
+        Buffer.BlockCopy(BitConverter.GetBytes(310019u),0,map,6,4);Feed(signal,map,107);
+        Check(!signal.ReadFlight(107).Known,"A map transition does not keep another actor's flight data");
+        Buffer.BlockCopy(BitConverter.GetBytes(350000u),0,profile,profile.Length-4,4);Feed(signal,profile,108);
+        Check(signal.ReadFlight(108).Maximum==350000,"The new zone profile restores the live maximum");
+    }
+    static void VerifyFlightEnergy(){
+        var signal=new PlayerVitalSignal();signal.Configure(true);
+        Feed(signal,EnemyTargetVerification.Player(542,"Charlottia",7024,7024,true),100);
+        var settings=new FlightEnergyOptions();settings.Bar.Enabled=true;
+        Feed(signal,FlightPoint(542,6,250000),101);
+        Check(!signal.ReadFlight(101).Known,"A high current value cannot stand in for the flight maximum");
+        Feed(signal,FlightPoint(542,13,250000),102);
+        Feed(signal,FlightPoint(542,6,63500),103);
+        Check(!FlightEnergyOverlay.ShowReading(signal.ReadFlight(103),settings),"Recharge-only hides the bar while consuming flight energy");
+        Feed(signal,FlightPoint(542,6,67500),104);
+        var recovery=signal.ReadFlight(104);
+        Check(recovery.Current==67500&&recovery.Maximum==250000&&FlightEnergyOverlay.ShowReading(recovery,settings),"Own absolute flight recovery makes the bar visible");
+        Feed(signal,FlightPoint(600,6,0),105);Feed(signal,FlightPoint(542,13,999999),105,"B");
+        Feed(signal,FlightPoint(542,6,63500),103);
+        Check(signal.ReadFlight(105).Current==67500&&signal.ReadFlight(105).Maximum==250000,"Ignore nearby players, foreign flows and late readings");
+        Check(!FlightEnergyOverlay.ShowReading(signal.ReadFlight(108),settings),"A stalled recharge must stop showing");
+        Feed(signal,FlightPoint(542,6,250000),109);
+        var full=signal.ReadFlight(109);
+        Check(FlightEnergyOverlay.ShowReading(full,settings),"A completed recharge allows the configured full hold and fade");
+        var motion=new BarMotion();motion.Step(0,true,true,.9,225000,250000,settings.Bar);
+        motion.Step(1,false,true,1,full.Current,full.Maximum,settings.Bar,-1,FlightEnergyOverlay.ShowReading(full,settings));
+        motion.Step(2.6,false,true,1,full.Current,full.Maximum,settings.Bar,-1,FlightEnergyOverlay.ShowReading(full,settings));
+        Check(motion.Opacity>0&&motion.Opacity<1,"The full hold is followed by the configured fade");
+        motion.Step(3,false,true,1,full.Current,full.Maximum,settings.Bar,-1,FlightEnergyOverlay.ShowReading(full,settings));
+        Check(motion.Opacity==0,"The full fade finishes");
+        settings.Bar.AutoHide=false;
+        Check(!FlightEnergyOverlay.ShowReading(full,settings),"Recharge-only also hides at the end with no full hold");
+        settings.RechargeOnly=false;
+        Check(FlightEnergyOverlay.ShowReading(full,settings),"With both filters disabled the full bar stays available");
+        Feed(signal,FlightPoint(542,13,350000),110);
+        Check(signal.ReadFlight(110).Current==250000&&signal.ReadFlight(110).Maximum==350000&&!signal.ReadFlight(110).Recharging,"Equipping wings changes capacity independently of the current value");
+        Feed(signal,FlightPoint(542,6,254000),111);
+        Check(signal.ReadFlight(111).Recharging,"The first recovery tick after equipping wings starts the recharge");
+        Feed(signal,FlightPoint(542,6,346000),133);
+        Feed(signal,FlightPoint(542,6,350000),134);
+        Check(signal.ReadFlight(134).Current==signal.ReadFlight(134).Maximum,"Flight energy fills to the new wings capacity");
+        signal.Reset();Check(!signal.ReadFlight(134).Known,"A reconnect clears flight stats");
+    }
     static void VerifyMpMaximum(){
         var s=new PlayerVitalSignal();s.Configure(true);double t=DpsHistory.UtcNow();Feed(s,EnemyTargetVerification.Player(13351,"Charlotta",12683,12683,true),t);
         Feed(s,Delta(13351,null,null,4620,4620),t+1);Check(s.Read(true,t+1)!=null&&s.Read(true,t+1).Current==4620&&s.Read(true,t+1).Maximum==4620,"Explicit MP maximum growth must not hide a valid current value");
@@ -40,7 +101,7 @@ internal static class PlayerVitalVerification {
     }}
     internal static void Run(string root){
         var inspected=PlayerVitalDesign.Measure(PlayerVitalOptions.Defaults(false),false,.8);File.WriteAllText(Path.Combine(root,"vital-layout.json"),new JavaScriptSerializer().Serialize(inspected.Captions.ConvertAll(c=>new{c.Text,c.Bounds,c.Size,c.Outline})));
-        Directory.CreateDirectory(Path.Combine(root,"designs"));VerifyMpMaximum();VerifySignal();VerifyNarrow(root);var json=new JavaScriptSerializer();var legacy=new Dictionary<string,object>();var hp=PlayerVitalOptions.Read(legacy,false);var mp=PlayerVitalOptions.Read(legacy,true);Check(!hp.Bar.Enabled&&!mp.Bar.Enabled&&hp.Bar.MediumColor!=mp.Bar.MediumColor,"New visual modules are independent opt-ins");
+        Directory.CreateDirectory(Path.Combine(root,"designs"));VerifyMpMaximum();VerifySignal();VerifyFlightEnergy();VerifyFlightProfile();VerifyNarrow(root);var json=new JavaScriptSerializer();var legacy=new Dictionary<string,object>();var hp=PlayerVitalOptions.Read(legacy,false);var mp=PlayerVitalOptions.Read(legacy,true);Check(!hp.Bar.Enabled&&!mp.Bar.Enabled&&hp.Bar.MediumColor!=mp.Bar.MediumColor,"New visual modules are independent opt-ins");
         hp.Current.FontSize=32;hp.Current.Outline.Width=3;hp.Maximum.OffsetY=12;hp.Bar.ScalePercent=155;hp.DisplayScale=.75;hp.Opacity=70;hp.Bar.AutoHide=true;var copy=hp.Copy();copy.Current.Outline.Width=6;copy.Maximum.OffsetY=44;Check(hp.Current.Outline.Width==3&&hp.Maximum.OffsetY==12,"Deep snapshots preserve independent caption outlines/offsets");var restored=PlayerVitalOptions.Read(json.Deserialize<Dictionary<string,object>>(json.Serialize(new{playerHealth=hp})),false);Check(PlayerVitalOptions.Same(hp,restored),"Full appearance/behavior configuration persists");
         var bad=PlayerVitalOptions.Defaults(false);bad.Current=null;bad.Bar=null;bad.DisplayScale=double.NaN;bad.Bounds=new Rectangle(0,0,0,0);bad.Normalize();Check(bad.Current!=null&&bad.Bar!=null&&bad.DisplayScale==1&&bad.Bounds.Width==80,"Malformed configuration has safe defaults");
         foreach(bool mana in new[]{false,true}){

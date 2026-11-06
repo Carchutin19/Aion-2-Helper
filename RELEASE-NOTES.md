@@ -1,3 +1,16 @@
+# Aion 2 Helper v1.25.0 Alpha — Flight Energy & Overlay Visibility
+
+- **Flight Energy** is now available under **Progress bar**. It shares the Energy Bar's appearance, text, position, size and animation controls. Enable **Show only while recharging** to keep it off while flying, and use **Auto-hide** to set a delay and fade at 100%. The bar reads the character's initial flight stats and live updates. We verified a maximum change from 2,500 to 3,500 after using wings and a full recharge at the new maximum.
+- **Foreground-only widgets.** In **General**, enable **Show widgets only when Aion is in the foreground**, below **Lock widgets**. Locked overlays hide when you switch to another app and reappear when you return. Unlocked widgets stay visible for positioning and resizing.
+- **Windows hidden-icons menu.** The tray icon uses the native Windows popup with the Helper's dark palette and green selection highlight. It retains **Settings**, **Lock/Unlock** and **Quit**.
+- **Hidden Cube Radar compass.** The radar now accumulates short movement samples and keeps the last verified travel direction while player position is available. The arrow uses direction of travel and the radar remains in testing.
+
+## Updating
+
+Use the built-in updater or extract the full ZIP into your existing Helper folder with the Helper closed. Keep your personal JSON files and open the Helper before launching Aion.
+
+---
+
 # Aion 2 Helper v1.24.0 Alpha — Combat Log, DPS Estimates & Performance
 
 - **Combat Log** lists supported outgoing hits with configurable skill icons, names, damage and hit labels. New hits fade in with a brief highlight. Choose where new entries appear, scroll through recent hits and set the inactivity timeout (30 seconds when enabled by default). The scrollbar keeps the log visible while you review it. Width, height, opacity and blur are adjustable.
