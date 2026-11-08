@@ -250,6 +250,7 @@ internal sealed class CombatLogOverlay : IDisposable {
             int max=MaxOffset(displayed.Bounds.Height);
             Scroll((int)Math.Round(max*(displayed.NewestAtBottom?1-position:position)));
         };
+        window.SnapOwner=owner;
         window.Moved=delegate(Rectangle bounds) {
             var cfg=owner.Configuration;
             cfg.CombatLog.Bounds=bounds;

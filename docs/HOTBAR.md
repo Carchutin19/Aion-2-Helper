@@ -11,11 +11,24 @@ mostrar una barra propia y ocultar, por separado, las barras originales de AION 
    slot por separado o marcar **Ocultar este slot**.
 4. El **snap** alinea slots cercanos por cualquier lado. **Separación entre slots**
    establece el hueco al ajustar u ordenar. Puedes desactivar el snap.
+5. En **General**, **Alinear widgets entre sí** permite encajar la hotbar con
+   otros widgets. **Mostrar cuadrícula** añade una guía con opacidad ajustable.
+   El ajuste entre slots se configura por separado en **Hotbar**.
 
 Solo se muestran habilidades asignadas detectadas; se omiten objetos y huecos
 vacíos. Los números de los slots son etiquetas consecutivas del Helper, no teclas
 detectadas. Puedes sustituir cada etiqueta por la tecla que usas.
 Si borras una etiqueta personalizada, vuelve a aparecer su número automático.
+
+En **Hotbar → Apariencia**, activa **Animar pulsaciones y lanzamientos** para
+ver el borde amarillo. Introduce la tecla real de cada slot, por ejemplo **Q**,
+**F1**, **M1** para el clic izquierdo o **M2** para el derecho. Los lanzamientos
+confirmados también iluminan el slot, incluidos los de las macros del juego.
+Mantén AION 2 en primer plano y los widgets bloqueados.
+
+En las habilidades contextuales compatibles, el icono se oscurece mientras
+falta el requisito y el borde parpadea en verde al activarse. Cuando un combo
+cambia de habilidad, el icono se desliza dentro del slot.
 
 **Probar hotbar** muestra CD simulados que bajan, terminan y vuelven a empezar.
 El mismo botón pasa a llamarse **Detener prueba**. La prueba continúa hasta que

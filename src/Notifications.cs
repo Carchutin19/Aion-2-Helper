@@ -200,7 +200,8 @@ internal static class NotificationDesign {
     internal static Rectangle Resize(Rectangle start,Point delta,int hit){bool left=hit==10||hit==13||hit==16,right=hit==11||hit==14||hit==17,top=hit==12||hit==13||hit==14,bottom=hit==15||hit==16||hit==17;int width=Math.Max(260,Math.Min(1600,start.Width+2*(left?-delta.X:right?delta.X:0))),height=Math.Max(60,Math.Min(500,start.Height+2*(top?-delta.Y:bottom?delta.Y:0)));return new Rectangle(start.X+start.Width/2-width/2,start.Y+start.Height/2-height/2,width,height);}
 }
 
-internal sealed class NotificationOverlay:Form {
+internal sealed class NotificationOverlay:Form,IWidgetSnapTarget {
+    Rectangle IWidgetSnapTarget.SnapBounds {get{return Bounds;}}
     readonly EnergyOverlay owner;readonly NotificationSignal signal;readonly NotificationAudio audio;readonly LayeredImage image=new LayeredImage();readonly FpsDesign.Workspace workspace=new FpsDesign.Workspace();readonly NotificationMotion motion=new NotificationMotion();readonly Stopwatch clock=Stopwatch.StartNew();readonly Timer animation=new Timer();
     NotificationOptions options=new NotificationOptions();string name,language;bool editing,valid,disposed,dragging,isShugo,isShugoOpening,isDungeon,isRift,isRiftOpening,isRiftClosing;int riftMinutes=5;readonly Queue<RiftAlertLedger.Notice> pendingRifts=new Queue<RiftAlertLedger.Notice>();sealed class PendingNotice {internal string Player;internal bool Sound,Shugo,Opening,Dungeon;internal double At;}readonly Queue<PendingNotice> pendingNotices=new Queue<PendingNotice>();Rectangle dragStart;Point mouseStart;int hit,wakeQueued;byte shownAlpha;Point shownLocation;double nextMaintenance,lastRaise,dispatchedUtc,firstVisibleUtc,dispatchDelayMs;readonly bool preview;
     readonly ShugoSchedule shugoSchedule=new ShugoSchedule();readonly Timer hourly=new Timer();long shugoReminders;DateTime lastShugoUtc;
@@ -299,7 +300,7 @@ internal sealed class NotificationOverlay:Form {
         if((m.Msg==0xa5||m.Msg==0x205)&&editing){owner.OpenTrayMenu(Cursor.Position);m.Result=IntPtr.Zero;return;}
         if(m.Msg==0x84){if(!editing){m.Result=new IntPtr(-1);return;}Point p=PointToClient(new Point((short)(m.LParam.ToInt64()&0xffff),(short)((m.LParam.ToInt64()>>16)&0xffff)));m.Result=new IntPtr(BarDesign.HitTest(p.X,p.Y,Width,Height,6));return;}
         if(m.Msg==0xa1&&editing){hit=m.WParam.ToInt32();if(hit==2||hit>=10&&hit<=17){dragging=true;dragStart=Bounds;mouseStart=Cursor.Position;Capture=true;m.Result=IntPtr.Zero;return;}}
-        if(m.Msg==0x200&&dragging){Point delta=new Point(Cursor.Position.X-mouseStart.X,Cursor.Position.Y-mouseStart.Y);Rectangle previous=Bounds;Bounds=DpsDesign.UsableBounds(hit==2?new Rectangle(dragStart.X+delta.X,dragStart.Y+delta.Y,dragStart.Width,dragStart.Height):NotificationDesign.Resize(dragStart,delta,hit));if(Size!=previous.Size)valid=false;Pulse();m.Result=IntPtr.Zero;return;}
+        if(m.Msg==0x200&&dragging){Point delta=new Point(Cursor.Position.X-mouseStart.X,Cursor.Position.Y-mouseStart.Y);Rectangle previous=Bounds;Bounds=DpsDesign.UsableBounds(hit==2?owner.MoveWidget(this,dragStart,delta):NotificationDesign.Resize(dragStart,delta,hit));if(Size!=previous.Size)valid=false;Pulse();m.Result=IntPtr.Zero;return;}
         if((m.Msg==0x202||m.Msg==0xa2||m.Msg==0x215)&&dragging){dragging=false;Capture=false;SaveGeometry();m.Result=IntPtr.Zero;return;}
         if(m.Msg==0x46){var p=(OverlayNative.WindowPos)Marshal.PtrToStructure(m.LParam,typeof(OverlayNative.WindowPos));if((p.Flags&1)==0){p.Width=Math.Max(editing?260:80,Math.Min(1600,p.Width));p.Height=Math.Max(editing?60:20,Math.Min(editing?500:Screen.FromRectangle(options.Bounds).WorkingArea.Height,p.Height));Marshal.StructureToPtr(p,m.LParam,false);}}
         base.WndProc(ref m);

@@ -32,19 +32,45 @@ internal sealed class ClientPositionStream:IDisposable {
     readonly Dictionary<uint,byte[]> pending=new Dictionary<uint,byte[]>();readonly List<CipherFrame> waiting=new List<CipherFrame>();int waitingBytes;
     PositionRc4 cipher;internal readonly string ServerFlow;internal readonly int Pid;
     internal bool Handshake,Failed;internal string Error;internal long Frames,Positions;internal double Traffic,LastInput,LastObserved;internal Reading Latest;
+    internal int FirstPayloadBytes,FirstFrameBodyBytes,HelloCandidateBodyBytes,FirstEncryptedBodyBytes;
     internal ClientPositionStream(string server,int pid){ServerFlow=server;Pid=pid;}
     internal bool Ready {get{return cipher!=null&&!Failed;}}
     internal bool NeedsKey {get{return Handshake&&!Failed&&cipher==null&&waiting.Count>0;}}
     void Fail(string reason){Failed=true;Error=reason;Latest=null;if(cipher!=null){cipher.Dispose();cipher=null;}waiting.Clear();waitingBytes=0;pending.Clear();pendingBytes=0;Array.Clear(buffer,0,buffer.Length);count=0;}
     static int Length(byte[] data,int at,int end,out int body,out int finish){uint length=0;body=at;finish=at;for(int shift=0;shift<35;shift+=7){if(body>=end)return 0;byte b=data[body++];if(shift==28&&(b&240)!=0)return -1;length|=(uint)(b&127)<<shift;if(b<128){if(length<6||length>65535)return -1;finish=body+(int)length-4;return finish<=end?1:0;}}return -1;}
+    static bool HasRsaEnvelope(byte[] data,int tag,int end,uint length){
+        if(length<128||length>end-tag||end-tag<4||data[tag]!=0x30||data[tag+1]!=0x82)return false;
+        return 4+(data[tag+2]<<8)+data[tag+3]==length;
+    }
+    bool IsHandshake(int body,int end){
+        int size=end-body;
+        if(size<5||buffer[body]!=0x10||buffer[body+1]!=0x36)return false;
+        int tag=body+2;uint inner;
+        bool rsa=DpsSignal.Var(buffer,ref tag,end,out inner)&&HasRsaEnvelope(buffer,tag,end,inner);
+        if(rsa&&HelloCandidateBodyBytes==0)HelloCandidateBodyBytes=size;
+        // Current live setup adds a byte to the bounded 1036 envelope.
+        // Position data still requires validation of the encrypted setup.
+        if(size==284)return rsa;
+        if(size!=283)return false;
+        for(int k=0;k<HandshakePrefix.Length;k++)if(buffer[body+k]!=HandshakePrefix[k])return false;
+        return true;
+    }
     void Append(byte[] data,int offset){int n=data.Length-offset;if(n<=0)return;if(count+n>1048576){Fail("Client stream buffer limit reached");return;}if(buffer.Length<count+n)Array.Resize(ref buffer,Math.Min(1048576,Math.Max(buffer.Length*2,count+n)));Buffer.BlockCopy(data,offset,buffer,count,n);count+=n;}
-    internal void Consume(Segment segment,double time){if(Failed)return;LastInput=Math.Max(LastInput,time);uint sequence=segment.Seq;if((segment.Flags&2)!=0)sequence++;if(!started){next=sequence;started=true;}int delta=unchecked((int)(sequence-next));if(delta>0){byte[] old;if(pending.TryGetValue(sequence,out old))pendingBytes-=old.Length;pending[sequence]=segment.Data;pendingBytes+=segment.Data.Length;if(pending.Count>64||pendingBytes>262144)Fail("Missing client traffic; reconnect Aion for exact distance");return;}
+    internal void Consume(Segment segment,double time){if(Failed)return;LastInput=Math.Max(LastInput,time);uint sequence=segment.Seq;if((segment.Flags&2)!=0)sequence++;if(!started){next=sequence;started=true;FirstPayloadBytes=segment.Data.Length;}int delta=unchecked((int)(sequence-next));if(delta>0){byte[] old;if(pending.TryGetValue(sequence,out old))pendingBytes-=old.Length;pending[sequence]=segment.Data;pendingBytes+=segment.Data.Length;if(pending.Count>64||pendingBytes>262144)Fail("Missing client traffic; reconnect Aion for exact distance");return;}
         if(-delta<segment.Data.Length){Append(segment.Data,-delta);next=unchecked(sequence+(uint)segment.Data.Length);}if(Failed)return;
         while(pending.Count>0){uint first=0;int best=int.MaxValue;foreach(uint key in pending.Keys){int d=unchecked((int)(key-next));if(d<best){best=d;first=key;}}if(best>0)break;var data=pending[first];pending.Remove(first);pendingBytes-=data.Length;if(-best<data.Length){Append(data,-best);next=unchecked(first+(uint)data.Length);}if(Failed)return;}
         Cut(time);
     }
-    void Cut(double time){int at=0;if(!Handshake){bool found=false;for(int q=0;q<count;q++){int b,e;if(Length(buffer,q,count,out b,out e)!=1||e-b!=283||b>count-HandshakePrefix.Length)continue;bool same=true;for(int k=0;k<HandshakePrefix.Length;k++)if(buffer[b+k]!=HandshakePrefix[k]){same=false;break;}if(same){Handshake=found=true;at=e;break;}}if(!found){if(count>65536){Buffer.BlockCopy(buffer,count-65536,buffer,0,65536);count=65536;}return;}}
-        while(at<count){if(buffer[at]==0){at++;continue;}int body,end;int parsed=Length(buffer,at,count,out body,out end);if(parsed==0)break;if(parsed<0){Fail("Invalid client frame; reconnect Aion for exact distance");return;}var encrypted=new byte[end-body];Buffer.BlockCopy(buffer,body,encrypted,0,encrypted.Length);if(cipher==null){waiting.Add(new CipherFrame{Body=encrypted,Time=time});waitingBytes+=encrypted.Length;if(waitingBytes>1048576){Fail("Session key unavailable before buffer limit");return;}}else Decode(encrypted,time);at=end;}
+    void Cut(double time){int at=0;if(!Handshake){
+        bool found=false;
+        for(int q=0;q<count;q++){
+            int b,e;int frame=Length(buffer,q,count,out b,out e);
+            if(q==0&&FirstFrameBodyBytes==0&&e>b)FirstFrameBodyBytes=e-b;
+            if(frame==1&&IsHandshake(b,e)){Handshake=found=true;at=e;break;}
+        }
+        if(!found){if(count>65536){Buffer.BlockCopy(buffer,count-65536,buffer,0,65536);count=65536;}return;}
+    }
+        while(at<count){if(buffer[at]==0){at++;continue;}int body,end;int parsed=Length(buffer,at,count,out body,out end);if(parsed==0)break;if(parsed<0){Fail("Invalid client frame; reconnect Aion for exact distance");return;}var encrypted=new byte[end-body];Buffer.BlockCopy(buffer,body,encrypted,0,encrypted.Length);if(FirstEncryptedBodyBytes==0)FirstEncryptedBodyBytes=encrypted.Length;if(cipher==null){waiting.Add(new CipherFrame{Body=encrypted,Time=time});waitingBytes+=encrypted.Length;if(waitingBytes>1048576){Fail("Session key unavailable before buffer limit");return;}}else Decode(encrypted,time);at=end;}
         if(at>0){count-=at;if(count>0)Buffer.BlockCopy(buffer,at,buffer,0,count);}
     }
     internal bool AcceptsKey(byte[] key){if(Failed||cipher!=null||!Handshake||waiting.Count==0||key==null||key.Length!=214)return false;using(var probe=new PositionRc4(key)){var bytes=probe.Transform(waiting[0].Body);try{return bytes.Length==158&&bytes[0]==0x13&&bytes[1]==0x36;}finally{Array.Clear(bytes,0,bytes.Length);}}}
@@ -64,18 +90,25 @@ internal sealed class ClientPositionStream:IDisposable {
 
 internal sealed class ClientPositionReader:IDisposable {
     readonly object gate=new object(),workerGate=new object();readonly Dictionary<string,ClientPositionStream> flows=new Dictionary<string,ClientPositionStream>();readonly Func<int,byte[]> testFinder;readonly Func<double> clock;readonly bool automatic;
-    Timer timer;SessionKeyMemory memory;bool enabled,disposed;int generation,working;string error="";double nextProbe;internal Action Changed;
+    Timer timer;SessionKeyMemory memory;bool enabled,disposed;int generation,working;string error="";double nextProbe;long clientSegments;internal Action Changed;
     internal ClientPositionReader(Func<int,byte[]> finder=null,bool background=true,Func<double> time=null){testFinder=finder;automatic=background;clock=time??DpsHistory.UtcNow;}
     internal bool Enabled {get{lock(gate)return enabled;}}
-    internal string ReadingStatus {get{lock(gate){if(!enabled)return "Exact distance disabled";bool handshake=false;string failed=null;double now=clock();foreach(var f in flows.Values){if(now-f.LastObserved>10)continue;if(f.Ready)return f.Latest==null?"Move once to read your exact position":"Exact distance ready";if(f.Failed)failed=f.Error;handshake|=f.Handshake;}if(error.Length>0&&handshake)return error;if(failed!=null)return failed;return handshake?"Waiting for the game session key":"Open Aion after enabling exact distance";}}}
-    internal object Status {get{lock(gate){long frames=0,positions=0;int ready=0;foreach(var f in flows.Values){frames+=f.Frames;positions+=f.Positions;if(f.Ready)ready++;}return new{enabled=enabled,status=ReadingStatus,readySessions=ready,movementReadings=positions,decryptedFrames=frames,keysPersisted=false};}}}
-    void Clear(){foreach(var f in flows.Values)f.Dispose();flows.Clear();}
+    internal string ReadingStatus {get{lock(gate){if(!enabled)return "Exact distance disabled";bool handshake=false,traffic=false;string failed=null;double now=clock();foreach(var f in flows.Values){if(now-f.LastObserved>10)continue;traffic=true;if(f.Ready)return f.Latest==null?"Move once to read your exact position":"Exact distance ready";if(f.Failed)failed=f.Error;handshake|=f.Handshake;}if(error.Length>0&&handshake)return error;if(failed!=null)return failed;return handshake?"Waiting for the game session key":traffic?"Client traffic received without a recognized handshake":"Open Aion after enabling exact distance";}}}
+    internal object Status {get{lock(gate){
+        long frames=0,positions=0;int ready=0,handshakes=0;var startup=new List<object>();
+        foreach(var f in flows.Values){
+            frames+=f.Frames;positions+=f.Positions;if(f.Handshake)handshakes++;if(f.Ready)ready++;
+            startup.Add(new{firstPayloadBytes=f.FirstPayloadBytes,firstFrameBodyBytes=f.FirstFrameBodyBytes,helloCandidateBodyBytes=f.HelloCandidateBodyBytes,firstEncryptedBodyBytes=f.FirstEncryptedBodyBytes,recognized=f.Handshake,failure=f.Error});
+        }
+        return new{enabled=enabled,status=ReadingStatus,clientSegments,recognizedHandshakes=handshakes,readySessions=ready,movementReadings=positions,decryptedFrames=frames,startup,keysPersisted=false};
+    }}}
+    void Clear(){foreach(var f in flows.Values)f.Dispose();flows.Clear();clientSegments=0;}
     internal void Configure(bool value){lock(gate){if(disposed||enabled==value)return;enabled=value;generation++;Clear();error="";nextProbe=0;if(timer!=null){timer.Dispose();timer=null;}if(value&&automatic)timer=new Timer(delegate{Maintain();},null,0,2000);}
         if(!value&&Interlocked.CompareExchange(ref working,0,0)==0)lock(workerGate){if(memory!=null){memory.Dispose();memory=null;}}Notify();
     }
     internal void Reset(){lock(gate){generation++;Clear();error="";nextProbe=0;}Notify();}
     void Notify(){var change=Changed;if(change!=null)change();}
-    internal void Consume(Segment segment,double timestamp,int pid,bool ownedAlternate=false){if(segment==null||segment.DstPort!=13328&&!ownedAlternate||segment.DstPort==443||pid<=0)return;bool changed=false;lock(gate){if(!enabled||disposed)return;string server=segment.PeerStream??(segment.Dst+":"+segment.DstPort+">"+segment.Src+":"+segment.SrcPort);ClientPositionStream flow;
+    internal void Consume(Segment segment,double timestamp,int pid,bool ownedAlternate=false){if(segment==null||segment.DstPort!=13328&&!ownedAlternate||segment.DstPort==443||pid<=0)return;bool changed=false;lock(gate){if(!enabled||disposed)return;clientSegments++;string server=segment.PeerStream??(segment.Dst+":"+segment.DstPort+">"+segment.Src+":"+segment.SrcPort);ClientPositionStream flow;
             if(flows.TryGetValue(segment.Key,out flow)&&((segment.Flags&2)!=0||flow.ServerFlow!=server||flow.Pid!=pid)){flow.Dispose();flows.Remove(segment.Key);flow=null;}
             if(flow==null){if(flows.Count>=4){string remove=null;double oldest=double.MaxValue;foreach(var item in flows)if(item.Value.Traffic<oldest){oldest=item.Value.Traffic;remove=item.Key;}if(remove!=null){flows[remove].Dispose();flows.Remove(remove);}}flows[segment.Key]=flow=new ClientPositionStream(server,pid);}
             long before=flow.Positions;bool handshake=flow.Handshake,needed=flow.NeedsKey;flow.LastObserved=clock();flow.Consume(segment,timestamp);changed=before!=flow.Positions||handshake!=flow.Handshake||flow.Failed;

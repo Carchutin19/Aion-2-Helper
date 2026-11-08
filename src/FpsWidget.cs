@@ -300,7 +300,8 @@ internal static class FpsDesign {
     }return bitmap;}
 }
 
-internal sealed class FpsOverlay:Form {
+internal sealed class FpsOverlay:Form,IWidgetSnapTarget {
+    Rectangle IWidgetSnapTarget.SnapBounds {get{return Bounds;}}
     readonly EnergyOverlay owner;readonly FpsMonitor monitor;readonly PingMonitor pingMonitor;readonly bool ping;readonly LayeredImage image=new LayeredImage();readonly FpsDesign.Workspace workspace=new FpsDesign.Workspace();readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();FpsOptions options=new FpsOptions();bool editing,rendering,closing,dragging,disposed;readonly bool previewMode;Rectangle dragStart;Point mouseStart;int hit;bool validImage;int imageWidth,imageHeight,imageX=int.MinValue,imageY;int? imageValue;bool imageEditing;long lastRaise;
     internal FpsOverlay(EnergyOverlay helper,string root,bool preview,bool forPing=false){owner=helper;previewMode=preview;ping=forPing;if(ping){pingMonitor=new PingMonitor();options=FpsOptions.PingDefaults();}else monitor=new FpsMonitor(root);Text=ping?"Aion 2 Helper - Ping":"Aion 2 Helper - FPS";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;
         timer.Interval=250;timer.Tick+=delegate{UpdateWidget();};FormClosing+=delegate{closing=true;};}
@@ -397,7 +398,7 @@ internal sealed class FpsOverlay:Form {
     protected override void WndProc(ref Message m){
         if(m.Msg==0x84){if(!editing){m.Result=new IntPtr(-1);return;}Point p=PointToClient(new Point((short)(m.LParam.ToInt64()&0xffff),(short)((m.LParam.ToInt64()>>16)&0xffff)));m.Result=new IntPtr(BarDesign.HitTest(p.X,p.Y,Width,Height,6));return;}
         if(m.Msg==0xa1&&editing){hit=m.WParam.ToInt32();if(hit==2||(hit>=10&&hit<=17)){dragging=true;dragStart=Bounds;mouseStart=Cursor.Position;Capture=true;m.Result=IntPtr.Zero;return;}}
-        if(m.Msg==0x200&&dragging){var delta=new Point(Cursor.Position.X-mouseStart.X,Cursor.Position.Y-mouseStart.Y);Bounds=hit==2?new Rectangle(dragStart.X+delta.X,dragStart.Y+delta.Y,dragStart.Width,dragStart.Height):FpsDesign.ResizeBounds(dragStart,delta,hit);UpdateWidget();m.Result=IntPtr.Zero;return;}
+        if(m.Msg==0x200&&dragging){var delta=new Point(Cursor.Position.X-mouseStart.X,Cursor.Position.Y-mouseStart.Y);Bounds=hit==2?owner.MoveWidget(this,dragStart,delta):FpsDesign.ResizeBounds(dragStart,delta,hit);UpdateWidget();m.Result=IntPtr.Zero;return;}
         if((m.Msg==0x202||m.Msg==0xa2||m.Msg==0x215)&&dragging){dragging=false;Capture=false;SaveGeometry();m.Result=IntPtr.Zero;return;}
         if(m.Msg==0x46){var pos=(OverlayNative.WindowPos)System.Runtime.InteropServices.Marshal.PtrToStructure(m.LParam,typeof(OverlayNative.WindowPos));if((pos.Flags&1)==0){pos.Width=Math.Max(48,Math.Min(1600,pos.Width));pos.Height=Math.Max(20,Math.Min(400,pos.Height));System.Runtime.InteropServices.Marshal.StructureToPtr(pos,m.LParam,false);}m.Result=IntPtr.Zero;return;}
         if(m.Msg==0x24){var info=(OverlayNative.MinMaxInfo)System.Runtime.InteropServices.Marshal.PtrToStructure(m.LParam,typeof(OverlayNative.MinMaxInfo));info.MinTrackSize=new OverlayNative.Point(48,20);info.MaxTrackSize=new OverlayNative.Point(1600,400);System.Runtime.InteropServices.Marshal.StructureToPtr(info,m.LParam,false);m.Result=IntPtr.Zero;return;}

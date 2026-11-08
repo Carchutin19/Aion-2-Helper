@@ -91,12 +91,14 @@ internal sealed class CharacterProgressSignal {
     int server;
     Reading value;
     ulong? pendingXp;
+    uint loadingActor;
+    ulong? loadingPrimary,loadingSecondary;
     double pendingAt;
     internal Func<double> ReceiptClock;
 
     internal Reading Read() { lock (gate) return value; }
     internal void Reset() { lock (gate) Clear(); }
-    void Clear() { flow = name = null; server = 0; value = null; pendingXp = null; }
+    void Clear() { flow = name = null; server = 0; value = null; pendingXp = null; loadingActor=0; loadingPrimary=loadingSecondary=null; }
 
     internal static bool Profile(byte[] b, int start, int end, out Reading reading, out string name, out int server) {
         reading = null;
@@ -150,9 +152,13 @@ internal sealed class CharacterProgressSignal {
     internal bool Consume(byte[] b, int start, int end, string key, double now) {
         if (end-start < 2) return false;
         int op = (b[start]<<8) | b[start+1], length = end-start, p = start+2;
-        if (op != 0x3336 && op != 0x1536 && op != 0x1d56 && op != 0x5636 && op != 0x078d && op != 0x088d) return false;
+        if (op != 0x2036 && op != 0x3336 && op != 0x1536 && op != 0x1d56 && op != 0x5636 && op != 0x078d && op != 0x088d) return false;
         if (ReceiptClock != null) now = ReceiptClock();
         lock (gate) {
+            if(op==0x2036){
+                uint actor;if(!DashSignal.LoginActor(b,start,end,out actor))return false;
+                Clear();flow=key;loadingActor=actor;return true;
+            }
             if (op == 0x3336) {
                 Reading profile;
                 string profileName;
@@ -162,9 +168,15 @@ internal sealed class CharacterProgressSignal {
                     Clear();
                     return true;
                 }
+                if(loadingActor!=0&&(flow!=key||loadingActor!=profile.Actor))return false;
                 bool same = value != null && value.Actor == profile.Actor && flow == key && name == profileName && server == profileServer;
                 profile.Activity = !same || profile.Level != value.Level || profile.Xp.HasValue && (!value.Xp.HasValue || profile.Xp > value.Xp) ? now : value.Activity;
                 if (same && !profile.Secondary.HasValue) profile.Secondary = value.Secondary;
+                if(flow==key&&loadingActor==profile.Actor){
+                    if(!profile.Primary.HasValue)profile.Primary=loadingPrimary;
+                    if(!profile.Secondary.HasValue)profile.Secondary=loadingSecondary;
+                }
+                loadingActor=0;loadingPrimary=loadingSecondary=null;
                 flow = key;
                 name = profileName;
                 server = profileServer;
@@ -172,11 +184,13 @@ internal sealed class CharacterProgressSignal {
                 value = profile;
                 return true;
             }
-            if (value == null || flow != key) return false;
+            if(flow!=key)return false;
             if (op == 0x1536) { Clear(); return true; }
             if (op == 0x1d56 && length == 10) {
                 uint power = BitConverter.ToUInt32(b,p);
-                if (power != BitConverter.ToUInt32(b,p+4) || value.Primary == power) return false;
+                if(power!=BitConverter.ToUInt32(b,p+4))return false;
+                if(value==null){if(loadingActor!=0)loadingPrimary=power;return false;}
+                if(value.Primary==power)return false;
                 var next = value.Copy();
                 next.Primary = power;
                 value = next;
@@ -184,12 +198,15 @@ internal sealed class CharacterProgressSignal {
             }
             if (op == 0x5636 && length == 18) {
                 ulong power = BitConverter.ToUInt64(b,p);
-                if (power > long.MaxValue || power != BitConverter.ToUInt64(b,p+8) || value.Secondary == power) return false;
+                if(power>long.MaxValue||power!=BitConverter.ToUInt64(b,p+8))return false;
+                if(value==null){if(loadingActor!=0)loadingSecondary=power;return false;}
+                if(value.Secondary==power)return false;
                 var next = value.Copy();
                 next.Secondary = power;
                 value = next;
                 return true;
             }
+            if(value==null)return false;
             if (op == 0x078d && length == 19) {
                 ulong xp = BitConverter.ToUInt64(b,p), gain = BitConverter.ToUInt64(b,p+8);
                 uint limit = Maximum(value.Level);
@@ -257,6 +274,19 @@ internal sealed class CharacterProgressSignal {
         signal.Reset();
         if (signal.Read()!=null || signal.Consume(power,0,power.Length,"own",6))
             throw new InvalidOperationException("A reset revokes all readings until a new own profile.");
+        signal.Consume(profile,0,profile.Length,"own",7);
+        var login=DashSignal.LoginFixture(34);
+        signal.Consume(login,0,login.Length,"own",8);
+        var secondary=new byte[18];secondary[0]=0x56;secondary[1]=0x36;
+        Buffer.BlockCopy(BitConverter.GetBytes(81318ul),0,secondary,2,8);
+        Buffer.BlockCopy(BitConverter.GetBytes(81318ul),0,secondary,10,8);
+        signal.Consume(secondary,0,secondary.Length,"own",8.1);
+        signal.Consume(profile,0,profile.Length,"own",8.2);
+        if(signal.Read()!=null)throw new InvalidOperationException("Power arriving during login must not be displayed under the previous character.");
+        var nextProfile=(byte[])profile.Clone();nextProfile[2]=34;Array.Clear(nextProfile,112,48);
+        signal.Consume(nextProfile,0,nextProfile.Length,"own",9);
+        if(signal.Read()==null||signal.Read().Actor!=34||signal.Read().Secondary!=81318)
+            throw new InvalidOperationException("The confirmed character receives its own power update staged during login.");
     }
 }
 
@@ -321,7 +351,23 @@ internal static class CharacterProgressDesign {
     }
 }
 
-internal sealed class MovableOverlayWindow : Form {
+internal sealed class MovableOverlayWindow : Form,IWidgetSnapTarget {
+    internal EnergyOverlay SnapOwner;
+    internal int SnapInset;
+    Rectangle IWidgetSnapTarget.SnapBounds { get { return SnapOwner==null?Rectangle.Empty:SnapArea(presented); } }
+    Rectangle SnapArea(Rectangle bounds) {
+        bounds.Inflate(-SnapInset,-SnapInset);
+        return bounds;
+    }
+    Rectangle MovedBounds(Point delta) {
+        var bounds=start;
+        bounds.Offset(delta);
+        if(SnapOwner==null)return bounds;
+        var area=SnapArea(bounds);
+        var aligned=SnapOwner.SnapWidget(this,area);
+        bounds.Offset(aligned.X-area.X,aligned.Y-area.Y);
+        return bounds;
+    }
     internal const int ResizeGrip = 24;
     readonly LayeredImage image = new LayeredImage();
     OverlayGlassLayer backdrop;
@@ -411,7 +457,7 @@ internal sealed class MovableOverlayWindow : Form {
     void MoveDrag(Point position) {
         var delta=position-(Size)pointer;
         if (!resizing) {
-            presented.Location=new Point(start.X+delta.X,start.Y+delta.Y);
+            presented.Location=MovedBounds(delta).Location;
         } else {
             if (LimitResize==null) return;
             requestedSize=DragSize(delta);
@@ -425,7 +471,7 @@ internal sealed class MovableOverlayWindow : Form {
         var delta=position-(Size)pointer;
         var next=start;
         if (resizing) next.Size=captureLost&&LimitResize!=null?requestedSize:DragSize(delta);
-        else next.Offset(delta);
+        else next=captureLost?presented:MovedBounds(delta);
         dragging=false;
         return next;
     }
@@ -523,6 +569,7 @@ internal sealed class CharacterProgressWidgets : IDisposable {
     internal CharacterProgressWidgets(EnergyOverlay owner) {
         this.owner = owner;
         power.Clicked = delegate { Change(o=>o.AlternatePower=!o.AlternatePower); };
+        power.SnapOwner=xp.SnapOwner=owner;
         power.Moved = bounds => Change(o=>o.Power.Bounds=bounds);
         xp.Moved = bounds => Change(o=>o.ExperienceBounds=bounds);
     }

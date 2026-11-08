@@ -27,7 +27,8 @@ internal sealed class RiftCounterPaint:IDisposable {
     }
     public void Dispose(){title.Dispose();subtitle.Dispose();digits.Dispose();if(measurement!=null)measurement.Dispose();}
 }
-internal sealed class RiftCounterOverlay:Form {
+internal sealed class RiftCounterOverlay:Form,IWidgetSnapTarget {
+    Rectangle IWidgetSnapTarget.SnapBounds {get{return Bounds;}}
     readonly EnergyOverlay owner;readonly bool preview;readonly LayeredImage image=new LayeredImage();readonly RiftCounterPaint paint=new RiftCounterPaint();
     RiftCounterOptions options=new RiftCounterOptions();bool editing,disposed,dragging;string language,renderKey,remaining="09:59";bool available;
     Point mouseStart;Rectangle dragStart;int hit,startScale;byte alpha;Point presented;internal int Uploads {get{return image.Uploads;}}
@@ -50,7 +51,7 @@ internal sealed class RiftCounterOverlay:Form {
         if(m.Msg==0x84){if(!editing){m.Result=new IntPtr(-1);return;}Point p=PointToClient(new Point((short)(m.LParam.ToInt64()&65535),(short)((m.LParam.ToInt64()>>16)&65535)));m.Result=new IntPtr(BarDesign.HitTest(p.X,p.Y,Width,Height,6));return;}
         if(m.Msg==0xa1&&editing){hit=m.WParam.ToInt32();if(hit==2||hit>=10&&hit<=17){dragging=true;dragStart=Bounds;mouseStart=Cursor.Position;startScale=options.ScalePercent;Capture=true;m.Result=IntPtr.Zero;return;}}
         if(m.Msg==0x200&&dragging){int dx=Cursor.Position.X-mouseStart.X,dy=Cursor.Position.Y-mouseStart.Y;
-            if(hit==2)Location=new Point(dragStart.X+dx,dragStart.Y+dy);else{bool left=hit==10||hit==13||hit==16;double ratio=hit==12||hit==15?Math.Max(.1,(dragStart.Height+2*(hit==12?-dy:dy))/(double)dragStart.Height):Math.Max(.1,(dragStart.Width+2*(left?-dx:dx))/(double)dragStart.Width);options.ScalePercent=Math.Max(50,Math.Min(300,(int)Math.Round(startScale*ratio)));Bounds=Fit(options.ActualBounds);renderKey=null;}Present();m.Result=IntPtr.Zero;return;}
+            if(hit==2)Location=owner.MoveWidget(this,dragStart,new Point(dx,dy)).Location;else{bool left=hit==10||hit==13||hit==16;double ratio=hit==12||hit==15?Math.Max(.1,(dragStart.Height+2*(hit==12?-dy:dy))/(double)dragStart.Height):Math.Max(.1,(dragStart.Width+2*(left?-dx:dx))/(double)dragStart.Width);options.ScalePercent=Math.Max(50,Math.Min(300,(int)Math.Round(startScale*ratio)));Bounds=Fit(options.ActualBounds);renderKey=null;}Present();m.Result=IntPtr.Zero;return;}
         if((m.Msg==0x202||m.Msg==0xa2||m.Msg==0x215)&&dragging){dragging=false;Capture=false;var c=owner.Configuration;var b=options.Bounds;b.X=Left+Width/2-b.Width/2;b.Y=Top+Height/2-b.Height/2;c.Notifications.Rift.Counter.Bounds=b;c.Notifications.Rift.Counter.ScalePercent=options.ScalePercent;owner.ApplyConfiguration(c);m.Result=IntPtr.Zero;return;}
         base.WndProc(ref m);
     }

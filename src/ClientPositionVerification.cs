@@ -28,7 +28,7 @@ internal static class ClientPositionVerification {
         }
         using(var stream=new ClientPositionStream(Server(),42))using(var cipher=new PositionRc4(Key)){var bytes=Session(cipher,Move(93400));stream.Consume(Segment(uint.MaxValue-100,bytes),10);var wrong=(byte[])Key.Clone();Array.Reverse(wrong);Check(!stream.AcceptsKey(wrong)&&stream.AcceptsKey(Key)&&stream.Frames==0,"Candidate verification checks the pending handshake without advancing RC4");Check(!stream.OfferKey(wrong)&&stream.Latest==null,"Wrong session key cannot emit a position");Check(stream.OfferKey(Key)&&stream.Read(10).Position.X==93400,"Correct key after wrong candidate and TCP wrap");}
         using(var stream=new ClientPositionStream(Server(),42)){stream.Consume(Segment(1,new byte[]{1}),10);for(uint i=0;i<66;i++)stream.Consume(Segment(1000+i*100,new byte[20]),10);Check(stream.Failed&&stream.Read(10)==null,"Bounded missing TCP data fails closed");}
-        VerifyEnemyBridge();VerifyAdaptiveLookup();VerifyNewSessionRetry();VerifyActiveSessionKey();
+        VerifyCurrentHandshake();VerifyEnemyBridge();VerifyAdaptiveLookup();VerifyNewSessionRetry();VerifyActiveSessionKey();
         int premature=0;using(var reader=new ClientPositionReader(delegate(int pid){premature++;return (byte[])Key.Clone();},false)){reader.Configure(true);reader.Consume(Segment(1,Wrap(Handshake())),10,42);reader.Maintain();Check(premature==0,"RSA handshake alone cannot trigger a search before there is encrypted setup to validate");}
         double activity=100;int staleLookups=0;using(var reader=new ClientPositionReader(delegate(int pid){staleLookups++;if(pid==42)throw new InvalidOperationException("Old process is no longer available");return (byte[])Key.Clone();},false,delegate{return activity;}))using(var oldCipher=new PositionRc4(Key))using(var liveCipher=new PositionRc4(Key)){
             reader.Configure(true);reader.Consume(Segment(1,Session(oldCipher,Move(100))),10,42);reader.Maintain();Check(staleLookups==1,"Initial process failure captured");activity=131;reader.Consume(Segment(1,Session(liveCipher,Move(200)),50001),11,43);reader.Maintain();Check(reader.Read(Server(50001),11)!=null&&reader.ReadingStatus=="Exact distance ready","New active session is not hidden by a previous process error");activity=134;reader.Maintain();Check(staleLookups==2,"Inactive old connection does not trigger more memory scans while the new one is ready");
@@ -39,6 +39,27 @@ internal static class ClientPositionVerification {
         var detail=new EnemyDetailOptions();Check(!detail.ExactPosition,"Exact mode is opt-in");detail.ExactPosition=true;var copy=detail.Copy();copy.ExactPosition=false;Check(detail.ExactPosition&&!copy.ExactPosition,"Independent option snapshots");var options=new EnemyHealthOptions();options.Details.ExactPosition=true;var json=new JavaScriptSerializer();var restored=EnemyHealthOptions.Read(json.Deserialize<Dictionary<string,object>>(json.Serialize(new{enemyHealth=options})));Check(restored.Details.ExactPosition&&!EnemyHealthOptions.TargetDefaults().Details.ExactPosition,"Exact mode persistence and main-only defaults");
         using(var license=typeof(ClientPositionReader).Assembly.GetManifestResourceStream("Aion2ProtocolResearchLicense.txt"))Check(license!=null,"Distributed implementation retains embedded MIT notice");
         File.WriteAllText(Path.Combine(root,"client-position-test.txt"),"PASS: optional mode defaults off; no memory calls when disabled; adaptive lookup outside the former arena, bounded/resumed chunks without rereading the prefix; one-allocation reacquisition validated by a new handshake; stale cached session rejection; new setup bypasses old retry delay; obsolete concurrent lookup cannot overwrite the new session; cache revalidation, invalid permutation and cancellation; RC4 standard vector; fragmented/retransmitted/out-of-order and wrapped TCP; per-flow session isolation; wrong-key rejection; bounded gaps; real movement/stop semantics and traffic freshness; reset; disable during asynchronous lookup; option copy/persistence; retained embedded MIT notice. Tests use synthetic keys and never open game memory.");
+    }
+    static void VerifyCurrentHandshake(){
+        var hello=new byte[284];Buffer.BlockCopy(Handshake(),0,hello,0,283);
+        using(var stream=new ClientPositionStream(Server(),42))
+        using(var cipher=new PositionRc4(Key)){
+            var setup=new byte[158];setup[0]=0x13;setup[1]=0x36;
+            var bytes=Combine(Wrap(hello),Wrap(cipher.Transform(setup)),Wrap(cipher.Transform(Move(93400))));
+            const int split=90;
+            var first=new byte[split];var rest=new byte[bytes.Length-split];
+            Buffer.BlockCopy(bytes,0,first,0,first.Length);Buffer.BlockCopy(bytes,split,rest,0,rest.Length);
+            stream.Consume(Segment(1000,first),10);
+            Check(!stream.Handshake&&stream.FirstFrameBodyBytes==284,"Fragmented current handshake waits for the whole frame");
+            stream.Consume(Segment(1000+split,rest),10);
+            Check(stream.Handshake&&stream.HelloCandidateBodyBytes==284&&stream.FirstEncryptedBodyBytes==158
+                &&stream.OfferKey(Key)&&stream.Read(10).Position.X==93400,"New envelope still requires the authenticated setup before using positions");
+        }
+        hello[7]--;
+        using(var invalid=new ClientPositionStream(Server(),42)){
+            invalid.Consume(Segment(1000,Wrap(hello)),10);
+            Check(!invalid.Handshake,"A same-length envelope with an invalid declared RSA length must be rejected");
+        }
     }
     static byte[] StateHeader(long table,long keyPointer,bool valid=true){var bytes=new byte[0x124];Buffer.BlockCopy(BitConverter.GetBytes(table),0,bytes,0,8);Buffer.BlockCopy(BitConverter.GetBytes(keyPointer),0,bytes,0x10,8);Buffer.BlockCopy(BitConverter.GetBytes(214),0,bytes,0x18,4);for(int i=0;i<256;i++)bytes[0x24+i]=(byte)i;if(!valid)bytes[0x24]=bytes[0x25];return bytes;}
     static void VerifyNewSessionRetry(){

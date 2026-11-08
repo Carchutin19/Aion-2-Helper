@@ -54,9 +54,15 @@ internal static class EnemyDetailReader {
         default:return 0;
     }}
     internal static bool MovementOpcode(int op){return MovementOffset(op)!=0;}
+    internal static bool OwnPlacement(byte[] b,int start,int end,out Position position){
+        position=new Position();
+        int p=start+2;uint actor;
+        return end-start==26&&b[start]==0x23&&b[start+1]==0x36
+            &&DpsSignal.Var(b,ref p,end,out actor)&&actor==0&&Coordinates(b,p+5,end,out position);
+    }
     internal static bool Movement(byte[] b,int start,int end,out uint actor,out Position position){actor=0;position=new Position();if(b==null||start<0||end>b.Length||end-start<2)return false;int op=(b[start]<<8)|b[start+1],offset=MovementOffset(op);if(offset==0)return false;int p=start+2;if(!DpsSignal.Var(b,ref p,end,out actor)||actor==0||p>=end||(op==0x3c37&&b[p]!=3))return false;if(offset<0)offset=1+(b[p]&1);return Coordinates(b,p+offset,end,out position);}
     // Cast aim coordinates can be an impact/ground point, not the caster.
-    // Distance uses only an identified character profile or movement position.
+    // Distance uses positions belonging to identified actors or own placement.
     internal static double? Distance(Position self,Position target,double now,bool continuous=false){if(!self.Known||!target.Known||(!continuous&&Math.Max(0,now-self.Time)>5))return null;double x=self.X-target.X,y=self.Y-target.Y,z=self.Z-target.Z,d=Math.Sqrt(x*x+y*y+z*z)/100;return d<=2000?(double?)d:null;}
     internal static string LevelText(int? adjusted,int? raw,bool includeBase){if(!adjusted.HasValue)return includeBase&&raw.HasValue?"— ("+raw.Value+")":"";return adjusted.Value+(includeBase&&raw.HasValue&&raw!=adjusted?" ("+raw.Value+")":"");}
 }

@@ -114,8 +114,8 @@ internal sealed class HiddenCubeSignal {
             if(time-lastTraffic>12)ClearLocation();
             lastTraffic=time;
             if(op==0x0036)return;
-            if(op==0x2336&&end-start==26&&DpsSignal.Var(b,ref p,end,out actor)&&actor==0){
-                if(EnemyDetailReader.Coordinates(b,p+5,end,out next))UpdatePosition(next,time,true);
+            if(op==0x2336){
+                if(EnemyDetailReader.OwnPlacement(b,start,end,out next))UpdatePosition(next,time,true);
             }else if(op==0x3436){
                 if(map!=1010||!DpsSignal.Var(b,ref p,end,out actor)||actor==0||end-p!=52
                     ||!EnemyDetailReader.Coordinates(b,p+6,end,out next))return;
@@ -242,6 +242,7 @@ internal sealed class HiddenCubeOverlay:IDisposable {
     internal HiddenCubeOverlay(EnergyOverlay owner,HiddenCubeSignal signal){
         this.signal=signal;
         window.LimitResize=HiddenCubeOptions.LimitSize;
+        window.SnapOwner=owner;
         window.Moved=bounds=>{var cfg=owner.Configuration;cfg.HiddenCube.Bounds=bounds;owner.ApplyConfiguration(cfg);};
     }
     internal static double Fade(double alpha,bool show,double elapsed,int milliseconds){

@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.25.0 release — Flight Energy & Overlay Visibility](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.25.0/Aion-2-Helper-v1.25.0-windows-x64.zip).
+The [v1.26.0 release — Widget Alignment & Hotbar Feedback](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.26.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.26.0/Aion-2-Helper-v1.26.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Experience, Combat Power, Energy, Flight Energy, Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
@@ -47,6 +47,14 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.26.0
+
+- **General → Snap widgets together** aligns nearby edges and centers while dragging unlocked widgets. Hotbar slots keep their own snap and spacing settings.
+- **General → Show alignment grid** adds a grid for each display while widgets are unlocked, with highlighted center axes and adjustable opacity.
+- **Hotbar** slides icons inside their slots when skills change. Supported contextual skills dim while unavailable and pulse green when ready. Optional yellow feedback covers matching key or mouse presses and confirmed casts, including casts from Aion's built-in macros.
+- **Character switching** refreshes Hotbar, ground Energy, Combat Power and Experience for the character entering the world. Hotbar also handles supported changes to individual slots after a full bar has been received.
+- **Target distance** recognizes an additional connection setup for optional exact readings and uses approximate meters when supported server positions are available. Hidden Cube Radar also uses an additional player-position update and remains in testing.
 
 ## New in v1.25.0
 

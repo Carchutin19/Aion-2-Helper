@@ -5,11 +5,11 @@ using System.Linq;
 // Original passive decoder. Wire-layout research and artwork provenance are
 // documented in assets/skill-slots/README.md. No casts or keys are injected.
 internal sealed class SkillSlotsSignal {
- internal sealed class Slot {internal int Index;internal uint Skill,Alternative,Third;internal Slot Copy(){return (Slot)MemberwiseClone();}}
+ internal sealed class Slot {internal int Index;internal uint Skill,Alternative,Third;internal double CastAt;internal Slot Copy(){return (Slot)MemberwiseClone();}}
  internal sealed class Cooldown {internal uint Raw,Peak;internal double At;internal bool FromCast;internal Cooldown Copy(){return (Cooldown)MemberwiseClone();}}
- internal sealed class View {internal uint Self,Map,ContextTarget;internal double FireMarkUntil,StunUntil,HeartGoreUntil,EvasionUntil;internal string Flow;internal long Revision;internal readonly List<Slot> Slots=new List<Slot>();internal readonly Dictionary<uint,Cooldown> Cooldowns=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
+ internal sealed class View {internal uint Self,Map,ContextTarget;internal double FireMarkUntil,StunUntil,HeartGoreUntil,EvasionUntil,InfiltrateUntil;internal string Flow;internal long Revision;internal readonly List<Slot> Slots=new List<Slot>();internal readonly Dictionary<uint,Cooldown> Cooldowns=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  internal sealed class BarFault {public string Field;public int Offset,Record,Kind,Slot;public int? Value;}
- sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf;internal string SelfName,AwaitingName;internal double Traffic,RawTraffic;internal bool HasBar,FullWhileAwaiting;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
+ sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf,LoginActor;internal string SelfName,AwaitingName;internal double Traffic,RawTraffic;internal double? FullWireTime;internal bool HasBar,FullWhileAwaiting;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  sealed class BarTrace {
   public long FullReceived,FullAccepted,FullRejected,PartialReceived,PartialAccepted,PartialRejected,PartialWithoutFull,MapPauses,MapResumes;
   public int LastLength,LastRejectedLength;public string LastOpcode,LastRejectedOpcode,LastClear;public double? LastAt,LastRejectedAt,ClearedAt,PausedAt,ResumedAt;public BarFault LastRejection;
@@ -18,10 +18,15 @@ internal sealed class SkillSlotsSignal {
  // Runtime reception and the UI share a clock; recorded replays retain their
  // supplied timestamps. Npcap can drift ahead of UTC during long sessions.
  internal Func<double> ReceiptClock;
- readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();string active;bool enabled;long revision;View cached;internal Action Changed;
+ readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();string active;bool enabled,flashCasts;long revision;View cached;internal Action Changed;
  // The visibility switch controls publication. Keep tracking the current
  // character while hidden, since the server may only send the full bar at login.
- internal void Configure(bool on){lock(gate){if(enabled==on)return;enabled=on;cached=null;revision++;}}
+ internal void Configure(bool on,bool animateCasts=false){lock(gate){
+  bool flashes=on&&animateCasts;
+  if(enabled==on&&flashCasts==flashes)return;
+  if(flashCasts&&!flashes)foreach(var flow in flows.Values)ClearCastFlashes(flow);
+  enabled=on;flashCasts=flashes;cached=null;revision++;
+ }}
  internal void Reset(){lock(gate){resets++;lastReset="transport reset";flows.Clear();active=null;cached=null;revision++;}Notify();}
  void Notify(){var change=Changed;if(change!=null)change();}
  internal static uint Base(uint id){return id/10000*10000;}
@@ -45,7 +50,12 @@ internal sealed class SkillSlotsSignal {
     // Edeln's received0056 has a nonzero byte at record1+32. Skip the bounded
     // tail without assigning it skill, cooldown or availability semantics.
     uint id=BitConverter.ToUInt32(b,p+15);
-    if(id==0)return Reject(out fault,"empty skill ID",p+15-s,i,kind,slot);
+    if(id==0){
+     bool partial=b[s]==5&&b[s+1]==0x56;
+     if(!partial||(b[p+19]!=0&&b[p+19]!=4)||BitConverter.ToUInt32(b,p+20)!=0||BitConverter.ToUInt64(b,p+24)!=0)
+      return Reject(out fault,"empty skill ID",p+15-s,i,kind,slot);
+     slots.Add(new Slot{Index=slot});p+=n;continue;
+    }
     if(b[p+19]!=4)return Reject(out fault,"skill marker",p+19-s,i,kind,slot,b[p+19]);
     if(BitConverter.ToUInt32(b,p+20)!=id)return Reject(out fault,"skill ID mirror",p+20-s,i,kind,slot);
     slots.Add(new Slot{Index=slot,Skill=id,Alternative=BitConverter.ToUInt32(b,p+24),Third=BitConverter.ToUInt32(b,p+28)});
@@ -64,40 +74,75 @@ internal sealed class SkillSlotsSignal {
  // Interpret only this bounded layout, never search the tail for plausible times.
  internal static bool Cast(byte[] b,int s,int e,out uint actor,out uint skill,out uint milliseconds,out bool chargeLayout){actor=skill=milliseconds=0;chargeLayout=false;if(e-s<15||e-s>256)return false;int p=s+2;uint opaque;if(!DpsSignal.Var(b,ref p,e,out actor)||actor==0||p+6>e)return false;byte flags=b[p++];if((flags&0xC0)!=0)return false;skill=BitConverter.ToUInt32(b,p);p+=5;if(skill==0)return false;if((flags&1)!=0){if(p>=e)return false;p++;}if(p>=e)return false;byte targetFlags=b[p++];if((targetFlags&0xFC)!=0||!DpsSignal.Var(b,ref p,e,out opaque))return false;if((targetFlags&1)!=0){if(p+4>e)return false;p+=4;}int floats=(targetFlags&2)!=0?4:1;if(p+4*floats>e)return false;for(int n=0;n<floats;n++){float f=BitConverter.ToSingle(b,p);if(float.IsNaN(f)||float.IsInfinity(f)||Math.Abs(f)>100000000)return false;p+=4;}if(!DpsSignal.Var(b,ref p,e,out opaque)||p>=e)return false;p++;if((flags&2)!=0&&!DpsSignal.Var(b,ref p,e,out opaque))return false;if(!DpsSignal.Var(b,ref p,e,out milliseconds)||milliseconds>86400000)return false;if((flags&4)!=0){if(p>=e)return false;p++;}if((flags&8)!=0&&!DpsSignal.Var(b,ref p,e,out opaque))return false;if((flags&16)!=0){if(p>=e)return false;p++;}if((flags&32)!=0&&!DpsSignal.Var(b,ref p,e,out opaque))return false;chargeLayout=(flags&12)!=0;return p==e;}
  static uint CooldownKey(uint id){return id>=11000000&&id<20000000?Base(id):id;}
+ static void ClearCastFlashes(Flow flow){foreach(var slot in flow.Slots.Values)slot.CastAt=0;}
+ static bool MarkOwnCast(Flow flow,uint skill,double time){
+  if(!flow.HasBar)return false;
+  uint key=CooldownKey(skill),component=skill%100;
+  bool family=component<7||component>9;
+  Slot found=null;
+  foreach(var slot in flow.Slots.Values){
+   uint chain;flow.Chains.TryGetValue(Base(slot.Skill),out chain);
+   if(skill!=slot.Skill&&skill!=slot.Alternative&&skill!=slot.Third&&skill!=chain
+       &&(!family||key!=CooldownKey(slot.Skill)&&key!=CooldownKey(slot.Alternative)
+       &&key!=CooldownKey(slot.Third)&&key!=CooldownKey(chain)))continue;
+   // A cast carries a skill ID but no bar position. Avoid flashing two slots
+   // when the same skill is assigned more than once.
+   if(found!=null)return false;
+   found=slot;
+  }
+  // Do not extend one flash through rapid components of the same slot.
+  if(found==null||found.CastAt>0&&time-found.CastAt<.15)return false;
+  found.CastAt=time;return true;
+ }
  static void Interval(Flow f,uint id,uint milliseconds,double time,bool cast){id=CooldownKey(id);Cooldown old;if(!f.Cds.TryGetValue(id,out old)){if(f.Cds.Count>=512){var first=f.Cds.OrderBy(x=>x.Value.At).First();f.Cds.Remove(first.Key);}f.Cds[id]=old=new Cooldown();}
  // A zero-duration component of a multi-stage cast does not reset a running CD.
  // An explicit 4738 zero does reset it, as does natural interval expiry.
  if(cast&&milliseconds==0&&(old.Raw>0||old.FromCast))return;
  old.Peak=cast?milliseconds:milliseconds==0?0:Math.Max(old.Peak,milliseconds);old.Raw=milliseconds;old.At=time;old.FromCast=cast;}
- internal void Consume(byte[] b,int s,int e,double time,string key){if(b==null||s<0||e>b.Length||e-s<2||e-s>65536||string.IsNullOrEmpty(key)||double.IsNaN(time)||double.IsInfinity(time))return;double rawTime=time;if(ReceiptClock!=null){time=ReceiptClock();if(double.IsNaN(time)||double.IsInfinity(time))return;}int op=b[s]*256+b[s+1];bool changed=false;lock(gate){Flow f;if(!flows.TryGetValue(key,out f)){if(op!=0x3336&&op!=0x2136&&op!=0x0056&&op!=0x0556)return;if(flows.Count>=4){var old=flows.Where(x=>x.Key!=active).OrderBy(x=>x.Value.Traffic).FirstOrDefault();if(old.Key==null)return;flows.Remove(old.Key);}flows[key]=f=new Flow();}if(time<f.Traffic)return;f.Traffic=time;f.RawTraffic=rawTime;
- if(op==0x2136&&e-s==48){uint map=BitConverter.ToUInt32(b,s+6);if(map==0||map>=10000000)return;if(f.Map!=0&&f.Map!=map){
+ internal void Consume(byte[] b,int s,int e,double time,string key){if(b==null||s<0||e>b.Length||e-s<2||e-s>65536||string.IsNullOrEmpty(key)||double.IsNaN(time)||double.IsInfinity(time))return;double rawTime=time;if(ReceiptClock!=null){time=ReceiptClock();if(double.IsNaN(time)||double.IsInfinity(time))return;}int op=b[s]*256+b[s+1];bool changed=false;lock(gate){Flow f;if(!flows.TryGetValue(key,out f)){if(op!=0x3336&&op!=0x2036&&op!=0x2136&&op!=0x0056&&op!=0x0556)return;if(flows.Count>=4){var old=flows.Where(x=>x.Key!=active).OrderBy(x=>x.Value.Traffic).FirstOrDefault();if(old.Key==null)return;flows.Remove(old.Key);}flows[key]=f=new Flow();}if(time<f.Traffic)return;f.Traffic=time;f.RawTraffic=rawTime;
+ if(op==0x2036){
+  uint actor;if(!DashSignal.LoginActor(b,s,e,out actor))return;
+  f.LoginActor=actor;
+  f.Self=f.AwaitingSelf=0;f.SelfName=f.AwaitingName=null;
+  f.Slots.Clear();f.HasBar=f.FullWhileAwaiting=false;f.FullWireTime=null;
+  f.Cds.Clear();f.Chains.Clear();f.Context.Clear();
+  f.Bar.LastClear="character login";f.Bar.ClearedAt=time;
+  if(active==key)active=null;changed=true;
+ }
+ else if(op==0x2136&&e-s==48){uint map=BitConverter.ToUInt32(b,s+6);if(map==0||map>=10000000)return;if(f.Map!=0&&f.Map!=map){
   // A map change does not necessarily resend0056 (recorded Pesadilla entry
   // and exit). Quarantine the received assignments/CD anchors until3336
   // confirms the same actor and name on this TCP flow; never publish while unconfirmed.
   if(f.Self!=0){f.AwaitingSelf=f.Self;f.AwaitingName=f.SelfName;}f.FullWhileAwaiting=false;f.Bar.MapPauses++;f.Bar.PausedAt=time;
-  f.Chains.Clear();f.Context.Clear();f.Self=0;if(active==key)active=null;changed=true;
+  f.Chains.Clear();f.Context.Clear();ClearCastFlashes(f);f.Self=0;if(active==key)active=null;changed=true;
  }f.Map=map;}
- else if(op==0x3336){uint actor;string name;byte role;if(DpsSignal.PlayerIdentity(b,s,e,true,out actor,out name,out role)){uint previous=f.Self!=0?f.Self:f.AwaitingSelf;string previousName=f.Self!=0?f.SelfName:f.AwaitingName;bool resuming=f.AwaitingSelf!=0;
+ else if(op==0x3336){uint actor;string name;byte role;if(DpsSignal.PlayerIdentity(b,s,e,true,out actor,out name,out role)){if(f.LoginActor!=0&&f.LoginActor!=actor)return;uint previous=f.Self!=0?f.Self:f.AwaitingSelf;string previousName=f.Self!=0?f.SelfName:f.AwaitingName;bool resuming=f.AwaitingSelf!=0;
   if(previous!=0&&(previous!=actor||!string.Equals(previousName,name,StringComparison.Ordinal))){
-   f.Bar.LastClear="own actor changed";f.Bar.ClearedAt=time;f.Cds.Clear();f.Chains.Clear();f.Context.Clear();
+   f.Bar.LastClear="own actor changed";f.Bar.ClearedAt=time;f.Cds.Clear();f.Chains.Clear();f.Context.Clear();ClearCastFlashes(f);
    // A fresh full bar received during loading is authoritative for the new
    // profile. Partial updates alone must never transfer the previous layout.
-   if(!resuming||!f.FullWhileAwaiting){f.Slots.Clear();f.HasBar=false;}
+   if(!(resuming&&f.FullWhileAwaiting)&&f.FullWireTime!=rawTime){f.Slots.Clear();f.HasBar=false;}
   }else if(resuming&&f.HasBar){f.Bar.MapResumes++;f.Bar.ResumedAt=time;}
-  f.AwaitingSelf=0;f.AwaitingName=null;f.FullWhileAwaiting=false;f.Self=actor;f.SelfName=name;f.Context.Enabled=f.Slots.Values.Any(HasContext);active=key;changed=true;}}
+  f.AwaitingSelf=f.LoginActor=0;f.AwaitingName=null;f.FullWhileAwaiting=false;f.Self=actor;f.SelfName=name;f.Context.Enabled=f.Slots.Values.Any(HasContext);active=key;changed=true;}}
  else if(op==0x0056||op==0x0556){
   var trace=f.Bar;bool full=op==0x0056;if(full)trace.FullReceived++;else trace.PartialReceived++;
   trace.LastOpcode=full?"0056":"0556";trace.LastLength=e-s;trace.LastAt=time;
   List<Slot> entries;BarFault fault;
   if(!Bar(b,s,e,out entries,out fault)){if(full)trace.FullRejected++;else trace.PartialRejected++;trace.LastRejection=fault;trace.LastRejectedOpcode=trace.LastOpcode;trace.LastRejectedLength=e-s;trace.LastRejectedAt=time;return;}
-  if(full){trace.FullAccepted++;f.Slots.Clear();f.HasBar=true;if(f.AwaitingSelf!=0)f.FullWhileAwaiting=true;}
+  if(full){trace.FullAccepted++;f.FullWireTime=rawTime;f.Slots.Clear();f.HasBar=true;if(f.AwaitingSelf!=0)f.FullWhileAwaiting=true;}
   if(!f.HasBar){trace.PartialWithoutFull++;return;}
   if(!full)trace.PartialAccepted++;
   foreach(var slot in entries){if(slot.Skill==0)f.Slots.Remove(slot.Index);else f.Slots[slot.Index]=slot;}
   f.Context.Enabled=f.Slots.Values.Any(HasContext);changed=true;
  }
  else if(f.Self!=0&&active==key&&SkillSlotContext.Handles(op)){changed=f.Context.Consume(b,s,e,time,f.Self);}
- else if(f.Self!=0&&active==key&&op==0x0238){uint actor,skill,ms;bool charges;if(Cast(b,s,e,out actor,out skill,out ms,out charges)&&actor==f.Self&&!charges){Interval(f,skill,ms,time,true);changed=true;}}
+ else if(f.Self!=0&&active==key&&op==0x0238){
+  uint actor,skill,ms;bool charges;
+  if(Cast(b,s,e,out actor,out skill,out ms,out charges)&&actor==f.Self){
+   if(!charges){Interval(f,skill,ms,time,true);changed=true;}
+   if(flashCasts&&MarkOwnCast(f,skill,time))changed=true;
+  }
+ }
  else if(f.Self!=0&&active==key&&op==0x4738){Dictionary<uint,uint> entries;if(!Cooldowns(b,s,e,out entries))return;foreach(var pair in entries)Interval(f,pair.Key,pair.Value,time,false);changed=true;}
  else if(f.Self!=0&&active==key&&op==0x1838&&e-s==11&&b[s+6]==1){uint first=BitConverter.ToUInt32(b,s+2),next=BitConverter.ToUInt32(b,s+7);if(first!=0&&next!=0){uint previous=Base(first);foreach(var root in f.Chains.Where(x=>Base(x.Value)==previous).Select(x=>x.Key).ToArray())f.Chains[root]=next;if(f.Chains.ContainsKey(previous)||f.Chains.Count<128)f.Chains[previous]=next;changed=true;}}
  // An entry means the CURRENT available destination of that root. Opening
@@ -105,7 +150,7 @@ internal sealed class SkillSlotsSignal {
  else if(f.Self!=0&&active==key&&op==0x1938&&e-s==7&&b[s+2]==1){uint id=Base(BitConverter.ToUInt32(b,s+3));foreach(var root in f.Chains.Where(x=>Base(x.Value)==id).Select(x=>x.Key).ToArray())f.Chains.Remove(root);changed=true;}
  if(changed){revision++;cached=null;}changed=changed&&enabled;}
  if(changed)Notify();}
- internal View Read(double now){lock(gate){Flow f;if(!enabled||active==null||!flows.TryGetValue(active,out f)||f.Self==0||!f.HasBar||now+.25<f.Traffic||now-f.Traffic>15)return null;if(cached!=null)return cached;var v=new View{Self=f.Self,Map=f.Map,Flow=active,Revision=revision,ContextTarget=f.Context.Target,FireMarkUntil=f.Context.Until,StunUntil=f.Context.UntilFor(f.Context.Target,SkillSlotContext.Stun),HeartGoreUntil=f.Context.UntilFor(f.Self,SkillSlotContext.HeartGore),EvasionUntil=f.Context.EvasionUntil(f.Self)};foreach(var slot in f.Slots.Values.OrderBy(x=>x.Index))v.Slots.Add(slot.Copy());foreach(var p in f.Cds)v.Cooldowns[p.Key]=p.Value.Copy();foreach(var p in f.Chains)v.Chains[p.Key]=p.Value;return cached=v;}}
+ internal View Read(double now){lock(gate){Flow f;if(!enabled||active==null||!flows.TryGetValue(active,out f)||f.Self==0||!f.HasBar||now+.25<f.Traffic||now-f.Traffic>15)return null;if(cached!=null)return cached;var v=new View{Self=f.Self,Map=f.Map,Flow=active,Revision=revision,ContextTarget=f.Context.Target,FireMarkUntil=f.Context.Until,StunUntil=f.Context.UntilFor(f.Context.Target,SkillSlotContext.Stun),HeartGoreUntil=f.Context.UntilFor(f.Self,SkillSlotContext.HeartGore),EvasionUntil=f.Context.EvasionUntil(f.Self),InfiltrateUntil=f.Context.UntilFor(f.Self,SkillSlotContext.InfiltrateWindow)};foreach(var slot in f.Slots.Values.OrderBy(x=>x.Index))v.Slots.Add(slot.Copy());foreach(var p in f.Cds)v.Cooldowns[p.Key]=p.Value.Copy();foreach(var p in f.Chains)v.Chains[p.Key]=p.Value;return cached=v;}}
  internal static Cooldown For(View v,uint id){Cooldown c;return v!=null&&(v.Cooldowns.TryGetValue(id,out c)||v.Cooldowns.TryGetValue(Base(id),out c))?c:null;}
  // Both intervals are milliseconds: own Hellfire 41600ms corresponds to the
  // user's native42s display; later corrections replace the same time anchor.
@@ -119,7 +164,19 @@ internal sealed class SkillSlotsSignal {
   if(Base(slot.Alternative)==skill)return slot.Alternative;
   return Base(slot.Third)==skill?slot.Third:0;
  }
- static bool HasContext(Slot slot){return IsFireContext(slot)||IsShadowFallContext(slot)||AssassinEVariant(slot,13210000)!=0||AssassinEVariant(slot,13350000)!=0;}
+ static bool HasContext(Slot slot){return IsFireContext(slot)||IsShadowFallContext(slot)||Base(slot.Skill)==13340000||Base(slot.Skill)==13360000;}
+ internal static bool? Requirement(View view,Slot slot,uint skill,double now,StaggerSignal stagger){
+  if(view==null)return null;
+  uint current=Base(skill);
+  // These two base skills are reactive even when no activation is open.
+  if(current==13340000)return stagger!=null&&stagger.IsTargetStaggered(view.Flow,view.ContextTarget,now);
+  if(current==13360000)return now<view.InfiltrateUntil;
+  if(IsFireContext(slot)&&current==15050000&&view.ContextTarget!=0&&now<view.FireMarkUntil&&Remaining(For(view,slot.Skill),now)>0)return true;
+  if(IsShadowFallContext(slot)&&current==13220000&&view.ContextTarget!=0&&now<view.StunUntil)return true;
+  if(AssassinEVariant(slot,13210000)!=0&&current==13210000&&now<view.EvasionUntil)return true;
+  if(AssassinEVariant(slot,13350000)!=0&&current==13350000&&now<view.HeartGoreUntil)return true;
+  return null;
+ }
  internal static uint DisplaySkill(View view,Slot slot){return DisplaySkill(view,slot,DpsHistory.UtcNow());}
  internal static uint DisplaySkill(View view,Slot slot,double now){uint next;if(view!=null&&view.Chains.TryGetValue(Base(slot.Skill),out next))return next;
  // This specific conditional pair is verified by assigned bar IDs, recorded Fire
@@ -137,7 +194,7 @@ internal sealed class SkillSlotsSignal {
 }
 
 internal sealed class SkillSlotContext {
- internal const uint FireMark=157100071,Stun=100000301,HeartGore=133500081,EvasionMarkerA=1006,EvasionMarkerB=1007;
+ internal const uint FireMark=157100071,Stun=100000301,HeartGore=133500081,EvasionMarkerA=1006,EvasionMarkerB=1007,InfiltrateWindow=3015;
  sealed class Mark {internal uint Target,Effect;internal double Until;internal long ServerExpiry;}
  readonly Dictionary<ulong,Mark> marks=new Dictionary<ulong,Mark>();internal uint Target;internal bool Enabled;double clockOffset,clockAt;bool clockKnown;
  internal void Clear(){marks.Clear();Target=0;Enabled=false;clockKnown=false;clockOffset=clockAt=0;}
@@ -168,7 +225,8 @@ internal sealed class SkillSlotContext {
  if(op==0x2a38||op==0x2b38){List<PlayerShieldSignal.Status> statuses;if(!PlayerShieldSignal.ReadStatuses(b,s,e,out actor,out statuses))return false;bool changed=false;foreach(var status in statuses){ulong key=Key(actor,status.Instance);if(marks.Remove(key))changed=true;
  // Absolute server expiry keeps repeated snapshots from extending availability.
  bool evasion=actor==self&&status.Skill==0&&(status.Effect==EvasionMarkerA||status.Effect==EvasionMarkerB);
- bool supported=evasion||status.Effect==FireMark||status.Effect==Stun&&actor!=self||status.Effect==HeartGore&&actor==self&&status.Skill==13350008;
+ bool supported=evasion||status.Effect==FireMark||status.Effect==Stun&&actor!=self||status.Effect==HeartGore&&actor==self&&status.Skill==13350008
+     ||status.Effect==InfiltrateWindow&&actor==self&&status.Skill==13000100&&status.Source==self;
  if(status.Removing||!supported||status.Duration<=0||status.Duration>60000)continue;if(!clockKnown||time-clockAt>2)continue;double until=status.Expiry/1000.0+clockOffset;if(until<=time||until>time+status.Duration/1000.0+.25)continue;
  foreach(var expired in marks.Where(x=>x.Value.Until<=time).Select(x=>x.Key).ToArray())marks.Remove(expired);
  if(marks.Count>=512)marks.Remove(marks.OrderBy(x=>x.Value.Until).First().Key);

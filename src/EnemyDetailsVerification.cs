@@ -14,6 +14,43 @@ internal static class EnemyDetailsVerification {
         // One shared byte holds status/outer/gauge booleans: false,false,false,true.
         b.Add(1);V(b,0);b.AddRange(BitConverter.GetBytes(level));b.Add(3);b.Add(1);b.AddRange(BitConverter.GetBytes(1200));b.AddRange(BitConverter.GetBytes(1200));b.AddRange(new byte[4]);V(b,0);return b.ToArray();
     }
+    static void VerifyExactFallback(double now){
+        using(var reader=new ClientPositionReader(null,false)){
+            reader.Configure(true);
+            var source=new EnemyHealthSignal{ClientPositions=reader};source.Configure(true);
+            var profile=EnemyTargetVerification.Player(10196,"Charlotta",12202,12202,true);
+            Feed(source,profile,now-6);
+            Feed(source,Spawn(345),now);
+            Feed(source,Select(345),now);
+            Check(!source.Read().Distance.HasValue,"Missing exact data must not use stale server coordinates");
+            var placement=new byte[26];placement[0]=0x23;placement[1]=0x36;
+            int offset=8;
+            foreach(float axis in new[]{93100f,27000f,26000f}){
+                Buffer.BlockCopy(BitConverter.GetBytes(axis),0,placement,offset,4);offset+=4;
+            }
+            Feed(source,placement,now,"B");
+            Check(!source.Read().Distance.HasValue,"A placement from a different flow cannot provide metres");
+            Feed(source,placement,now);
+            Check(source.Read().Distance==3,"Confirmed own placement provides the approximate server position");
+            Feed(source,EffectPosition(555,93500),now+1);
+            Check(source.Read().Distance==3,"Another actor's status source position cannot change our metres");
+            Feed(source,EffectPosition(10196,93200),now+1);
+            Check(source.Read().Distance==2,"An explicit own status source position refreshes the fallback");
+            Feed(source,Move(10196,93000),now+2);
+            var sample=source.Read();
+            Check(sample.Distance.HasValue&&Math.Abs(sample.Distance.Value-4)<.001&&sample.DistanceApproximate,
+                "An unavailable exact reading can fall back to fresh same-flow server positions");
+            reader.Configure(false);
+            Check(!source.Read().DistanceApproximate,"Standard distance keeps its existing display");
+        }
+    }
+    static byte[] EffectPosition(uint caster,float x){
+        var b=new List<byte>{0x2a,0x38};V(b,345);b.Add(1);b.Add(17);V(b,7);
+        b.AddRange(BitConverter.GetBytes(100000301u));
+        b.AddRange(new byte[16]);V(b,caster);b.Add(1);b.Add(0);
+        foreach(float axis in new[]{x,27000f,26000f})b.AddRange(BitConverter.GetBytes(axis));
+        return b.ToArray();
+    }
     static void VerifyHighLevels(double now){
         Check(EnemyDetailReader.DisplayLevel(45,54)==54&&EnemyDetailReader.DisplayLevel(45,18)==45&&!EnemyDetailReader.DisplayLevel(45,null).HasValue,"Level45 rule cannot lower stronger enemies or invent unknown levels");
         var source=new EnemyHealthSignal();source.Configure(true);Feed(source,EnemyTargetVerification.Player(10196,"Charlotta",12202,12202,true),now);var boss=StatusSpawn(345);EnemyHealthSignal.Sample sample;
@@ -29,6 +66,7 @@ internal static class EnemyDetailsVerification {
     static void Feed(EnemyHealthSignal source,byte[] b,double t,string flow="A"){source.Consume(b,0,b.Length,t,flow);}
     internal static void Run(string root){double now=DpsHistory.UtcNow();var source=new EnemyHealthSignal();source.Configure(true);Feed(source,EnemyTargetVerification.Player(10196,"Charlotta",12202,12202,true),now);Feed(source,Spawn(345),now);Feed(source,Select(345),now);var s=source.Read();Check(s!=null&&s.BaseLevel==18&&s.AdjustedLevel==45,"Received base level and user-confirmed level45 display rule");Check(s.Distance.HasValue&&Math.Abs(s.Distance.Value-4)<.001,"Distance from matched received coordinates in centimetres");Check(EnemySpecies.Name(s.Npc,"es")=="Feras","Live verified Zaif type");Feed(source,Move(345,93500),now+.1);s=source.Read();Check(s.Distance.HasValue&&Math.Abs(s.Distance.Value-5)<.001,"Tracked enemy position update");Feed(source,Move(10196,93100),now+.2);Check(Math.Abs(source.Read().Distance.Value-4)<.001,"Own position update");Feed(source,Move(10196,93200),now+.3,"B");Check(Math.Abs(source.Read().Distance.Value-4)<.001,"Other flows cannot change measured distance");Check(EnemyDetailReader.LevelText(45,18,true)=="45 (18)"&&EnemyDetailReader.LevelText(45,18,false)=="45"&&EnemyDetailReader.LevelText(null,18,true)=="— (18)","Adjusted/base labels and unknown display level");EnemyHealthSignal.Sample sample;var frame=Spawn(345);Check(EnemyHealthSignal.Spawn(frame,0,frame.Length,out sample)&&sample.BaseLevel==18,"Complete bounded spawn tail");Check(EnemyHealthSignal.Spawn(frame,0,frame.Length-1,out sample)&&!sample.BaseLevel.HasValue,"Truncated optional metadata cannot falsify level or discard valid HP");EnemyDetailReader.Position a=new EnemyDetailReader.Position{Known=true,X=1,Y=2,Z=3,Time=now-6};Check(!EnemyDetailReader.Distance(a,s.Position,now).HasValue,"Stale local position hides distance");Check(EnemySpecies.Name(2999999,"es")==null,"Unknown types are not inferred from a name");var config=new EnergyConfiguration{Options=new EnergyBarOptions(),Bounds=new Rectangle(0,0,320,4)};var targetBefore=config.EnemyTarget.Copy();ProgressWidgetScale.Apply(config,2,200);Check(config.EnemyHealth.Details.DistanceText.FontSize==28&&config.EnemyHealth.Details.SpeciesText.FontSize==24&&config.EnemyTarget.Details.DistanceText.FontSize==targetBefore.Details.DistanceText.FontSize,"Metadata texts scale with main widget only");var copy=config.Copy();copy.EnemyHealth.Details.DistanceText.Color="#123456";Check(config.EnemyHealth.Details.DistanceText.Color!="#123456","Metadata deep copy");source.Reset();Check(source.Read()==null,"Transport reset clears positions and level");
         VerifyHighLevels(now);
+        VerifyExactFallback(now);
         VerifyMovementFlags();
         VerifyGroundAimIsolation(now);
         using(var owner=new EnergyOverlay(root,true)){var settings=new HelperSettings(owner);try{settings.VerifyEnemyDetails(root);}finally{settings.Close();}}

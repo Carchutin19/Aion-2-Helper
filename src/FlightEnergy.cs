@@ -55,6 +55,8 @@ internal sealed class FlightEnergyOverlay:IDisposable {
             core.Height=Math.Max(BarDesign.MinimumHeight,Math.Min(BarDesign.MaximumHeight,core.Height));
             return WindowBounds(core).Size;
         };
+        window.SnapOwner=owner;
+        window.SnapInset=BarDesign.GlowPadding;
         window.Moved=delegate(Rectangle bounds){var config=owner.Configuration;config.FlightEnergy.Bounds=CoreBounds(bounds);owner.ApplyConfiguration(config);};
     }
     static Rectangle WindowBounds(Rectangle core){core.Inflate(BarDesign.GlowPadding,BarDesign.GlowPadding);return core;}

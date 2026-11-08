@@ -85,6 +85,8 @@ internal sealed class Recorder:IDisposable {
     internal Action<Segment,double> OnSegment;
     internal Action<Segment,double,bool,bool,int> OnOwnedSegment;
     internal Action OnCaptureStarted;
+    long exactClientDelivered,exactClientUnowned,exactClientSyn;
+    internal object ExactClientCapture {get{return new{standardDestinationPayloads=Interlocked.Read(ref exactClientDelivered),rejectedByOwnership=Interlocked.Read(ref exactClientUnowned),standardConnectionStarts=Interlocked.Read(ref exactClientSyn)};}}
     volatile bool clientTraffic;Dictionary<string,int> flowOwners=new Dictionary<string,int>();
     internal void SetClientTraffic(bool value){clientTraffic=value;}
     internal string[] IncomingSocketKeys(){lock(sync){return continuity.Streams();}}
@@ -187,7 +189,7 @@ internal sealed class Recorder:IDisposable {
         if(writePackets){session=Path.Combine(root,"captures",DateTime.Now.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N").Substring(0,6));Directory.CreateDirectory(session);
         writer=new StreamWriter(Path.Combine(session,"segments.jsonl"),false,new UTF8Encoding(false));writer.AutoFlush=true;
         marks=new StreamWriter(Path.Combine(session,"markers.jsonl"),false,new UTF8Encoding(false));marks.AutoFlush=true;}
-        lock(sync){continuity.Reset();}RefreshFlows();started=DateTime.UtcNow;bytes=packets=0;error="";openAdapters=0;liveStandardWorkers=devices.Count;liveWorkers=devices.Count*(writePackets?1:2);stopEvent.Reset();if(OnCaptureStarted!=null)OnCaptureStarted();active=true;Mark("START");
+        lock(sync){continuity.Reset();}RefreshFlows();started=DateTime.UtcNow;bytes=packets=0;error="";openAdapters=0;liveStandardWorkers=devices.Count;liveWorkers=devices.Count*(writePackets?1:2);stopEvent.Reset();if(OnCaptureStarted!=null)OnCaptureStarted();Interlocked.Exchange(ref exactClientDelivered,0);Interlocked.Exchange(ref exactClientUnowned,0);Interlocked.Exchange(ref exactClientSyn,0);active=true;Mark("START");
         foreach(string name in devices) {string captured=name;var t=new Thread(delegate(){Capture(captured,false);});t.IsBackground=true;workers.Add(t);t.Start();if(!writePackets){var alternate=new Thread(delegate(){Capture(captured,true);});alternate.IsBackground=true;workers.Add(alternate);alternate.Start();}}
     }
     static void ApplyTrafficFilter(IntPtr handle,string expression){Native.Filter filter;if(Native.pcap_compile(handle,out filter,expression,1,0xffffffff)!=0)throw new Exception("Could not compile game traffic filter");try{if(Native.pcap_setfilter(handle,ref filter)!=0)throw new Exception("Could not apply game traffic filter");}finally{Native.pcap_freecode(ref filter);}}
@@ -217,7 +219,11 @@ internal sealed class Recorder:IDisposable {
                 if(SupportDiagnostics.Enabled&&supportAdapter!=null){if(s.Data.Length==0)Interlocked.Increment(ref supportAdapter.Controls);else Interlocked.Increment(ref supportAdapter.Parsed);}
                 if((s.Flags&6)!=0)lock(sync){continuity.Control(s);}
                 OwnedConnectionContinuity.Decision decision;
-                if(!ResolveOwned(s,out decision)){if(s.Data.Length>0&&SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Unowned);continue;}
+                bool exactDestination=clientTraffic&&!alternate&&s.DstPort==13328;
+                if(exactDestination&&(s.Flags&18)==2)Interlocked.Increment(ref exactClientSyn);
+                bool exactCandidate=exactDestination&&s.Data.Length>0;
+                if(exactCandidate)Interlocked.Increment(ref exactClientDelivered);
+                if(!ResolveOwned(s,out decision)){if(exactCandidate)Interlocked.Increment(ref exactClientUnowned);if(s.Data.Length>0&&SupportDiagnostics.Enabled&&supportAdapter!=null)Interlocked.Increment(ref supportAdapter.Unowned);continue;}
                 if(s.Data.Length==0){if((s.Flags&1)!=0)lock(sync){continuity.Control(s);}continue;}
                 double ts=(uint)Marshal.ReadInt32(hp,0)+(uint)Marshal.ReadInt32(hp,4)/1000000.0;
                 bool measured=SupportDiagnostics.Enabled&&supportAdapter!=null;long processingAt=measured?Stopwatch.GetTimestamp():0;if(measured)supportAdapter.Delivery(ts);

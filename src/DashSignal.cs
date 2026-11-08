@@ -29,6 +29,7 @@ internal sealed class DashSignal {
     long gapRecoveries,framingErrors,containerErrors;
     internal uint Maximum=113900; // Manual fallback; never inferred from partially full energy.
     readonly Dictionary<string,Dictionary<uint,uint>> energyMaxima=new Dictionary<string,Dictionary<uint,uint>>();string readingStream;
+    uint energyOwner;string energyOwnerStream;bool energyOwnerLoading;
     readonly Dictionary<string,uint> maps=new Dictionary<string,uint>();
     internal Action<Reading> OnReading;
     internal Action<byte[],int,int,double,string> OnFrame;
@@ -41,7 +42,7 @@ internal sealed class DashSignal {
     uint DetectedMaximum(){Dictionary<uint,uint> actors;uint value;return reading!=null&&readingStream!=null&&energyMaxima.TryGetValue(readingStream,out actors)&&actors.TryGetValue((uint)reading.Actor,out value)?value:0;}
     internal Snapshot ReadSnapshot(){lock(gate){return new Snapshot{Reading=reading,DetectedMaximum=DetectedMaximum(),LastTraffic=lastTraffic,Samples=samples,Errors=errors};}}
     internal object SupportState(){lock(gate){double now=DiagnosticClock==null?0:DiagnosticClock();return new{samples,errors,lastTraffic,gapRecoveries,framingErrors,containerErrors,gapRecoveryPolicy="existing pending-count/byte limits; no timeout",knownOpcodes=known.Count,flows=streams.Select(pair=>{var f=pair.Value;return new{id=SupportDiagnostics.FlowId(pair.Key),started=f.Started,synced=f.Synced,buffered=f.Count,pendingSegments=f.Pending.Count,pendingBytes=f.PendingBytes,peakPending=f.PeakPending,prefixRecovery=f.PrefixRecovery,gapAgeSeconds=f.GapWaiting&&DiagnosticClock!=null?(double?)Math.Max(0,now-f.GapSince):null,maxGapAgeSeconds=Math.Max(f.MaxGapAge,f.GapWaiting?Math.Max(0,now-f.GapSince):0),gapBytes=f.Pending.Count==0?0:Math.Max(0,unchecked((int)(f.FirstPending()-f.Next))),gapRecoveries=f.GapRecoveries,skippedBytes=f.SkippedBytes,lastRecovery=f.LastRecovery,segments=f.Segments,duplicateSegments=f.Duplicates,outOfOrderSegments=f.OutOfOrder,decodedFrames=f.Frames,lastCaptureTimestamp=f.LastTimestamp};}).ToArray()};}}
-    internal void Reset(){SupportDiagnostics.Event("decoder-reset",new{reason="Capture/transport reset"});lock(gate){streams.Clear();energyMaxima.Clear();maps.Clear();readingStream=null;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
+    internal void Reset(){SupportDiagnostics.Event("decoder-reset",new{reason="Capture/transport reset"});lock(gate){streams.Clear();energyMaxima.Clear();maps.Clear();readingStream=energyOwnerStream=null;energyOwner=0;energyOwnerLoading=false;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
     internal Reading Current {get{lock(gate){return reading;}}}
     internal double LastTraffic {get{lock(gate){return lastTraffic;}}}
     internal int Samples {get{lock(gate){return samples;}}}
@@ -75,6 +76,24 @@ internal sealed class DashSignal {
     }
     static bool ReadVar(byte[] data,ref int position,int end,out uint value){
         value=0;for(int shift=0;shift<35;shift+=7){if(position>=end)return false;byte item=data[position++];if(shift==28&&(item&0xf0)!=0)return false;value|=(uint)(item&127)<<shift;if(item<128)return true;}return false;
+    }
+    // The login settings envelope identifies the upcoming character before the
+    // own profile and full hotbar. Read only the bounded identity header.
+    internal static bool LoginActor(byte[] b,int start,int end,out uint actor){
+        actor=0;
+        if(b==null||start<0||end>b.Length||end-start<377||end-start>65536
+            ||b[start]!=0x20||b[start+1]!=0x36||b[start+2]!=0||b[start+3]!=0)return false;
+        int p=start+4;uint candidate;
+        if(!ReadVar(b,ref p,end,out candidate)||candidate==0||candidate>10000000||end-p<376
+            ||BitConverter.ToUInt32(b,p)!=0||BitConverter.ToUInt32(b,p+4)==0||BitConverter.ToUInt16(b,p+8)!=0)return false;
+        int server=BitConverter.ToUInt16(b,p+10);
+        if(server==0||server>10000)return false;
+        if(end-p!=376){
+            if(end-p<387||b[p+20]!=0x78||((b[p+20]<<8)|b[p+21])%31!=0)return false;
+            uint inflated=BitConverter.ToUInt32(b,p+16);
+            if(inflated==0||inflated>1048576)return false;
+        }
+        actor=candidate;return true;
     }
     // Shared identity-only view of a global resource envelope. Unknown resource
     // kinds remain uninterpreted; a bounded, single current-energy value is
@@ -136,6 +155,17 @@ internal sealed class DashSignal {
                 if(maps.Count>=32&&!maps.ContainsKey(stream))maps.Clear();maps[stream]=map;
             }
         }
+        if(stream!=null){
+            uint login;string name;byte role;
+            if(LoginActor(data,start,end,out login)){
+                if(energyOwnerStream!=null)energyMaxima.Remove(energyOwnerStream);
+                energyOwner=login;energyOwnerStream=stream;energyOwnerLoading=true;reading=null;readingStream=null;
+            }else if(data[start]==0x33&&data[start+1]==0x36&&DpsSignal.PlayerIdentity(data,start,end,true,out login,out name,out role)
+                &&(!energyOwnerLoading||energyOwner==login&&energyOwnerStream==stream)){
+                energyOwner=login;energyOwnerStream=stream;energyOwnerLoading=false;
+                if(reading!=null&&(reading.Actor!=(int)login||readingStream!=stream)){reading=null;readingStream=null;}
+            }
+        }
         Flow transport;if(stream!=null&&streams.TryGetValue(stream,out transport))transport.Frames++;
         if(!ProbeOnly)SupportDiagnostics.Frame((data[start]<<8)|data[start+1],end-start);if(OnFrame!=null)OnFrame(data,start,end,ts,stream);
         if(data[start]!=0||data[start+1]!=0x8d)return;
@@ -149,6 +179,7 @@ internal sealed class DashSignal {
         // level/stat change. Bind it to both TCP flow and actor, never nearby NPCs.
         if(maximum.HasValue&&stream!=null){Dictionary<uint,uint> actors;if(!energyMaxima.TryGetValue(stream,out actors)){if(energyMaxima.Count>=32)energyMaxima.Clear();actors=new Dictionary<uint,uint>();energyMaxima[stream]=actors;}if(actors.Count>=64&&!actors.ContainsKey(actor))actors.Clear();actors[actor]=maximum.Value;}
         if(!candidate.HasValue){if(maximum.HasValue&&reading!=null&&reading.Actor==(int)actor&&readingStream==stream&&OnReading!=null)OnReading(reading);return;}
+        if(energyOwner!=0&&(energyOwner!=actor||energyOwnerStream!=stream))return;
         readingStream=stream;reading=new Reading{Actor=(int)actor,Value=candidate.Value,Timestamp=ts};samples++;if(OnReading!=null)OnReading(reading);
     }
     static int Extra(byte[] data,ref int position,int count,int end){
@@ -255,6 +286,19 @@ internal sealed class DashSignal {
         if(decoder.Current!=null)throw new Exception("Maximum-only update must not reveal energy without a current sample");
         apply("008D01010103404B0100","a",12);
         if(decoder.Current==null||decoder.ReadSnapshot().DetectedMaximum!=114800)throw new Exception("New area actual sample must restore energy and automatic maximum");
+        var login=LoginFixture(2);decoder.Decode(login,0,login.Length,13,0,"a");
+        if(decoder.Current!=null)throw new Exception("Character login must hide energy of the previous actor on the same TCP flow");
+        apply("008D01010103404B0100","a",13.1);
+        if(decoder.Current!=null)throw new Exception("Late energy from the previous character cannot reactivate its bar");
+        apply("008D02010103404B0100","a",13.2);
+        if(decoder.Current.Actor!=2||decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("A new character cannot inherit a previously cached maximum");
+        apply("008D0201010AA0860100","a",13.3);
+        if(decoder.ReadSnapshot().DetectedMaximum!=100000)throw new Exception("New character maximum must match its own received value");
+    }
+    internal static byte[] LoginFixture(byte actor){
+        var login=new byte[381];login[0]=0x20;login[1]=0x36;login[4]=actor;login[9]=1;
+        Buffer.BlockCopy(BitConverter.GetBytes((ushort)1301),0,login,15,2);
+        return login;
     }
     static void VerifyConnectionStart(string root){
         // Initial1136/1536 envelopes precede compressed gameplay messages in

@@ -12,7 +12,12 @@ internal static class UiLanguageMore {
  internal static bool TryText(string text,string language,out string result){Dictionary<string,string> map;result=null;return maps.TryGetValue(language,out map)&&map.TryGetValue(text,out result);}
  internal static bool TryEnglish(string text,out string result){return reverse.TryGetValue(text,out result);}
  internal static int Count(string language){Dictionary<string,string> map;return maps.TryGetValue(language,out map)?map.Count:0;}
- const string Data=@"Show widgets only when Aion is in the foreground|Widgets nur anzeigen, wenn Aion im Vordergrund ist|Afficher les widgets uniquement quand Aion est au premier plan|عرض الأدوات فقط عندما يكون Aion في المقدمة
+ const string Data=@"Snap widgets together|Widgets aneinander ausrichten|Aligner les widgets entre eux|محاذاة الأدوات مع بعضها
+Align the edges and centers of nearby widgets while dragging. Hotbar slot snap is configured separately.|Beim Ziehen Kanten und Mittelpunkte benachbarter Widgets ausrichten. Das Einrasten der Hotbar-Plätze wird separat eingestellt.|Aligne les bords et les centres des widgets proches pendant le déplacement. L’alignement des emplacements de la barre de raccourcis se règle séparément.|حاذِ حواف الأدوات القريبة ومراكزها أثناء السحب. يُضبط التقاط خانات شريط المهارات بشكل مستقل.
+Show alignment grid|Ausrichtungsraster anzeigen|Afficher la grille d’alignement|إظهار شبكة المحاذاة
+Grid opacity|Rasterdeckkraft|Opacité de la grille|عتامة الشبكة
+Show a grid with highlighted center lines on each screen while widgets are unlocked.|Bei entsperrten Widgets ein Raster mit hervorgehobenen Mittellinien auf jedem Bildschirm anzeigen.|Affiche une grille avec des axes centraux renforcés sur chaque écran lorsque les widgets sont déverrouillés.|اعرض شبكة بخطوط مركزية بارزة على كل شاشة عند إلغاء قفل الأدوات.
+Show widgets only when Aion is in the foreground|Widgets nur anzeigen, wenn Aion im Vordergrund ist|Afficher les widgets uniquement quand Aion est au premier plan|عرض الأدوات فقط عندما يكون Aion في المقدمة
 Unlocked widgets stay visible so you can move and resize them.|Entsperrte Widgets bleiben sichtbar, damit du sie verschieben und skalieren kannst.|Les widgets déverrouillés restent visibles pour que tu puisses les déplacer et les redimensionner.|تظل الأدوات غير المقفلة مرئية لتتمكن من نقلها وتغيير حجمها.
 Flight Energy|Flugenergie|Énergie de vol|طاقة الطيران
 Enable Flight Energy|Flugenergieleiste aktivieren|Activer la barre d’énergie de vol|تفعيل شريط طاقة الطيران
@@ -128,6 +133,7 @@ Enable Energy Bar|Energieleiste aktivieren|Activer la barre d’énergie|تفع�
 Energy bar for dash and sprint|Energieleiste für Ausweichen und Sprint|Barre d’énergie pour l’esquive et le sprint|شريط طاقة الاندفاع والركض
 Energy Bar disabled|Energieleiste deaktiviert|Barre d’énergie désactivée|شريط الطاقة معطّل
 No data · dash once to start|Keine Daten · einmal ausweichen|Aucune donnée · faites une esquive|لا توجد بيانات · اندفع مرة للبدء
+Waiting for maximum energy stats|Warte auf die maximale Energie des Charakters|En attente de l’énergie maximale du personnage|في انتظار الحد الأقصى لطاقة الشخصية
 Progress bar|Fortschrittsleisten|Barres de progression|أشرطة التقدم
 Stagger Bar|Taumelleiste|Barre de déstabilisation|شريط الترنّح
 Enable Stagger Bar|Taumelleiste aktivieren|Activer la barre de déstabilisation|تفعيل شريط الترنّح
@@ -323,6 +329,9 @@ HOTBAR · EXPERIMENTAL|AKTIONSLEISTE · EXPERIMENTELL|BARRE DE COMPÉTENCES · E
 CHARACTER PRESET|CHARAKTERPROFIL|PROFIL DU PERSONNAGE|إعداد الشخصية
 Test hotbar|Aktionsleiste testen|Tester la barre de compétences|تجربة شريط المهارات
 Show slot labels|Slot-Beschriftungen anzeigen|Afficher les étiquettes des emplacements|إظهار تسميات الخانات
+Animate key presses and skill casts|Tastendruck und Fertigkeitseinsatz animieren|Animer les appuis et les lancements|تحريك الخانات عند ضغط المفاتيح وإطلاق المهارات
+Use custom labels such as Q, 1, F1 or M1 to match your AION 2 bindings. Confirmed casts flash as well, including skills used by game macros. AION 2 must be in front and widgets locked.|Verwende Beschriftungen wie Q, 1, F1 oder M1 passend zur Tastenbelegung. Bestätigte Einsätze blinken auch bei Spielmakros. AION 2 muss im Vordergrund sein und die Widgets müssen gesperrt sein.|Utilisez des étiquettes comme Q, 1, F1 ou M1 pour vos raccourcis. Les lancements confirmés clignotent aussi via une macro du jeu. AION 2 doit être au premier plan et les widgets verrouillés.|استخدم تسميات مثل Q أو 1 أو F1 أو M1 لمطابقة مفاتيح اللعبة. يضيء الإطار عند تأكيد إطلاق المهارة حتى عند استخدام ماكرو اللعبة. يجب أن تكون AION 2 في المقدمة وعناصر الواجهة مقفلة.
+The test shows a blocked skill in slot 2 and an active reactive skill in slot 3.|Im Test zeigt Platz 2 eine gesperrte und Platz 3 eine verfügbare reaktive Fähigkeit.|Le test affiche une compétence bloquée dans le deuxième emplacement et une compétence réactive disponible dans le troisième.|يعرض الاختبار مهارة غير متاحة في الخانة الثانية ومهارة تفاعلية متاحة في الخانة الثالثة.
 Slot size|Slot-Größe|Taille des emplacements|حجم الخانة
 MOVE & SNAP|BEWEGUNG UND EINRASTEN|DÉPLACEMENT ET ALIGNEMENT|التحريك والمحاذاة
 All together|Alles zusammen|Tout ensemble|الكل معًا

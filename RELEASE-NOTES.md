@@ -1,3 +1,27 @@
+# Aion 2 Helper v1.26.0 Alpha — Widget Alignment & Hotbar Feedback
+
+## Widget editing
+
+- **General → Snap widgets together** aligns the edges and centers of nearby widgets as you drag them. The Hotbar can snap to other widgets in group or individual mode. Its own slot snap and spacing settings remain independent.
+- **General → Show alignment grid** displays a grid on each screen while widgets are unlocked, with stronger horizontal and vertical center lines. The opacity control appears when the grid is enabled and applies immediately. The grid disappears when you lock the widgets.
+
+## Hotbar
+
+- Icons slide inside the slot as a combo or contextual skill changes. Supported contextual skills dim while their requirements are unmet and pulse green when ready.
+- Enable **Animate key presses and skill casts** under **Hotbar → Appearance** for yellow slot feedback with matching keyboard and mouse labels. Holding a matching mouse button keeps the highlight visible during a basic combo. Confirmed casts also flash, including skills fired by Aion's built-in macros. Keep Aion in the foreground and widgets locked.
+- Character switches clear the previous character's live bar and cooldowns and restore the incoming character's preset. Supported partial updates can change or clear slots after a full bar has been received.
+
+## Other fixes
+
+- Ground Energy, Combat Power and Experience clear their live data when another character starts loading, then refresh from that character's readings.
+- Optional exact target distance accepts an additional game connection setup. When exact readings are unavailable, the target bar can show approximate meters from recent confirmed server positions. Hidden Cube Radar also recognizes an additional own-position update. The radar remains in testing.
+
+## Updating
+
+Use the built-in updater or close the Helper and extract the full ZIP into your existing Helper folder. Keep your personal JSON files and open the Helper before launching Aion.
+
+---
+
 # Aion 2 Helper v1.25.0 Alpha — Flight Energy & Overlay Visibility
 
 - **Flight Energy** is now available under **Progress bar**. It shares the Energy Bar's appearance, text, position, size and animation controls. Enable **Show only while recharging** to keep it off while flying, and use **Auto-hide** to set a delay and fade at 100%. The bar reads the character's initial flight stats and live updates. We verified a maximum change from 2,500 to 3,500 after using wings and a full recharge at the new maximum.

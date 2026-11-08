@@ -134,7 +134,8 @@ internal static class PlayerVitalDesign {
     }
 }
 
-internal sealed class PlayerVitalOverlay:Form {
+internal sealed class PlayerVitalOverlay:Form,IWidgetSnapTarget {
+    Rectangle IWidgetSnapTarget.SnapBounds {get{return options.EffectiveBounds;}}
     PlayerVitalSignal.View dataView;readonly BarMotion motion=new BarMotion();readonly PlayerVitalDesign.Workspace workspace=new PlayerVitalDesign.Workspace();string identityFlow;uint identityActor;bool identitySet,identityKnown,hasData;uint? currentValue,maximumValue,paintedCurrent,paintedMaximum;uint shieldValue;int paintedFill,paintedColor,paintedShield;bool paintedEditing;EnergyBarOptions shieldVisible;
     readonly EnergyOverlay owner;readonly bool mana,preview;readonly LayeredImage image=new LayeredImage();PlayerVitalOptions options;bool editing,released,dragging,valid;string key;Rectangle original,coreInSurface;Point mouse,presented;int hit;long nextRaise;byte alpha;
     internal PlayerVitalOverlay(EnergyOverlay owner,bool mana,bool preview){this.owner=owner;this.mana=mana;this.preview=preview;options=PlayerVitalOptions.Defaults(mana);FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;Text="Aion 2 Helper - Player "+(mana?"MP":"HP")+" preview";}
@@ -165,7 +166,13 @@ internal sealed class PlayerVitalOverlay:Form {
         if(m.Msg==0x21){m.Result=new IntPtr(3);return;}if((m.Msg==0xa5||m.Msg==0x205)&&editing){owner.OpenTrayMenu(Cursor.Position);m.Result=IntPtr.Zero;return;}
         if(m.Msg==0x84){if(!editing){m.Result=new IntPtr(-1);return;}var p=PointToClient(new Point((short)(m.LParam.ToInt64()&65535),(short)((m.LParam.ToInt64()>>16)&65535)));m.Result=new IntPtr(coreInSurface.Contains(p)?BarDesign.HitTest(p.X-coreInSurface.X,p.Y-coreInSurface.Y,coreInSurface.Width,coreInSurface.Height,3):2);return;}
         if(m.Msg==0xa1&&editing){hit=m.WParam.ToInt32();if(hit==2||hit>=10&&hit<=17){original=options.Bounds;mouse=Cursor.Position;dragging=true;Capture=true;m.Result=IntPtr.Zero;return;}}
-        if(m.Msg==0x200&&dragging){var delta=new Point(Cursor.Position.X-mouse.X,Cursor.Position.Y-mouse.Y);if(hit==2)options.Bounds=new Rectangle(original.X+delta.X,original.Y+delta.Y,original.Width,original.Height);else{var start=options.Copy();start.Bounds=original;var effective=start.EffectiveBounds;var resized=BarDesign.ResizeBounds(effective,delta,hit);int w=Math.Max(80,Math.Min(1600,(int)Math.Round(resized.Width/options.Factor))),h=Math.Max(6,Math.Min(80,(int)Math.Round(resized.Height/options.Factor)));options.Bounds=new Rectangle(resized.X+resized.Width/2-w/2,resized.Y+resized.Height/2-h/2,w,h);}if(hit!=2)valid=false;Maintain();m.Result=IntPtr.Zero;return;}
+        if(m.Msg==0x200&&dragging){var delta=new Point(Cursor.Position.X-mouse.X,Cursor.Position.Y-mouse.Y);if(hit==2){
+            var next=original;next.Offset(delta);options.Bounds=next;
+            var core=options.EffectiveBounds;
+            var snapped=owner.SnapWidget(this,core);
+            next.Offset(snapped.X-core.X,snapped.Y-core.Y);
+            options.Bounds=next;
+        }else{var start=options.Copy();start.Bounds=original;var effective=start.EffectiveBounds;var resized=BarDesign.ResizeBounds(effective,delta,hit);int w=Math.Max(80,Math.Min(1600,(int)Math.Round(resized.Width/options.Factor))),h=Math.Max(6,Math.Min(80,(int)Math.Round(resized.Height/options.Factor)));options.Bounds=new Rectangle(resized.X+resized.Width/2-w/2,resized.Y+resized.Height/2-h/2,w,h);}if(hit!=2)valid=false;Maintain();m.Result=IntPtr.Zero;return;}
         if((m.Msg==0x202||m.Msg==0xa2||m.Msg==0x215)&&dragging){dragging=false;Capture=false;var c=owner.Configuration;if(mana)c.PlayerMana=options.Copy();else c.PlayerHealth=options.Copy();owner.ApplyConfiguration(c);m.Result=IntPtr.Zero;return;}base.WndProc(ref m);
     }
     protected override void Dispose(bool disposing){if(disposing&&!released){released=true;workspace.Dispose();image.Dispose();}base.Dispose(disposing);}

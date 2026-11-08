@@ -272,7 +272,8 @@ internal sealed class CharacterNoticeOverlay:Form {
     protected override void Dispose(bool disposing){if(disposing&&!disposed){disposed=true;image.Dispose();workspace.Dispose();}base.Dispose(disposing);}
 }
 
-internal sealed class DpsOverlay:Form {
+internal sealed class DpsOverlay:Form,IWidgetSnapTarget {
+    Rectangle IWidgetSnapTarget.SnapBounds {get{return Bounds;}}
     readonly EnergyOverlay owner;readonly DpsSignal signal;readonly bool preview;readonly LayeredImage image=new LayeredImage();readonly DpsPaintWorkspace workspace=new DpsPaintWorkspace();readonly Timer timer=new Timer();readonly DpsMotion motion=new DpsMotion();DpsSignal.Snapshot cached;double nextPoll;DpsOptions options=new DpsOptions();bool editing,closing,rendering,dragging,valid,disposed;int hit,imageX=int.MinValue,imageY,imageAlpha=-1;Rectangle dragStart;Point mouseStart;long revision=-1,raise;double duration=-1;string language,status;DpsEncounterEstimate.Estimate lastEstimate;
     readonly DpsTabInput tabs;OverlayGlassLayer backdrop;bool blurApplied;
     internal DpsOverlay(EnergyOverlay parent,DpsSignal reader,bool previewMode){owner=parent;signal=reader;preview=previewMode;Text="Aion 2 Helper - DPS";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;tabs=new DpsTabInput(this,delegate(Point p){SelectTab(PointToClient(tabs.PointToScreen(p)));});timer.Tick+=delegate{UpdateWidget();};FormClosing+=delegate{closing=true;tabs.HideInput();HideBackdrop();};}
@@ -310,7 +311,7 @@ internal sealed class DpsOverlay:Form {
         if((m.Msg==0xa5||m.Msg==0x205)&&editing){owner.OpenTrayMenu(Cursor.Position);m.Result=IntPtr.Zero;return;}
         if(m.Msg==0x84){if(!editing){m.Result=new IntPtr(-1);return;}var p=PointToClient(new Point((short)(m.LParam.ToInt64()&0xffff),(short)((m.LParam.ToInt64()>>16)&0xffff)));m.Result=new IntPtr(BarDesign.HitTest(p.X,p.Y,Width,Height,6));return;}
         if(m.Msg==0xa1&&editing){hit=m.WParam.ToInt32();if(hit==2||hit>=10&&hit<=17){dragging=true;dragStart=Bounds;mouseStart=Cursor.Position;Capture=true;m.Result=IntPtr.Zero;return;}}
-        if(m.Msg==0x200&&dragging){var delta=new Point(Cursor.Position.X-mouseStart.X,Cursor.Position.Y-mouseStart.Y);Bounds=DpsDesign.UsableBounds(hit==2?new Rectangle(dragStart.X+delta.X,dragStart.Y+delta.Y,dragStart.Width,dragStart.Height):DpsDesign.Resize(dragStart,delta,hit));valid=false;UpdateWidget();m.Result=IntPtr.Zero;return;}
+        if(m.Msg==0x200&&dragging){var delta=new Point(Cursor.Position.X-mouseStart.X,Cursor.Position.Y-mouseStart.Y);Bounds=DpsDesign.UsableBounds(hit==2?owner.MoveWidget(this,dragStart,delta):DpsDesign.Resize(dragStart,delta,hit));valid=false;UpdateWidget();m.Result=IntPtr.Zero;return;}
         if((m.Msg==0x202||m.Msg==0xa2||m.Msg==0x215)&&dragging){dragging=false;Capture=false;SaveGeometry();m.Result=IntPtr.Zero;return;}
         if(m.Msg==0x46){var p=(OverlayNative.WindowPos)Marshal.PtrToStructure(m.LParam,typeof(OverlayNative.WindowPos));if((p.Flags&1)==0){p.Width=Math.Max(260,Math.Min(1600,p.Width));p.Height=Math.Max(110,Math.Min(900,p.Height));Marshal.StructureToPtr(p,m.LParam,false);}m.Result=IntPtr.Zero;return;}
         if(m.Msg==0x24){var p=(OverlayNative.MinMaxInfo)Marshal.PtrToStructure(m.LParam,typeof(OverlayNative.MinMaxInfo));p.MinTrackSize=new OverlayNative.Point(260,110);p.MaxTrackSize=new OverlayNative.Point(1600,900);Marshal.StructureToPtr(p,m.LParam,false);m.Result=IntPtr.Zero;return;}base.WndProc(ref m);
