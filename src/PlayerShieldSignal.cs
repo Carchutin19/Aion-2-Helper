@@ -69,10 +69,26 @@ internal sealed class PlayerShieldSignal {
             e.Time=time;if((flags&1)!=0)e.Remaining=remaining;return (flags&1)!=0;
         }
         if(op==0x2c38){
-            var w=new Wire(b,start,end);uint actor,count;if(!w.Var(out actor)||!w.Var(out count)||count>128)return false;var removed=new List<uint>();
-            for(uint i=0;i<count;i++){int flags,reason;uint instance,unused;if(!w.Byte(out flags)||flags>7||!w.Var(out instance)||!w.Byte(out reason)||((flags&1)!=0&&!w.Var(out unused))||((flags&2)!=0&&!w.Skip(4))||((flags&4)!=0&&!w.Skip(4)))return false;removed.Add(instance);}
-            if(!w.Done||actor!=self)return false;bool changed=false;foreach(uint instance in removed){Entry e;if(entries.TryGetValue(instance,out e)&&time>=e.Time){e.Remaining=0;e.Time=time;e.Removed=true;changed=true;}}return changed;
+            uint actor;List<uint> removed;
+            if(!ReadRemovals(b,start,end,out actor,out removed)||actor!=self)return false;
+            bool changed=false;
+            foreach(uint instance in removed){Entry e;if(entries.TryGetValue(instance,out e)&&time>=e.Time){e.Remaining=0;e.Removed=true;e.Time=time;changed=true;}}
+            return changed;
         }return false;
+    }
+    internal static bool ReadRemovals(byte[] b,int start,int end,out uint actor,out List<uint> removed){
+        removed=null;
+        var w=new Wire(b,start,end);uint count;
+        if(!w.Var(out actor)||!w.Var(out count)||count>128)return false;
+        var parsed=new List<uint>();
+        for(uint i=0;i<count;i++){
+            int flags,reason;uint instance,unused;
+            if(!w.Byte(out flags)||flags>7||!w.Var(out instance)||!w.Byte(out reason)||((flags&1)!=0&&!w.Var(out unused))||((flags&2)!=0&&!w.Skip(4))||((flags&4)!=0&&!w.Skip(4)))return false;
+            parsed.Add(instance);
+        }
+        if(!w.Done)return false;
+        removed=parsed;
+        return true;
     }
     internal uint Read(double now){
         // Concurrent stacking has not been validated. Show the largest confirmed

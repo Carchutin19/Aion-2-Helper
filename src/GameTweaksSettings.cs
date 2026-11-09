@@ -15,7 +15,7 @@ internal sealed class GameTweaksPane:ScrollViewer {
         for(int n=0;n<sections.Length;n++){int selected=n;navigation.ColumnDefinitions.Add(new ColumnDefinition());var tab=SettingsVisual.Button(sections[n],delegate{SelectTab(selected);});tabs[n]=tab;Grid.SetColumn(tab,n);navigation.Children.Add(tab);}
         var config=visualService??new VisualTweaks(AppDomain.CurrentDomain.BaseDirectory);
         root.Children.Add(content);visuals=new VisualTweaksPane(owner,window,config){Visibility=Visibility.Collapsed};root.Children.Add(visuals);
-        performance=new PerformanceSettingsPane(owner,window,config){Visibility=Visibility.Collapsed};root.Children.Add(performance);tabs[0].Background=SettingsVisual.Brush("#3067C7B0");
+        performance=new PerformanceSettingsPane(owner,window,config){Visibility=Visibility.Collapsed};root.Children.Add(performance);FantasyUi.Select(tabs[0],true);
         visuals.ConfigPathChanged+=delegate{if(performance.Visibility==Visibility.Visible)performance.Refresh();};
         var body=new StackPanel();content.Children.Add(SettingsVisual.Card(body,new Thickness(18,16,18,16)));
         body.Children.Add(SettingsVisual.Text("Skip the NCSOFT intro",18));
@@ -48,7 +48,7 @@ internal sealed class GameTweaksPane:ScrollViewer {
         content.Visibility=index==0?Visibility.Visible:Visibility.Collapsed;
         visuals.Visibility=index==1?Visibility.Visible:Visibility.Collapsed;
         performance.Visibility=index==2?Visibility.Visible:Visibility.Collapsed;
-        for(int n=0;n<tabs.Length;n++)tabs[n].Background=SettingsVisual.Brush(n==index?"#3067C7B0":"#102F3542");
+        for(int n=0;n<tabs.Length;n++)FantasyUi.Select(tabs[n],n==index);
         if(index==1)visuals.Open();
         if(index==2){visuals.Open();performance.Open();}
         Translate();ScrollToTop();

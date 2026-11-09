@@ -12,10 +12,66 @@ internal static class UiLanguageMore {
  internal static bool TryText(string text,string language,out string result){Dictionary<string,string> map;result=null;return maps.TryGetValue(language,out map)&&map.TryGetValue(text,out result);}
  internal static bool TryEnglish(string text,out string result){return reverse.TryGetValue(text,out result);}
  internal static int Count(string language){Dictionary<string,string> map;return maps.TryGetValue(language,out map)?map.Count:0;}
- const string Data=@"Snap widgets together|Widgets aneinander ausrichten|Aligner les widgets entre eux|محاذاة الأدوات مع بعضها
+ const string Data=@"Opacity by combat state|Deckkraft je nach Kampfstatus|Opacité selon l’état de combat|العتامة حسب حالة القتال
+Applies to HP, MP and Hotbar. Fades to full opacity in combat.|Gilt für LP, MP und die Hotbar. Im Kampf steigt die Deckkraft sanft auf 100 %.|S’applique aux PV, aux PM et à la barre de raccourcis. L’opacité monte progressivement à 100 % en combat.|ينطبق على الصحة والمانا وشريط المهارات. ترتفع العتامة تدريجيًا إلى 100٪ أثناء القتال.
+Out-of-combat opacity|Deckkraft außerhalb des Kampfes|Opacité hors combat|العتامة خارج القتال
+Waiting for an attack or target selection|Warte auf einen Angriff oder die Zielauswahl|En attente d’une attaque ou de la sélection d’une cible|بانتظار هجوم أو تحديد هدف
+Game detection has not run yet.|Die Spielerkennung wurde noch nicht ausgeführt.|La détection du jeu n’a pas encore été lancée.|لم يبدأ اكتشاف اللعبة بعد.
+Steam and PURPLE are detected automatically. If the game is not found, select its installation folder. For other launchers, choose your game shortcut or launcher.|Steam und PURPLE werden automatisch erkannt. Wenn das Spiel nicht gefunden wird, wähle seinen Installationsordner. Wähle bei anderen Launchern die Spielverknüpfung oder den Launcher.|Steam et PURPLE sont détectés automatiquement. Si le jeu est introuvable, sélectionnez son dossier d’installation. Pour un autre lanceur, choisissez le raccourci du jeu ou le lanceur.|يُكتشف Steam وPURPLE تلقائيًا. إذا لم تُعثر على اللعبة، اختر مجلد تثبيتها. للمشغلات الأخرى، اختر اختصار اللعبة أو المشغّل.
+Pet Atlas|Begleiteratlas|Atlas des familiers|أطلس المرافقين
+Open pet atlas|Begleiteratlas öffnen|Ouvrir l’atlas des familiers|فتح أطلس المرافقين
+Pet collection and soul tracking|Begleitersammlung und Seelenerfassung|Collection de familiers et suivi des âmes|مجموعة المرافقين وتتبع الأرواح
+unlocked|freigeschaltet|débloqués|تم فتحها
+completed|abgeschlossen|terminés|مكتملة
+catalogue entries (including Special)|Katalogeinträge (einschließlich Spezial)|entrées du catalogue (catégorie Spécial incluse)|عنصرًا في الفهرس (بما فيها الخاصة)
+Focus locations|Fundorte zentrieren|Centrer les emplacements|توسيط المواقع
+Portrait markers|Porträtmarkierungen|Repères avec portrait|علامات بصور المرافقين
+Show pinned pets|Angeheftete Begleiter anzeigen|Afficher les familiers épinglés|إظهار المرافقين المثبّتين
+Recorded locations · not live spawns|Erfasste Fundorte · keine aktuellen Spawns|Emplacements recensés · apparitions non suivies en direct|مواقع مسجّلة · لا ترصد الظهور المباشر
+Recorded farming locations|Erfasste Farmorte|Zones de collecte recensées|مواقع جمع مسجّلة
+Location not recorded|Fundort nicht erfasst|Emplacement non recensé|الموقع غير مسجّل
+Waiting for collection|Warte auf Sammlungsdaten|En attente des données de collection|بانتظار بيانات المجموعة
+How to obtain|So erhältst du diesen Begleiter|Comment l’obtenir|طريقة الحصول عليه
+Unconfirmed acquisition|Erwerb nicht bestätigt|Mode d’obtention non confirmé|طريقة الحصول غير مؤكدة
+Open wiki source|Wiki-Quelle öffnen|Ouvrir la source du wiki|فتح مصدر الويكي
+Collection synchronized|Sammlung synchronisiert|Collection synchronisée|تمت مزامنة المجموعة
+Current character|Aktueller Charakter|Personnage actuel|الشخصية الحالية
+souls remaining|verbleibende Seelen|âmes restantes|أرواح متبقية
+BUFFS|BUFFS|BUFFS|التأثيرات الإيجابية
+Shows supported effects received from you or your party. Unlock widgets in General to move the entire buff group independently of the Hotbar.|Zeigt unterstützte Effekte von dir und deiner Gruppe. Entsperre die Widgets unter Allgemein, um die Buff-Gruppe unabhängig von der Hotbar zu verschieben.|Affiche les effets pris en charge venant de vous ou de votre groupe. Déverrouillez les widgets dans Général pour déplacer les buffs indépendamment de la barre de raccourcis.|يعرض التأثيرات المدعومة منك أو من مجموعتك. ألغِ قفل الأدوات من قسم عام لتحريك مجموعة التأثيرات بشكل مستقل عن شريط المهارات.
+Show buff widget|Buff-Widget anzeigen|Afficher le widget de buffs|إظهار أداة التأثيرات الإيجابية
+Show own buffs|Eigene Buffs anzeigen|Afficher vos buffs|إظهار تأثيراتك
+Show party buffs|Gruppenbuffs anzeigen|Afficher les buffs du groupe|إظهار تأثيرات المجموعة
+Show buff names|Buff-Namen anzeigen|Afficher les noms des buffs|إظهار أسماء التأثيرات
+Glass|Glas|Verre|زجاجي
+Compact|Kompakt|Compact|مدمج
+Buff growth direction|Wachstumsrichtung der Buffs|Sens d’ajout des buffs|اتجاه إضافة التأثيرات
+Buff group scale|Größe der Buff-Gruppe|Échelle du groupe de buffs|حجم مجموعة التأثيرات
+Buff spacing|Buff-Abstand|Espacement des buffs|المسافة بين التأثيرات
+Test buffs|Buffs testen|Tester les buffs|اختبار التأثيرات
+Stop buff test|Buff-Test beenden|Arrêter le test des buffs|إيقاف اختبار التأثيرات
+No character detected|Kein Charakter erkannt|Aucun personnage détecté|لم يتم اكتشاف شخصية
+Hotbar and cooldowns · Experimental|Aktionsleiste und Abklingzeiten · Experimentell|Barre de compétences et temps de recharge · Expérimental|شريط المهارات وأوقات إعادة الاستخدام · تجريبي
+Only assigned skills are shown. Open the Helper before entering your character to receive the active bar. Items and empty slots are omitted.|Nur zugewiesene Fertigkeiten werden angezeigt. Öffne den Helper vor dem Einloggen mit deinem Charakter, damit er die aktive Leiste erkennt. Gegenstände und leere Plätze werden ausgelassen.|Seules les compétences assignées sont affichées. Ouvrez le Helper avant de connecter votre personnage pour détecter la barre active. Les objets et emplacements vides sont ignorés.|تظهر المهارات المعيّنة فقط. افتح Helper قبل الدخول بشخصيتك لاكتشاف الشريط النشط. لا تظهر العناصر والخانات الفارغة.
+Unlock widgets in General to move and resize your Helper bar.|Entsperre die Widgets unter Allgemein, um die Helper-Leiste zu verschieben und zu skalieren.|Déverrouillez les widgets dans Général pour déplacer et redimensionner la barre du Helper.|ألغِ قفل الأدوات من قسم عام لتحريك شريط Helper وتغيير حجمه.
+Keep your current HUD layout and hide only the three original skill bars. The original export stays unchanged. You can do this with AION 2 open.|Behält dein aktuelles HUD-Layout bei und blendet nur die drei Original-Fertigkeitsleisten aus. Der ursprüngliche Export bleibt unverändert. AION 2 kann dabei geöffnet bleiben.|Conserve la disposition de votre HUD et masque seulement les trois barres de compétences d’origine. L’export original reste intact. AION 2 peut rester ouvert.|يحتفظ بتخطيط واجهتك ويخفي أشرطة المهارات الأصلية الثلاثة فقط. يبقى ملف التصدير الأصلي كما هو. يمكنك فعل ذلك بينما AION 2 مفتوحة.
+Export your current HUD|Aktuelles HUD exportieren|Exporter le HUD actuel|صدّر واجهتك الحالية
+In AION 2, open Edit HUD, select the preset with your current layout, press Save and export that preset. Do not export an empty preset. Naming it makes it easier to find.|Öffne in AION 2 den HUD-Editor, wähle die Vorlage mit deinem aktuellen Layout, speichere sie und exportiere sie. Exportiere keine leere Vorlage. Ein Name hilft beim Wiederfinden.|Dans AION 2, ouvrez l’éditeur du HUD, sélectionnez le préréglage actuel, enregistrez-le puis exportez-le. Évitez les préréglages vides. Un nom vous aidera à le retrouver.|في AION 2، افتح محرر الواجهة واختر الإعداد المسبق الذي يحتوي على تخطيطك الحالي، ثم اضغط حفظ وصدّره. تجنّب تصدير إعداد فارغ. يسهل العثور عليه إذا سمّيته.
+Create the Helper copy|Helper-Kopie erstellen|Créer la copie du Helper|أنشئ نسخة Helper
+Select the file you just exported. The copy is saved beside the original as Helper_HiddenHotbar(original name).dat.|Wähle die gerade exportierte Datei. Die Kopie wird neben dem Original als Helper_HiddenHotbar(Originalname).dat gespeichert.|Sélectionnez le fichier exporté. La copie est enregistrée à côté de l’original sous le nom Helper_HiddenHotbar(nom d’origine).dat.|اختر الملف الذي صدّرته للتو. تُحفظ النسخة بجانب الملف الأصلي باسم Helper_HiddenHotbar(original name).dat.
+Import the copy in AION 2|Kopie in AION 2 importieren|Importer la copie dans AION 2|استورد النسخة في AION 2
+In Edit HUD > Import file, choose the Helper_HiddenHotbar copy. Use a different preset to keep your original layout available in game.|Wähle im HUD-Editor unter Datei importieren die Kopie Helper_HiddenHotbar. Verwende eine andere Vorlage, damit dein ursprüngliches Layout im Spiel erhalten bleibt.|Dans l’éditeur du HUD, choisissez Importer un fichier puis la copie Helper_HiddenHotbar. Utilisez un autre préréglage pour garder votre disposition originale dans le jeu.|من محرر الواجهة اختر استيراد ملف ثم اختر نسخة Helper_HiddenHotbar. استخدم إعدادًا مسبقًا آخر للاحتفاظ بتخطيطك الأصلي في اللعبة.
+Select the imported preset, press Save and leave the HUD editor.|Wähle die importierte Vorlage, speichere sie und verlasse den HUD-Editor.|Sélectionnez le préréglage importé, enregistrez et quittez l’éditeur du HUD.|اختر الإعداد المستورد واضغط حفظ ثم اخرج من محرر الواجهة.
+The bars may remain visible while editing. Check them after saving and leaving the HUD editor.|Die Leisten können beim Bearbeiten sichtbar bleiben. Prüfe sie nach dem Speichern und Verlassen des HUD-Editors.|Les barres peuvent rester visibles dans l’éditeur. Vérifiez après avoir enregistré et quitté l’éditeur du HUD.|قد تبقى الأشرطة مرئية أثناء التعديل. تحقّق منها بعد الحفظ والخروج من محرر الواجهة.
+Bring the original bars back|Ursprüngliche Leisten wieder anzeigen|Rétablir les barres d’origine|استعد الأشرطة الأصلية
+Select your original HUD preset (or import the original export), press Save and leave the HUD editor. Creating a copy does not activate it in game.|Wähle deine ursprüngliche HUD-Vorlage oder importiere den ursprünglichen Export. Speichere und verlasse den Editor. Das Erstellen einer Kopie aktiviert sie noch nicht im Spiel.|Sélectionnez votre préréglage d’origine ou importez l’export original, puis enregistrez et quittez l’éditeur. Créer une copie ne l’active pas dans le jeu.|اختر إعداد الواجهة الأصلي أو استورد ملف التصدير الأصلي، ثم احفظ واخرج من المحرر. إنشاء النسخة لا يفعّلها في اللعبة.
+Snap widgets together|Widgets aneinander ausrichten|Aligner les widgets entre eux|محاذاة الأدوات مع بعضها
 Align the edges and centers of nearby widgets while dragging. Hotbar slot snap is configured separately.|Beim Ziehen Kanten und Mittelpunkte benachbarter Widgets ausrichten. Das Einrasten der Hotbar-Plätze wird separat eingestellt.|Aligne les bords et les centres des widgets proches pendant le déplacement. L’alignement des emplacements de la barre de raccourcis se règle séparément.|حاذِ حواف الأدوات القريبة ومراكزها أثناء السحب. يُضبط التقاط خانات شريط المهارات بشكل مستقل.
 Show alignment grid|Ausrichtungsraster anzeigen|Afficher la grille d’alignement|إظهار شبكة المحاذاة
 Grid opacity|Rasterdeckkraft|Opacité de la grille|عتامة الشبكة
+Buff style|Buff-Stil|Style des buffs|نمط التأثيرات الإيجابية
+Show buff timer inside the icon|Buff-Timer im Symbol anzeigen|Afficher le minuteur du buff dans l’icône|عرض مؤقت التأثير داخل الأيقونة
+Red border in the last 4 seconds|Roter Rand in den letzten 4 Sekunden|Bordure rouge pendant les 4 dernières secondes|إطار أحمر في آخر 4 ثوانٍ
 Show a grid with highlighted center lines on each screen while widgets are unlocked.|Bei entsperrten Widgets ein Raster mit hervorgehobenen Mittellinien auf jedem Bildschirm anzeigen.|Affiche une grille avec des axes centraux renforcés sur chaque écran lorsque les widgets sont déverrouillés.|اعرض شبكة بخطوط مركزية بارزة على كل شاشة عند إلغاء قفل الأدوات.
 Show widgets only when Aion is in the foreground|Widgets nur anzeigen, wenn Aion im Vordergrund ist|Afficher les widgets uniquement quand Aion est au premier plan|عرض الأدوات فقط عندما يكون Aion في المقدمة
 Unlocked widgets stay visible so you can move and resize them.|Entsperrte Widgets bleiben sichtbar, damit du sie verschieben und skalieren kannst.|Les widgets déverrouillés restent visibles pour que tu puisses les déplacer et les redimensionner.|تظل الأدوات غير المقفلة مرئية لتتمكن من نقلها وتغيير حجمها.

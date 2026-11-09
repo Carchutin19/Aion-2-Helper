@@ -30,9 +30,22 @@ En las habilidades contextuales compatibles, el icono se oscurece mientras
 falta el requisito y el borde parpadea en verde al activarse. Cuando un combo
 cambia de habilidad, el icono se desliza dentro del slot.
 
+En **Apariencia**, puedes elegir **Cristal** o **Compacto**. Compacto muestra
+la recarga en forma radial. Ambos estilos conservan la posición, el tamaño y
+la separación que hayas configurado. Activa **Destello cuando una habilidad
+está lista** si quieres destacar el final de una recarga detectada.
+
 **Probar hotbar** muestra CD simulados que bajan, terminan y vuelven a empezar.
 El mismo botón pasa a llamarse **Detener prueba**. La prueba continúa hasta que
 la pares; no cambia los CD recibidos ni activa permanentemente la hotbar.
+
+## Buffs
+
+En **Hotbar → Buffs** puedes mostrar los efectos compatibles recibidos de tu
+personaje o del grupo. Este widget se mueve por separado y tiene su propio
+estilo, tamaño, separación y dirección de crecimiento. Puedes ocultar los
+nombres y el contador, y mostrar un borde rojo durante los últimos cuatro
+segundos. Usa **Probar buffs** para revisar el aspecto.
 
 ## Un preajuste por personaje
 

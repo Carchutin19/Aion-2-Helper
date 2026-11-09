@@ -374,6 +374,7 @@ internal static class Entry {
         if(args.Length>0&&args[0]=="--visual-tweaks-test"){try{VisualTweaksVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"visual-tweaks-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--fps-test"){try{FpsSamples.Verify();FpsBenchmarkResult.Verify();FpsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"fps-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--settings-test") {try{SettingsVisual.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"settings-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--fantasy-design-test"){try{SettingsVisual.VerifyFantasyDesign(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"fantasy-design-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>0&&args[0]=="--ui-test") {try{BarDesign.Verify(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"ui-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==2&&args[0]=="--capture-recovery-replay-test"){try{CaptureRecoveryVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"capture-recovery-replay-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length>1&&args[0]=="--replay-test") {try{DashSignal.ReplayTest(root,args[1]);return 0;}catch(Exception ex){File.AppendAllText(Path.Combine(root,"replay-test.txt"),"\r\nFAIL: "+ex);return 1;}}

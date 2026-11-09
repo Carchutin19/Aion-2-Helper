@@ -1,3 +1,29 @@
+# Aion 2 Helper v1.27.0 Alpha — Desktop Redesign & Hotbar Buffs
+
+## Desktop interface
+
+- All 13 Settings sections use the new artwork and glass styling. Selected tabs and primary buttons light up, and a highlight sweeps across buttons on hover.
+- Settings, the pet registry and the offline Atlas fade the edges of scrollable content. The fade disappears at the start or end where the full content is visible.
+- New Helper logo, navigation icons and Windows tray icon. The native tray menu has a new design and retains Settings, Lock/Unlock and Quit.
+- Checked English, Spanish, German, French and Arabic layouts, including right-to-left Settings. Some advanced help remains in English.
+
+## Hotbar and buffs
+
+- **Hotbar → Appearance → Hotbar style** offers the original Glass style and a new Compact style with a radial cooldown. Both use the existing slot positions, scale and spacing.
+- Enable **Flash when a skill is ready** for a brief yellow flash when a tracked cooldown ends.
+- **Hotbar → Buffs** is an optional, separately movable widget for supported effects from you and your party. Choose Glass or Compact, toggle names and timers, and set its position, size, spacing and growth direction. The optional red border appears in the last four seconds. The preview and test are available in the same section.
+- The buff tracker recognizes the verified **Winter's Shackles** and **Pyroclasm** cases. Effect and class coverage remains experimental.
+
+## Combat opacity
+
+- **General → Opacity by combat state** optionally fades HP, MP and the Hotbar from the chosen out-of-combat opacity to full opacity in combat. The widgets use their configured appearance while unlocked.
+
+## Updating
+
+Use the built-in updater or close the Helper and extract the full ZIP into your existing Helper folder. Keep your personal JSON files and open the Helper before launching Aion.
+
+---
+
 # Aion 2 Helper v1.26.0 Alpha — Widget Alignment & Hotbar Feedback
 
 ## Widget editing

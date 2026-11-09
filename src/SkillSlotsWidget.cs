@@ -20,7 +20,8 @@ internal sealed class SkillSlotAssignment {
  internal SkillSlotsSignal.Slot Slot(){return new SkillSlotsSignal.Slot{Index=Index,Skill=Skill,Alternative=Alternative,Third=Third};}
 }
 internal sealed class SkillSlotsOptions {
- public bool Enabled=false,Blur=true,GroupMode=true,Snap=true,ShowKey=true,ShowCountdown=true,AnimateKeyPresses;
+ public bool Enabled=false,Blur=true,GroupMode=true,Snap=true,ShowKey=true,ShowCountdown=true,AnimateKeyPresses,FlashWhenReady;
+ public int Style;
  // Legacy native-file preferences are retained for compatibility, never applied.
  public bool? HideNativeHotbar=null;public string NativeHotbarPath="";public string PreparedHudFile="";
  public int X=650,Y=700,Scale=100,Size=76,Gap=10,Columns=12,SnapDistance=14,Opacity=100,Tint=18;
@@ -28,7 +29,7 @@ internal sealed class SkillSlotsOptions {
  public List<SkillSlotAssignment> KnownSlots=new List<SkillSlotAssignment>();
  internal SkillSlotsOptions Copy(){var o=(SkillSlotsOptions)MemberwiseClone();o.Placements=Placements.Select(p=>p.Copy()).ToList();o.KnownSlots=KnownSlots.Select(p=>p.Copy()).ToList();return o;}
  internal static int Clamp(int n,int lo,int hi){return Math.Max(lo,Math.Min(hi,n));}
- internal void Normalize(){PreparedHudFile=(PreparedHudFile??"").Trim();if(PreparedHudFile.Length>1024)PreparedHudFile="";NativeHotbarPath=(NativeHotbarPath??"").Trim();if(NativeHotbarPath.Length>1024)NativeHotbarPath="";X=Clamp(X,-100000,100000);Y=Clamp(Y,-100000,100000);Scale=Clamp(Scale,40,250);Size=Clamp(Size,40,160);Gap=Clamp(Gap,0,100);Columns=Clamp(Columns,1,24);SnapDistance=Clamp(SnapDistance,2,40);Opacity=Clamp(Opacity,10,100);Tint=Clamp(Tint,0,85);if(KnownSlots==null)KnownSlots=new List<SkillSlotAssignment>();KnownSlots=KnownSlots.Where(p=>p!=null&&p.Index>=0&&p.Index<48&&p.Skill>0).GroupBy(p=>p.Index).Select(p=>p.First()).OrderBy(p=>p.Index).Take(48).ToList();if(Placements==null)Placements=new List<SkillSlotPlacement>();Placements=Placements.Where(p=>p!=null&&p.Slot>=0&&p.Slot<48).GroupBy(p=>p.Slot).Select(p=>p.First()).Take(48).ToList();foreach(var p in Placements){p.X=Clamp(p.X,-10000,10000);p.Y=Clamp(p.Y,-10000,10000);p.Scale=Clamp(p.Scale,40,250);p.Key=(p.Key??"").Trim();if(p.Key.Length>8)p.Key=p.Key.Substring(0,8);}}
+ internal void Normalize(){PreparedHudFile=(PreparedHudFile??"").Trim();if(PreparedHudFile.Length>1024)PreparedHudFile="";NativeHotbarPath=(NativeHotbarPath??"").Trim();if(NativeHotbarPath.Length>1024)NativeHotbarPath="";X=Clamp(X,-100000,100000);Y=Clamp(Y,-100000,100000);Scale=Clamp(Scale,40,250);Size=Clamp(Size,40,160);Gap=Clamp(Gap,0,100);Columns=Clamp(Columns,1,24);SnapDistance=Clamp(SnapDistance,2,40);Opacity=Clamp(Opacity,10,100);Tint=Clamp(Tint,0,85);Style=Clamp(Style,0,1);if(KnownSlots==null)KnownSlots=new List<SkillSlotAssignment>();KnownSlots=KnownSlots.Where(p=>p!=null&&p.Index>=0&&p.Index<48&&p.Skill>0).GroupBy(p=>p.Index).Select(p=>p.First()).OrderBy(p=>p.Index).Take(48).ToList();if(Placements==null)Placements=new List<SkillSlotPlacement>();Placements=Placements.Where(p=>p!=null&&p.Slot>=0&&p.Slot<48).GroupBy(p=>p.Slot).Select(p=>p.First()).Take(48).ToList();foreach(var p in Placements){p.X=Clamp(p.X,-10000,10000);p.Y=Clamp(p.Y,-10000,10000);p.Scale=Clamp(p.Scale,40,250);p.Key=(p.Key??"").Trim();if(p.Key.Length>8)p.Key=p.Key.Substring(0,8);}}
  internal void Remember(List<SkillSlotsSignal.Slot> slots){if(KnownSlots.Count==slots.Count&&KnownSlots.Select((p,n)=>p.Index==slots[n].Index&&p.Skill==slots[n].Skill&&p.Alternative==slots[n].Alternative&&p.Third==slots[n].Third).All(v=>v))return;KnownSlots=slots.Select(p=>new SkillSlotAssignment{Index=p.Index,Skill=p.Skill,Alternative=p.Alternative,Third=p.Third}).ToList();}
  internal List<SkillSlotsSignal.Slot> EditableSlots(SkillSlotsSignal.View live){return live==null?KnownSlots.Select(p=>p.Slot()).ToList():live.Slots;}
  internal void AutoLabels(IEnumerable<int> slots){int n=0;foreach(int slot in slots)Ensure(slot,n++).Key="";}
@@ -54,27 +55,35 @@ internal sealed class SkillSlotAssets:IDisposable {
 internal sealed class SkillSlotPainter:IDisposable {
  internal struct IconFrame {
   internal uint Skill;
-  internal bool Cooling,Unavailable,ReactiveReady;
+  internal bool Cooling,Unavailable,ReactiveReady,Compact;
   internal double Fill,RevealShade;
-  internal int ReactivePulse;
+  internal int ReactivePulse,ReadyFlash;
  }
  internal readonly SkillSlotAssets Assets=new SkillSlotAssets();readonly CrispOverlayText counter=new CrispOverlayText(),key=new CrispOverlayText();
  internal static GraphicsPath Round(RectangleF r,float radius){var p=new GraphicsPath();float d=radius*2;p.AddArc(r.X,r.Y,d,d,180,90);p.AddArc(r.Right-d,r.Y,d,d,270,90);p.AddArc(r.Right-d,r.Bottom-d,d,d,0,90);p.AddArc(r.X,r.Bottom-d,d,d,90,90);p.CloseFigure();return p;}
- internal Bitmap Render(int size,uint skill,string label,bool cooling,double filled,string text,bool chain,bool editing,int tint){return Render(size,new IconFrame{Skill=skill,Cooling=cooling,Fill=filled},label,text,chain,editing,tint,false,new IconFrame(),1);}
+ internal static void PaintCompactPlate(Graphics g,GraphicsPath shape,RectangleF bounds){
+  using(var fill=new SolidBrush(Color.FromArgb(255,12,12,14)))g.FillPath(fill,shape);
+  using(var edge=new Pen(Color.FromArgb(240,0,0,0),Math.Max(1,bounds.Height*.014f)))g.DrawPath(edge,shape);
+ }
+ internal Bitmap Render(int size,uint skill,string label,bool cooling,double filled,string text,bool chain,bool editing,int tint,bool compact=false){return Render(size,new IconFrame{Skill=skill,Cooling=cooling,Fill=filled,Compact=compact},label,text,chain,editing,tint,false,new IconFrame(),1);}
  internal Bitmap Render(int size,IconFrame current,string label,string text,bool chain,bool editing,int tint,bool pressed,IconFrame outgoing,double slide){
  var bitmap=new Bitmap(size,size,PixelFormat.Format32bppPArgb);float s=size/100f;using(var g=Graphics.FromImage(bitmap)){g.SmoothingMode=SmoothingMode.AntiAlias;g.InterpolationMode=InterpolationMode.HighQualityBicubic;
- using(var plate=Round(new RectangleF(1*s,1*s,98*s,98*s),10*s)){
-  using(var brush=new LinearGradientBrush(new RectangleF(0,0,size,size),Color.FromArgb(Math.Min(230,tint*255/100+12),248,252,255),Color.FromArgb(tint*190/100,231,242,250),90f))g.FillPath(brush,plate);
+ using(var plate=Round(new RectangleF(1*s,1*s,98*s,98*s),(current.Compact?13:10)*s)){
+  if(!current.Compact){
+   using(var brush=new LinearGradientBrush(new RectangleF(0,0,size,size),Color.FromArgb(Math.Min(230,tint*255/100+12),248,252,255),Color.FromArgb(tint*190/100,231,242,250),90f))g.FillPath(brush,plate);
+  }else PaintCompactPlate(g,plate,new RectangleF(0,0,size,size));
   if(pressed||current.ReactiveReady){
    int greenGlow=15+190*current.ReactivePulse/12,greenEdge=36+219*current.ReactivePulse/12;
    using(var rim=Round(new RectangleF(4*s,4*s,92*s,92*s),8*s))
    using(var glow=new Pen(pressed?Color.FromArgb(205,255,190,31):Color.FromArgb(greenGlow,53,244,75),5.4f*s))g.DrawPath(glow,rim);
    using(var highlight=new Pen(pressed?Color.FromArgb(255,255,243,154):Color.FromArgb(greenEdge,173,255,170),3.2f*s))g.DrawPath(highlight,plate);
-  }else{
+  }else if(chain||!current.Compact){
    using(var pen=new Pen(chain?Color.FromArgb(230,126,242,213):Color.FromArgb(115,242,249,255),(chain?1.8f:.8f)*s))g.DrawPath(pen,plate);
   }
  }
- var iconRect=new RectangleF(13*s,13*s,74*s,74*s);using(var clip=Round(iconRect,5*s)){
+ float inset=current.Compact?3.5f:13;
+ var iconRect=new RectangleF(inset*s,inset*s,(100-2*inset)*s,(100-2*inset)*s);
+ using(var clip=Round(iconRect,(current.Compact?10:5)*s)){
   var saved=g.Save();g.SetClip(clip);
   if(outgoing.Skill!=0&&slide<1){
    float offset=(float)(iconRect.Width*slide);
@@ -83,8 +92,25 @@ internal sealed class SkillSlotPainter:IDisposable {
   }
   PaintIcon(g,iconRect,current,s);g.Restore(saved);
  }
- var outline=new TextOutlineOptions{Enabled=true,Width=Math.Max(1,(int)Math.Round(1.5*s)),Opacity=75};if(current.Cooling)counter.Draw(g,text,Math.Max(11,(int)(28*s)),true,Color.White,new Rectangle((int)(8*s),(int)(29*s),(int)(84*s),(int)(42*s)),1,true,outline);
- if(!string.IsNullOrEmpty(label))key.Draw(g,label,Math.Max(9,(int)(13*s)),true,Color.FromArgb(237,244,252),new Rectangle((int)(5*s),(int)(2*s),(int)(90*s),(int)(18*s)),0,true,outline);
+ if(current.ReadyFlash>0){
+  float phase=1-current.ReadyFlash/16f;
+  int strength=(int)(210*(1-phase));
+  var saved=g.Save();
+  using(var shape=Round(new RectangleF(2*s,2*s,96*s,96*s),9*s)){
+   g.SetClip(shape);
+   using(var rim=new Pen(Color.FromArgb(strength,255,218,105),4*s))g.DrawPath(rim,shape);
+   float center=size*(-.2f+1.4f*phase);
+   using(var glow=new LinearGradientBrush(new PointF(center-17*s,0),new PointF(center+17*s,12*s),Color.Transparent,Color.Transparent)){
+    glow.InterpolationColors=new ColorBlend{Colors=new[]{Color.Transparent,Color.FromArgb(strength,255,237,171),Color.Transparent},Positions=new[]{0f,.5f,1f}};
+    glow.WrapMode=WrapMode.TileFlipX;
+    var stripe=new PointF[]{new PointF(center-17*s,0),new PointF(center+17*s,0),new PointF(center+52*s,size),new PointF(center+18*s,size)};
+    g.FillPolygon(glow,stripe);
+   }
+  }
+  g.Restore(saved);
+ }
+ var outline=new TextOutlineOptions{Enabled=true,Width=Math.Max(1,(int)Math.Round(1.5*s)),Opacity=75};if(current.Cooling)counter.Draw(g,text,Math.Max(11,(int)((current.Compact?36:28)*s)),true,Color.White,new Rectangle((int)(8*s),(int)(29*s),(int)(84*s),(int)(42*s)),1,true,outline);
+ if(!string.IsNullOrEmpty(label))key.Draw(g,label,Math.Max(9,(int)((current.Compact?18:13)*s)),true,Color.FromArgb(237,244,252),new Rectangle((int)(5*s),(int)(2*s),(int)(90*s),(int)(18*s)),0,true,outline);
  if(editing){using(var pen=new Pen(Color.FromArgb(130,104,221,209),Math.Max(1,s))){pen.DashStyle=DashStyle.Dot;g.DrawRectangle(pen,1,1,size-3,size-3);}using(var pen=new Pen(Color.FromArgb(210,194,236,245),Math.Max(1,s)))for(int n=0;n<3;n++)g.DrawLine(pen,size-6-(n*4)*s,size-4,size-4,size-6-(n*4)*s);}}
  return bitmap;}
  void PaintIcon(Graphics g,RectangleF rect,IconFrame frame,float scale){
@@ -95,7 +121,13 @@ internal sealed class SkillSlotPainter:IDisposable {
    using(var pen=new Pen(Color.FromArgb(110,205,239,255),2*scale)){g.DrawLine(pen,x-arm,y,x+arm,y);g.DrawLine(pen,x,y-arm,x,y+arm);}
   }else{
    g.DrawImage(icon,rect);
-   if(frame.Cooling){
+   if(frame.Cooling&&frame.Compact){
+    float sweep=360*(float)(1-Math.Max(0,Math.Min(1,frame.Fill)));
+    using(var brush=new SolidBrush(Color.FromArgb(174,0,0,0))){
+     var circle=rect;circle.Inflate(rect.Width*.25f,rect.Height*.25f);
+     if(sweep>0)g.FillPie(brush,circle.X,circle.Y,circle.Width,circle.Height,-90+sweep*-1,sweep);
+    }
+   }else if(frame.Cooling){
     using(var brush=new SolidBrush(Color.FromArgb(185,8,20,34)))g.FillRectangle(brush,rect);
     if(frame.Fill>0){var saved=g.Save();g.SetClip(new RectangleF(rect.X,rect.Y,rect.Width,(float)(rect.Height*Math.Min(1,frame.Fill))),CombineMode.Intersect);g.DrawImage(icon,rect);g.Restore(saved);}
    }
@@ -191,12 +223,12 @@ internal sealed class SkillSlotsOverlay:IDisposable {
  internal void Maintain(){Maintain(DpsHistory.UtcNow());}
  internal void Maintain(double now){
   var view=signal.Read(now);
-  bool sameCharacter=view!=null&&lastView!=null&&view.Flow==lastView.Flow&&view.Self==lastView.Self;
+  bool sameCharacter=view!=null&&lastView!=null&&view.Flow==lastView.Flow&&view.Self==lastView.Self&&view.Map==lastView.Map;
   if(view!=null&&!object.ReferenceEquals(view,lastView))Options.Remember(view.Slots);
   lastView=view;
   bool sample=test||Options.Enabled&&Editing&&view==null&&Options.KnownSlots.Count>0;
   bool shell=!preview&&DpsDesign.ShellUiActive();
-  bool show=(Options.Enabled||test)&&(view!=null||sample)&&!shell&&!owner.WidgetsSuppressed;
+  bool show=(Options.Enabled||test)&&(view!=null||sample)&&!shell&&!owner.WidgetsSuppressed&&(Editing||test||owner.CombatWidgetOpacity(Options.Opacity/100.0)>0);
   NextInterval=1000;
   if(!show){
    hideReason=!Options.Enabled&&!test?"disabled":owner.WidgetsSuppressed?"Aion is not in the foreground":shell?"Windows shell":"waiting for own bar or stale transport";
@@ -247,10 +279,10 @@ internal sealed class SkillSlotsOverlay:IDisposable {
    bool pressed=physical||castFlash>0;
    poll|=watchKeys&&window.HasPressBinding;
    string label=Options.ShowKey?SkillSlotsOptions.Label(placement,displayOrdinal):"";
-   var frame=new SkillSlotPainter.IconFrame{Skill=id,Cooling=cooling,Fill=fill,
+   var frame=new SkillSlotPainter.IconFrame{Skill=id,Cooling=cooling,Fill=fill,Compact=Options.Style==1,
     Unavailable=sampleUnavailable||!cooling&&requirement==false,
     ReactiveReady=!cooling&&(requirement==true||sampleReactive)};
-   if(window.UpdateSlot(Options.Rect(placement),slot.Skill,frame,label,text,!sample&&id!=slot.Skill,Editing,Options,pressed,now,sameCharacter&&!sample))
+   if(window.UpdateSlot(Options.Rect(placement),slot.Skill,frame,label,text,!sample&&id!=slot.Skill,Editing,Options,pressed,now,sameCharacter&&!sample,test))
     NextInterval=Math.Min(NextInterval,16);
   }
   SetPressPolling(poll,foreground);
@@ -309,7 +341,8 @@ internal sealed class SkillSlotWindow:Form,IWidgetSnapTarget {
  uint assignment;
  string pressLabel;
  int pressKey;
- double reactiveStarted;
+ double reactiveStarted,readyStarted=-1;
+ uint coolingSkill;
  bool wasReactive;
  internal bool HasPressBinding {get{return pressKey!=0;}}
  internal bool PresentedPhysicalPress {get;private set;}
@@ -322,24 +355,30 @@ internal sealed class SkillSlotWindow:Form,IWidgetSnapTarget {
   return down;
  }
  internal bool IsPressed(bool readKeys){return readKeys&&SkillSlotKey.Down(pressKey);}
- internal bool UpdateSlot(Rectangle bounds,uint assigned,SkillSlotPainter.IconFrame frame,string label,string countdown,bool chain,bool edit,SkillSlotsOptions o,bool pressed,double now,bool allowSlide){
+ internal bool UpdateSlot(Rectangle bounds,uint assigned,SkillSlotPainter.IconFrame frame,string label,string countdown,bool chain,bool edit,SkillSlotsOptions o,bool pressed,double now,bool allowSlide,bool test=false){
   bool changedStyle=editing!=edit;editing=edit;
   if(Bounds!=bounds)Bounds=bounds;
   if(changedStyle||!IsHandleCreated){int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);}
   double slide=motion.Advance(frame,now,Visible&&allowSlide&&assignment==assigned);
+  bool allowFlash=o.FlashWhenReady&&(test||allowSlide&&Visible&&!edit)&&assignment==assigned;
+  if(!allowFlash||frame.Cooling||frame.Unavailable||coolingSkill!=0&&coolingSkill!=frame.Skill)readyStarted=-1;
+  else if(coolingSkill==frame.Skill&&frame.Skill!=0)readyStarted=now;
+  coolingSkill=frame.Cooling?frame.Skill:0;
+  double flash=readyStarted<0?0:Math.Max(0,1-(now-readyStarted)/.66);
+  frame.ReadyFlash=pressed?0:(int)Math.Ceiling(flash*16);
   assignment=assigned;
   var outgoing=motion.Outgoing;
   frame.RevealShade=motion.RevealShade;
   if(frame.ReactiveReady&&!wasReactive)reactiveStarted=now;
   wasReactive=frame.ReactiveReady;
   frame.ReactivePulse=wasReactive&&!pressed?SkillSlotMotion.ReadyPulse(now-reactiveStarted):0;
-  string next=Width+"/"+frame.Skill+"/"+label+"/"+frame.Cooling+"/"+(int)(frame.Fill*Width)+"/"+countdown+"/"+chain+"/"+editing+"/"+o.Tint+"/"+pressed+"/"+frame.Unavailable+"/"+frame.ReactiveReady+"/"+frame.ReactivePulse+"/"+(int)Math.Round(frame.RevealShade*155)+"/"+outgoing.Skill+"/"+(int)Math.Round(slide*Width);
+  string next=Width+"/"+frame.Skill+"/"+label+"/"+frame.Cooling+"/"+(int)(frame.Fill*Width)+"/"+countdown+"/"+chain+"/"+editing+"/"+o.Tint+"/"+pressed+"/"+frame.Unavailable+"/"+frame.ReactiveReady+"/"+frame.ReactivePulse+"/"+(int)Math.Round(frame.RevealShade*155)+"/"+outgoing.Skill+"/"+(int)Math.Round(slide*Width)+"/"+frame.Compact+"/"+frame.ReadyFlash;
   if(next!=key){using(var b=service.Painter.Render(Width,frame,label,countdown,chain,editing,o.Tint,pressed,outgoing,slide))image.Upload(b);key=next;alpha=0;}
-  byte a=(byte)(o.Opacity*255/100);if(o.Blur){if(glass==null)glass=new OverlayGlassLayer();int pad=Math.Max(1,(int)(Width*.01));glass.Sync(new Rectangle(Left+pad,Top+pad,Width-2*pad,Height-2*pad),a,Handle,true,Width*.10f);}else if(glass!=null){glass.Dispose();glass=null;}
+  double configured=o.Opacity/100.0;byte a=(byte)Math.Round((test||edit?configured:owner.CombatWidgetOpacity(configured))*255);if(o.Blur&&o.Style==0){if(glass==null)glass=new OverlayGlassLayer();int pad=Math.Max(1,(int)(Width*.01));glass.Sync(new Rectangle(Left+pad,Top+pad,Width-2*pad,Height-2*pad),a,Handle,true,Width*.10f);}else if(glass!=null){glass.Dispose();glass=null;}
   if(!Visible||alpha!=a||presented!=Location){image.Present(Handle,Left,Top,a);alpha=a;presented=Location;}if(!Visible){Show();OverlayNative.RaiseWithoutFocus(Handle);}
-  return outgoing.Skill!=0||frame.RevealShade>0;
+  return outgoing.Skill!=0||frame.RevealShade>0||flash>0;
  }
- internal void Conceal(){motion.Reset();wasReactive=false;PresentedPhysicalPress=false;LastPhysicalPress=0;if(Visible)Hide();if(glass!=null){glass.Dispose();glass=null;}}
+ internal void Conceal(){motion.Reset();wasReactive=false;readyStarted=-1;coolingSkill=0;PresentedPhysicalPress=false;LastPhysicalPress=0;if(Visible)Hide();if(glass!=null){glass.Dispose();glass=null;}}
  protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x80|0x08000000)&~0x40000;return cp;}}
  protected override bool ShowWithoutActivation {get{return true;}}
  protected override void WndProc(ref Message m){if(m.Msg==0x21){m.Result=new IntPtr(3);return;}if((m.Msg==0x205||m.Msg==0xa5)&&editing){owner.OpenSkillSlotsSettings();m.Result=IntPtr.Zero;return;}if(m.Msg==0x84){m.Result=new IntPtr(editing?1:-1);return;}if(m.Msg==0x201&&editing){startMouse=Cursor.Position;start=service.Options.Copy();var pt=PointToClient(startMouse);resizing=pt.X>Width-14&&pt.Y>Height-14;dragging=true;Capture=true;m.Result=IntPtr.Zero;return;}if(m.Msg==0x200&&dragging){var mouse=Cursor.Position;service.Drag(index,start,new Point(mouse.X-startMouse.X,mouse.Y-startMouse.Y),resizing);m.Result=IntPtr.Zero;return;}if((m.Msg==0x202||m.Msg==0x215)&&dragging){dragging=false;Capture=false;service.Commit();m.Result=IntPtr.Zero;return;}base.WndProc(ref m);}

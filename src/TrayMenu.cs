@@ -1,12 +1,13 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 // The tray uses a native Windows popup. Keep the styled drop-down for widget clicks.
 internal sealed class HelperTrayMenu : ContextMenuStrip {
     static readonly MenuColors Palette=new MenuColors();
-    static readonly Color CommandText=Color.FromArgb(232,236,243), QuitText=Color.FromArgb(223,168,162);
+    static readonly Color CommandText=Color.FromArgb(241,247,255), QuitText=Color.FromArgb(255,186,201);
     [StructLayout(LayoutKind.Sequential)]
     struct MenuInfo {
         internal uint Size,Mask,Style,MaximumHeight;
@@ -25,7 +26,7 @@ internal sealed class HelperTrayMenu : ContextMenuStrip {
     internal HelperTrayMenu(EnergyOverlay overlay){
         owner=overlay;ShowImageMargin=false;ShowCheckMargin=false;AutoClose=true;
         Font=new Font("Segoe UI",9);BackColor=Palette.ToolStripDropDownBackground;ForeColor=CommandText;
-        Padding=new Padding(7);Renderer=new ToolStripProfessionalRenderer(Palette){RoundedEdges=false};
+        Padding=new Padding(7);Renderer=new GlassRenderer();
         settings=Command("Settings",delegate{owner.OpenSettings();});
         lockItem=Command("Unlock",delegate{owner.ToggleWidgetsLock();});
         Items.Add(new ToolStripSeparator());
@@ -45,8 +46,8 @@ internal sealed class HelperTrayMenu : ContextMenuStrip {
         var item=new MenuItem(command==null?"-":command.Text){OwnerDraw=true};
         if(command!=null)item.Click+=delegate{NativeOpen=false;command.PerformClick();};
         item.MeasureItem+=delegate(object sender,MeasureItemEventArgs e){
-            e.ItemWidth=Pixels(244,e.Graphics.DpiX);
-            e.ItemHeight=Pixels(row==2?7:row==1?37:44,e.Graphics.DpiY);
+            e.ItemWidth=Pixels(260,e.Graphics.DpiX);
+            e.ItemHeight=Pixels(row==2?9:row==1?42:49,e.Graphics.DpiY);
         };
         item.DrawItem+=delegate(object sender,DrawItemEventArgs e){PaintNativeRow(e.Graphics,e.Bounds,row,item.Text,(e.State&DrawItemState.Selected)!=0);};
         return item;
@@ -61,13 +62,60 @@ internal sealed class HelperTrayMenu : ContextMenuStrip {
             using(var line=new Pen(Palette.SeparatorDark))g.DrawLine(line,content.Left,content.Top+content.Height/2,content.Right-1,content.Top+content.Height/2);
             return;
         }
-        if(selected){
-            using(var brush=new SolidBrush(Palette.MenuItemSelected))g.FillRectangle(brush,content);
-            using(var pen=new Pen(Palette.MenuItemBorder))g.DrawRectangle(pen,content.X,content.Y,content.Width-1,content.Height-1);
+        PaintGlass(g,content,selected);
+        int gap=Pixels(12,g.DpiX),size=Pixels(17,g.DpiX);
+        bool rtl=owner.Language=="ar";
+        int x=rtl?content.Right-gap-size:content.Left+gap;
+        var icon=new Rectangle(x,content.Top+(content.Height-size)/2,size,size);
+        PaintGlyph(g,icon,row,row==3?QuitText:Palette.MenuItemBorder,owner.Configuration.Locked);
+        var text=rtl?Rectangle.FromLTRB(content.Left+gap,content.Top,x-gap,content.Bottom)
+            :Rectangle.FromLTRB(icon.Right+gap,content.Top,content.Right-gap,content.Bottom);
+        var flags=TextFormatFlags.VerticalCenter|TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix;
+        if(text.Width>0)TextRenderer.DrawText(g,label,Font,text,row==3?QuitText:CommandText,
+            flags|(rtl?TextFormatFlags.RightToLeft|TextFormatFlags.Right:TextFormatFlags.Left));
+    }
+    static void PaintGlass(Graphics g,Rectangle bounds,bool selected){
+        if(bounds.Width<2||bounds.Height<2)return;
+        bounds.Width--;bounds.Height--;
+        int arc=Pixels(15,g.DpiX);
+        var smoothing=g.SmoothingMode;g.SmoothingMode=SmoothingMode.AntiAlias;
+        using(var path=new GraphicsPath()){
+            path.AddArc(bounds.Left,bounds.Top,arc,arc,180,90);
+            path.AddArc(bounds.Right-arc,bounds.Top,arc,arc,270,90);
+            path.AddArc(bounds.Right-arc,bounds.Bottom-arc,arc,arc,0,90);
+            path.AddArc(bounds.Left,bounds.Bottom-arc,arc,arc,90,90);path.CloseFigure();
+            using(var brush=new LinearGradientBrush(bounds,selected?Palette.MenuItemSelected:Color.FromArgb(40,62,104),
+                selected?Color.FromArgb(47,58,123):Color.FromArgb(34,42,85),LinearGradientMode.ForwardDiagonal))g.FillPath(brush,path);
+            using(var border=new Pen(selected?Palette.MenuItemBorder:Color.FromArgb(79,105,156)))g.DrawPath(border,path);
         }
-        content.Inflate(-Pixels(12,g.DpiX),0);
-        if(content.Width>0)TextRenderer.DrawText(g,label,Font,content,row==3?QuitText:CommandText,
-            TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
+        g.SmoothingMode=smoothing;
+    }
+    static void PaintGlyph(Graphics g,Rectangle icon,int row,Color color,bool locked){
+        var state=g.Save();
+        try{
+            g.TranslateTransform(icon.X,icon.Y);g.ScaleTransform(icon.Width/18f,icon.Height/18f);
+            g.SmoothingMode=SmoothingMode.AntiAlias;
+            using(var pen=new Pen(color,1.35f){StartCap=LineCap.Round,EndCap=LineCap.Round,LineJoin=LineJoin.Round}){
+                if(row==0){
+                    g.DrawLines(pen,new[]{new Point(9,1),new Point(16,5),new Point(16,13),new Point(9,17),new Point(2,13),new Point(2,5),new Point(9,1)});
+                    g.DrawEllipse(pen,6,6,6,6);
+                }else if(row==1){
+                    g.DrawRectangle(pen,3,8,12,8);
+                    g.DrawArc(pen,locked?5:8,2,8,11,180,180);
+                    if(locked)g.DrawLine(pen,5,7,5,8);
+                    g.DrawLine(pen,9,11,9,13);
+                }else{
+                    g.DrawLines(pen,new[]{new Point(8,2),new Point(2,2),new Point(2,16),new Point(8,16)});
+                    g.DrawLine(pen,6,9,16,9);g.DrawLines(pen,new[]{new Point(12,5),new Point(16,9),new Point(12,13)});
+                }
+            }
+        }finally{g.Restore(state);}
+    }
+    sealed class GlassRenderer:ToolStripProfessionalRenderer {
+        internal GlassRenderer():base(Palette){RoundedEdges=false;}
+        protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e){
+            var bounds=new Rectangle(Point.Empty,e.Item.Size);bounds.Inflate(-1,-2);PaintGlass(e.Graphics,bounds,e.Item.Selected);
+        }
     }
     ToolStripMenuItem Command(string label,Action action){
         var item=new ToolStripMenuItem(label){AutoSize=false,Size=new Size(230,37),Padding=new Padding(12,6,12,6)};
@@ -77,6 +125,7 @@ internal sealed class HelperTrayMenu : ContextMenuStrip {
         settings.Text=UiLanguage.Text("Settings",owner.Language);
         lockItem.Text=UiLanguage.Text(owner.Configuration.Locked?"Unlock":"Lock",owner.Language);
         quit.Text=UiLanguage.Text("Quit Aion 2 Helper",owner.Language);
+        RightToLeft=owner.Language=="ar"?RightToLeft.Yes:RightToLeft.No;
         Native.MenuItems[0].Text=settings.Text;
         Native.MenuItems[1].Text=lockItem.Text;
         Native.MenuItems[3].Text=quit.Text;
@@ -89,14 +138,23 @@ internal sealed class HelperTrayMenu : ContextMenuStrip {
     internal void ShowAt(Point position){if(!Visible)Show(position);}
     internal bool VerifyLanguage(string label){RefreshCommands();return settings.Text==label&&Native.MenuItems[0].Text==label;}
     internal void RenderPreview(string path){
-        RefreshCommands();PerformLayout();using(var bitmap=new Bitmap(Width,Height)){DrawToBitmap(bitmap,new Rectangle(Point.Empty,Size));bitmap.Save(path,System.Drawing.Imaging.ImageFormat.Png);}
+        RefreshCommands();
+        var rows=new[]{49,42,9,49};
+        using(var bitmap=new Bitmap(260,149)){
+            bitmap.SetResolution(96,96);
+            using(var g=Graphics.FromImage(bitmap)){
+                int y=0;
+                for(int i=0;i<rows.Length;i++){PaintNativeRow(g,new Rectangle(0,y,260,rows[i]),i,Native.MenuItems[i].Text,i==0);y+=rows[i];}
+            }
+            bitmap.Save(path,System.Drawing.Imaging.ImageFormat.Png);
+        }
     }
     internal void Verify(){
         RefreshCommands();if(Items.Count!=4||Native.MenuItems.Count!=4||!AutoClose||lockItem.Text!=UiLanguage.Text(owner.Configuration.Locked?"Unlock":"Lock",owner.Language)||Native.MenuItems[1].Text!=lockItem.Text)throw new Exception("Native tray commands and automatic dismissal");
         foreach(MenuItem item in Native.MenuItems)if(!item.OwnerDraw)throw new Exception("Native tray rows must retain the Helper theme");
         using(var bitmap=new Bitmap(244,44)){
             using(var g=Graphics.FromImage(bitmap))PaintNativeRow(g,new Rectangle(0,0,244,44),0,settings.Text,true);
-            if(bitmap.GetPixel(0,0).ToArgb()!=BackColor.ToArgb()||bitmap.GetPixel(12,12).ToArgb()!=Palette.MenuItemSelected.ToArgb())throw new Exception("Tray popup background and selected row must use the Helper palette");
+            if(bitmap.GetPixel(0,0).ToArgb()!=BackColor.ToArgb()||bitmap.GetPixel(125,14).ToArgb()==BackColor.ToArgb())throw new Exception("Tray popup must paint a selected glass row over its background");
         }
         // ToolStrip constrains its drop-down to the monitor, including negative-coordinate monitors.
         foreach(var screen in Screen.AllScreens){ShowAt(new Point(screen.WorkingArea.Right-2,screen.WorkingArea.Bottom-2));Application.DoEvents();if(!screen.WorkingArea.Contains(Bounds))throw new Exception("Tray menu monitor bounds");Close();}
@@ -117,14 +175,14 @@ internal sealed class HelperTrayMenu : ContextMenuStrip {
         overlay.OpenTrayMenu(Cursor.Position);Application.DoEvents();if(!menu.Visible)throw new Exception("Tray menu must reopen after dismissal");menu.Close();
     }
     sealed class MenuColors : ProfessionalColorTable {
-        public override Color ToolStripDropDownBackground {get{return Color.FromArgb(25,28,35);}}
+        public override Color ToolStripDropDownBackground {get{return Color.FromArgb(17,27,56);}}
         public override Color ImageMarginGradientBegin {get{return ToolStripDropDownBackground;}}
         public override Color ImageMarginGradientMiddle {get{return ToolStripDropDownBackground;}}
         public override Color ImageMarginGradientEnd {get{return ToolStripDropDownBackground;}}
-        public override Color MenuBorder {get{return Color.FromArgb(60,68,76);}}
-        public override Color MenuItemSelected {get{return Color.FromArgb(40,66,65);}}
-        public override Color MenuItemBorder {get{return Color.FromArgb(103,199,176);}}
-        public override Color SeparatorDark {get{return Color.FromArgb(60,68,76);}}
+        public override Color MenuBorder {get{return Color.FromArgb(87,115,171);}}
+        public override Color MenuItemSelected {get{return Color.FromArgb(52,124,188);}}
+        public override Color MenuItemBorder {get{return Color.FromArgb(151,231,255);}}
+        public override Color SeparatorDark {get{return MenuBorder;}}
         public override Color SeparatorLight {get{return ToolStripDropDownBackground;}}
     }
 }

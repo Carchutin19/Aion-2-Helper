@@ -12,6 +12,17 @@ The additional cast/cooldown wire-field reference is Kuroukihime/AIon2-Dps-Meter
 are consulted; no code, binaries or assets from that project are copied, linked
 or executed. See the skill-slot source note for the independently validated layout.
 
+[Taeloria's Spellbook](https://github.com/taylorjohannsen/taelorias-spellbook-aion2-cooldown-tracker)
+by Taylor Johannsen provided the visual reference for the Compact hotbar and
+the lead for the combat-state message. The renderer uses our existing icon pack.
+The combat signal was checked against our own recorded sessions.
+
+The desktop settings theme uses Aion 2 artwork supplied as a design reference
+by the project maintainer. The Aion emblem in the Helper wordmark is adapted
+from that reference. Aion 2 artwork, names and trademarks belong to NCSOFT and
+their respective owners. The Helper's desktop layout, navigation glyphs and
+notification-area icon were produced for this project.
+
 Pet catalogue, portraits, offline maps, acquisition records and the MIT protocol
 reference are documented separately in [PET-ASSETS.md](https://github.com/Carchutin19/Aion-2-Helper/blob/main/PET-ASSETS.md). The
 original game artwork remains the property of NCSOFT and its respective owners;

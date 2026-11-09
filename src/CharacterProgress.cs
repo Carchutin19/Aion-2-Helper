@@ -354,6 +354,7 @@ internal static class CharacterProgressDesign {
 internal sealed class MovableOverlayWindow : Form,IWidgetSnapTarget {
     internal EnergyOverlay SnapOwner;
     internal int SnapInset;
+    internal bool ResizeAllowed=true;
     Rectangle IWidgetSnapTarget.SnapBounds { get { return SnapOwner==null?Rectangle.Empty:SnapArea(presented); } }
     Rectangle SnapArea(Rectangle bounds) {
         bounds.Inflate(-SnapInset,-SnapInset);
@@ -371,6 +372,8 @@ internal sealed class MovableOverlayWindow : Form,IWidgetSnapTarget {
     internal const int ResizeGrip = 24;
     readonly LayeredImage image = new LayeredImage();
     OverlayGlassLayer backdrop;
+    List<OverlayGlassLayer> tileBackdrops;
+    internal Rectangle[] BackdropTiles;
     string imageKey;
     Func<Size,Bitmap> paint;
     Size requestedSize, paintedSize;
@@ -405,13 +408,28 @@ internal sealed class MovableOverlayWindow : Form,IWidgetSnapTarget {
     internal void HideOverlay() {
         if(scrolling){scrolling=false;Capture=false;}
         if (Visible) Hide();
-        if (backdrop!=null&&backdrop.Visible) backdrop.Hide();
+        HideBackdrops();
+    }
+    void HideBackdrops() {
+        if(backdrop!=null&&backdrop.Visible)backdrop.Hide();
+        if(tileBackdrops!=null)foreach(var tile in tileBackdrops)if(tile.Visible)tile.Hide();
     }
     void SyncBackdrop() {
-        if (blur) {
+        if(!blur){HideBackdrops();return;}
+        if(BackdropTiles!=null) {
+            if(tileBackdrops==null)tileBackdrops=new List<OverlayGlassLayer>();
+            for(int i=0;i<BackdropTiles.Length;i++){
+                if(i==tileBackdrops.Count)tileBackdrops.Add(new OverlayGlassLayer());
+                var card=BackdropTiles[i];
+                card.Offset(presented.Location);
+                tileBackdrops[i].Sync(card,alpha,Handle,true,card.Height*.14f);
+            }
+            for(int i=BackdropTiles.Length;i<tileBackdrops.Count;i++)
+                if(tileBackdrops[i].Visible)tileBackdrops[i].Hide();
+        } else {
             if (backdrop==null) backdrop=new OverlayGlassLayer();
             backdrop.Sync(presented,alpha,Handle,true,12);
-        } else if (backdrop!=null&&backdrop.Visible) backdrop.Hide();
+        }
     }
     internal void Render(Rectangle bounds, byte opacity, bool editing, string key, Func<Size,Bitmap> render, bool useBlur=false) {
         if (opacity == 0) { HideOverlay(); return; }
@@ -442,7 +460,7 @@ internal sealed class MovableOverlayWindow : Form,IWidgetSnapTarget {
         paintedSize=size;
     }
     bool OverResizeGrip(Point position) {
-        return presented.Contains(position) && position.X>=presented.Right-ResizeGrip && position.Y>=presented.Bottom-ResizeGrip;
+        return ResizeAllowed&&presented.Contains(position) && position.X>=presented.Right-ResizeGrip && position.Y>=presented.Bottom-ResizeGrip;
     }
     Size DragSize(Point delta) {
         var size=start.Size+(Size)delta;
@@ -541,7 +559,14 @@ internal sealed class MovableOverlayWindow : Form,IWidgetSnapTarget {
                 throw new Exception("Refresh and capture loss must keep the last preview size");
         }
     }
-    protected override void Dispose(bool disposing) { if (disposing) { if(backdrop!=null)backdrop.Dispose(); image.Dispose(); } base.Dispose(disposing); }
+    protected override void Dispose(bool disposing) {
+        if(disposing){
+            if(backdrop!=null)backdrop.Dispose();
+            if(tileBackdrops!=null)foreach(var tile in tileBackdrops)tile.Dispose();
+            image.Dispose();
+        }
+        base.Dispose(disposing);
+    }
 }
 
 internal sealed class CharacterProgressWidgets : IDisposable {

@@ -1,6 +1,6 @@
 # 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated November 8, 2026.**
+**Built with the community. Updated November 9, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -17,6 +17,9 @@
 
 | Feature | What is included | First release |
 | :--- | :--- | :---: |
+| **Desktop redesign** | Artwork and glass styling across the Settings sections, pet registry, offline Atlas and native Windows tray menu. Scroll-edge fades and refreshed icons. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
+| **Compact Hotbar and buff widget** | Compact style with a radial cooldown, optional ready flash, and a separately configurable widget for supported personal and party buffs. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
+| **Combat opacity** | Optional out-of-combat opacity and a fade to full opacity in combat for HP, MP and the Hotbar. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
 | **Widget alignment and grid** | Global edge and center snap, independent Hotbar slot snap, and a grid for each screen with highlighted center axes and adjustable opacity. Available while widgets are unlocked. | [v1.26.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.26.0) |
 | **Foreground-only overlays** | Optional setting in General. Locked overlays hide when Aion loses focus. Unlock widgets to edit their layout outside the game. | [v1.25.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0) |
 | **VPN / ExitLag connection recovery** | Restores detection for verified alternate game connections. Confirmed on the affected ExitLag setup; other VPN/routing configurations remain under validation. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |

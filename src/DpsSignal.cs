@@ -304,15 +304,21 @@ internal sealed class DpsSignal {
         }
         state.Hits.Clear();state.Value=hp;state.Time=timestamp;
     }
-    void ReadParty(byte[] b,int start,int end,bool addition){
-        if(end-start>65536)return;var found=new Dictionary<uint,string>();var foundRoles=new Dictionary<uint,byte>();var database=new Dictionary<ulong,uint>();
+    internal static bool ParsePartyRoster(byte[] b,int start,int end,out Dictionary<uint,string> found,out Dictionary<uint,byte> foundRoles,out Dictionary<ulong,uint> database){
+        found=new Dictionary<uint,string>();foundRoles=new Dictionary<uint,byte>();database=new Dictionary<ulong,uint>();
+        if(end-start>65536)return false;
         for(int p=start+2;p<end-64;p++){if(b[p+8]!=36)continue;uint actor=BitConverter.ToUInt32(b,p);ushort server=BitConverter.ToUInt16(b,p+4),realm=BitConverter.ToUInt16(b,p+6);if(actor==0||server<1||server>9999||realm<1||realm>9999||BitConverter.ToUInt16(b,p+51)!=server)continue;
             Guid guid;string uuid=Encoding.ASCII.GetString(b,p+9,36);if(!Guid.TryParse(uuid,out guid))continue;string name=Name(b,p+53,end);if(name==null)continue;int q=p+54+b[p+53];if(q+4>end)continue;uint code=BitConverter.ToUInt32(b,q);if(code<5||code>36)continue;
-            if(found.ContainsKey(actor)||found.Count>=12)return;found[actor]=name;foundRoles[actor]=RoleFromWire(code);database[BitConverter.ToUInt64(b,p+45)]=actor;
+            if(found.ContainsKey(actor)||found.Count>=12)return false;found[actor]=name;foundRoles[actor]=RoleFromWire(code);database[BitConverter.ToUInt64(b,p+45)]=actor;
         }
+        return found.Count>0;
+    }
+    void ReadParty(byte[] b,int start,int end,bool addition){
+        Dictionary<uint,string> found;Dictionary<uint,byte> foundRoles;Dictionary<ulong,uint> database;
+        if(!ParsePartyRoster(b,start,end,out found,out foundRoles,out database))return;
         // 0092 replaces the full roster. The observed 0D92 join update carries
         // only the added member; replacing here would discard the local player.
-        if(found.Count==0||addition&&found.Count!=1)return;
+        if(addition&&found.Count!=1)return;
         foreach(var pair in found)Bind(pair.Key,pair.Value,foundRoles[pair.Key]);uint self=Self;
         if(self!=0&&!addition&&!found.ContainsKey(self))return;
         if(!addition)ClearParty();else if(explicitParty.Count>=12)return;
