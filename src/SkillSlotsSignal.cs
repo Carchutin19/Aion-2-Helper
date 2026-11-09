@@ -9,16 +9,16 @@ internal sealed class SkillSlotsSignal {
  internal sealed class Cooldown {internal uint Raw,Peak;internal double At;internal bool FromCast;internal Cooldown Copy(){return (Cooldown)MemberwiseClone();}}
  internal sealed class View {internal uint Self,Map,ContextTarget;internal double FireMarkUntil,StunUntil,HeartGoreUntil,EvasionUntil,InfiltrateUntil;internal string Flow;internal long Revision;internal readonly List<Slot> Slots=new List<Slot>();internal readonly Dictionary<uint,Cooldown> Cooldowns=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  internal sealed class BarFault {public string Field;public int Offset,Record,Kind,Slot;public int? Value;}
- sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf,LoginActor;internal string SelfName,AwaitingName;internal double Traffic,RawTraffic;internal double? FullWireTime;internal bool HasBar,FullWhileAwaiting;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
+ sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf,LoginActor;internal int Server;internal string SelfName,AwaitingName;internal double Traffic,RawTraffic;internal double? FullWireTime;internal bool HasBar,FullWhileAwaiting;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<int,Slot> PendingPartials=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  sealed class BarTrace {
-  public long FullReceived,FullAccepted,FullRejected,PartialReceived,PartialAccepted,PartialRejected,PartialWithoutFull,MapPauses,MapResumes;
+  public long FullReceived,FullAccepted,FullRejected,PartialReceived,PartialAccepted,PartialRejected,PartialWithoutFull,MapPauses,MapResumes,ConnectionResumes;
   public int LastLength,LastRejectedLength;public string LastOpcode,LastRejectedOpcode,LastClear;public double? LastAt,LastRejectedAt,ClearedAt,PausedAt,ResumedAt;public BarFault LastRejection;
  }
  long resets;string lastReset;
  // Runtime reception and the UI share a clock; recorded replays retain their
  // supplied timestamps. Npcap can drift ahead of UTC during long sessions.
  internal Func<double> ReceiptClock;
- readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();string active;bool enabled,flashCasts;long revision;View cached;internal Action Changed;
+ readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();string active;Flow lastOwnProfile;bool enabled,flashCasts;long revision;View cached;internal Action Changed;
  // The visibility switch controls publication. Keep tracking the current
  // character while hidden, since the server may only send the full bar at login.
  internal void Configure(bool on,bool animateCasts=false){lock(gate){
@@ -27,7 +27,7 @@ internal sealed class SkillSlotsSignal {
   if(flashCasts&&!flashes)foreach(var flow in flows.Values)ClearCastFlashes(flow);
   enabled=on;flashCasts=flashes;cached=null;revision++;
  }}
- internal void Reset(){lock(gate){resets++;lastReset="transport reset";flows.Clear();active=null;cached=null;revision++;}Notify();}
+ internal void Reset(){lock(gate){resets++;lastReset="transport reset";flows.Clear();active=null;lastOwnProfile=null;cached=null;revision++;}Notify();}
  void Notify(){var change=Changed;if(change!=null)change();}
  internal static uint Base(uint id){return id/10000*10000;}
  internal static bool Bar(byte[] b,int s,int e,out List<Slot> slots){BarFault fault;return Bar(b,s,e,out slots,out fault);}
@@ -75,6 +75,26 @@ internal sealed class SkillSlotsSignal {
  internal static bool Cast(byte[] b,int s,int e,out uint actor,out uint skill,out uint milliseconds,out bool chargeLayout){actor=skill=milliseconds=0;chargeLayout=false;if(e-s<15||e-s>256)return false;int p=s+2;uint opaque;if(!DpsSignal.Var(b,ref p,e,out actor)||actor==0||p+6>e)return false;byte flags=b[p++];if((flags&0xC0)!=0)return false;skill=BitConverter.ToUInt32(b,p);p+=5;if(skill==0)return false;if((flags&1)!=0){if(p>=e)return false;p++;}if(p>=e)return false;byte targetFlags=b[p++];if((targetFlags&0xFC)!=0||!DpsSignal.Var(b,ref p,e,out opaque))return false;if((targetFlags&1)!=0){if(p+4>e)return false;p+=4;}int floats=(targetFlags&2)!=0?4:1;if(p+4*floats>e)return false;for(int n=0;n<floats;n++){float f=BitConverter.ToSingle(b,p);if(float.IsNaN(f)||float.IsInfinity(f)||Math.Abs(f)>100000000)return false;p+=4;}if(!DpsSignal.Var(b,ref p,e,out opaque)||p>=e)return false;p++;if((flags&2)!=0&&!DpsSignal.Var(b,ref p,e,out opaque))return false;if(!DpsSignal.Var(b,ref p,e,out milliseconds)||milliseconds>86400000)return false;if((flags&4)!=0){if(p>=e)return false;p++;}if((flags&8)!=0&&!DpsSignal.Var(b,ref p,e,out opaque))return false;if((flags&16)!=0){if(p>=e)return false;p++;}if((flags&32)!=0&&!DpsSignal.Var(b,ref p,e,out opaque))return false;chargeLayout=(flags&12)!=0;return p==e;}
  static uint CooldownKey(uint id){return id>=11000000&&id<20000000?Base(id):id;}
  static void ClearCastFlashes(Flow flow){foreach(var slot in flow.Slots.Values)slot.CastAt=0;}
+ static void ApplySlots(Flow flow,IEnumerable<Slot> entries){
+  foreach(var slot in entries){if(slot.Skill==0)flow.Slots.Remove(slot.Index);else flow.Slots[slot.Index]=slot;}
+ }
+ void ResumeAssignments(Flow flow,int server,string name){
+  // Dungeon exits can open a new flow and send only 0556 updates. Adopt the
+  // last confirmed layout after a matching own profile, never combat state.
+  var prior=lastOwnProfile;
+  if(flow.HasBar||flow.LoginActor!=0||server==0||prior==null||prior==flow||!prior.HasBar
+      ||prior.Server!=server||!string.Equals(prior.SelfName??prior.AwaitingName,name,StringComparison.Ordinal))return;
+  foreach(var pair in prior.Slots){
+   var slot=pair.Value.Copy();
+   slot.CastAt=0;
+   flow.Slots[pair.Key]=slot;
+  }
+  ApplySlots(flow,flow.PendingPartials.Values);
+  flow.PendingPartials.Clear();
+  flow.HasBar=true;
+  flow.Bar.ConnectionResumes++;
+  flow.Bar.ResumedAt=flow.Traffic;
+ }
  static bool MarkOwnCast(Flow flow,uint skill,double time){
   if(!flow.HasBar)return false;
   uint key=CooldownKey(skill),component=skill%100;
@@ -102,8 +122,10 @@ internal sealed class SkillSlotsSignal {
  internal void Consume(byte[] b,int s,int e,double time,string key){if(b==null||s<0||e>b.Length||e-s<2||e-s>65536||string.IsNullOrEmpty(key)||double.IsNaN(time)||double.IsInfinity(time))return;double rawTime=time;if(ReceiptClock!=null){time=ReceiptClock();if(double.IsNaN(time)||double.IsInfinity(time))return;}int op=b[s]*256+b[s+1];bool changed=false;lock(gate){Flow f;if(!flows.TryGetValue(key,out f)){if(op!=0x3336&&op!=0x2036&&op!=0x2136&&op!=0x0056&&op!=0x0556)return;if(flows.Count>=4){var old=flows.Where(x=>x.Key!=active).OrderBy(x=>x.Value.Traffic).FirstOrDefault();if(old.Key==null)return;flows.Remove(old.Key);}flows[key]=f=new Flow();}if(time<f.Traffic)return;f.Traffic=time;f.RawTraffic=rawTime;
  if(op==0x2036){
   uint actor;if(!DashSignal.LoginActor(b,s,e,out actor))return;
+  lastOwnProfile=null;
+  foreach(var flow in flows.Values)flow.PendingPartials.Clear();
   f.LoginActor=actor;
-  f.Self=f.AwaitingSelf=0;f.SelfName=f.AwaitingName=null;
+  f.Self=f.AwaitingSelf=0;f.SelfName=f.AwaitingName=null;f.Server=0;
   f.Slots.Clear();f.HasBar=f.FullWhileAwaiting=false;f.FullWireTime=null;
   f.Cds.Clear();f.Chains.Clear();f.Context.Clear();
   f.Bar.LastClear="character login";f.Bar.ClearedAt=time;
@@ -114,25 +136,27 @@ internal sealed class SkillSlotsSignal {
   // and exit). Quarantine the received assignments/CD anchors until3336
   // confirms the same actor and name on this TCP flow; never publish while unconfirmed.
   if(f.Self!=0){f.AwaitingSelf=f.Self;f.AwaitingName=f.SelfName;}f.FullWhileAwaiting=false;f.Bar.MapPauses++;f.Bar.PausedAt=time;
-  f.Chains.Clear();f.Context.Clear();ClearCastFlashes(f);f.Self=0;if(active==key)active=null;changed=true;
+  f.Chains.Clear();f.Context.Clear();f.PendingPartials.Clear();ClearCastFlashes(f);f.Self=0;if(active==key)active=null;changed=true;
  }f.Map=map;}
- else if(op==0x3336){uint actor;string name;byte role;if(DpsSignal.PlayerIdentity(b,s,e,true,out actor,out name,out role)){if(f.LoginActor!=0&&f.LoginActor!=actor)return;uint previous=f.Self!=0?f.Self:f.AwaitingSelf;string previousName=f.Self!=0?f.SelfName:f.AwaitingName;bool resuming=f.AwaitingSelf!=0;
-  if(previous!=0&&(previous!=actor||!string.Equals(previousName,name,StringComparison.Ordinal))){
+ else if(op==0x3336){uint actor;string name;int server;byte role;if(PetSignal.Identity(b,s,e,out name,out server,out actor)||DpsSignal.PlayerIdentity(b,s,e,true,out actor,out name,out role)){if(f.LoginActor!=0&&f.LoginActor!=actor)return;uint previous=f.Self!=0?f.Self:f.AwaitingSelf;string previousName=f.Self!=0?f.SelfName:f.AwaitingName;bool resuming=f.AwaitingSelf!=0;
+  if(previous!=0&&(previous!=actor||!string.Equals(previousName,name,StringComparison.Ordinal)||server!=0&&f.Server!=0&&f.Server!=server)){
    f.Bar.LastClear="own actor changed";f.Bar.ClearedAt=time;f.Cds.Clear();f.Chains.Clear();f.Context.Clear();ClearCastFlashes(f);
+   f.PendingPartials.Clear();
    // A fresh full bar received during loading is authoritative for the new
    // profile. Partial updates alone must never transfer the previous layout.
    if(!(resuming&&f.FullWhileAwaiting)&&f.FullWireTime!=rawTime){f.Slots.Clear();f.HasBar=false;}
   }else if(resuming&&f.HasBar){f.Bar.MapResumes++;f.Bar.ResumedAt=time;}
-  f.AwaitingSelf=f.LoginActor=0;f.AwaitingName=null;f.FullWhileAwaiting=false;f.Self=actor;f.SelfName=name;f.Context.Enabled=f.Slots.Values.Any(HasContext);active=key;changed=true;}}
+  else if(previous==0)ResumeAssignments(f,server,name);
+  f.AwaitingSelf=f.LoginActor=0;f.AwaitingName=null;f.FullWhileAwaiting=false;f.Self=actor;f.SelfName=name;f.Server=server;f.Context.Enabled=f.Slots.Values.Any(HasContext);active=key;lastOwnProfile=f;changed=true;}}
  else if(op==0x0056||op==0x0556){
   var trace=f.Bar;bool full=op==0x0056;if(full)trace.FullReceived++;else trace.PartialReceived++;
   trace.LastOpcode=full?"0056":"0556";trace.LastLength=e-s;trace.LastAt=time;
   List<Slot> entries;BarFault fault;
   if(!Bar(b,s,e,out entries,out fault)){if(full)trace.FullRejected++;else trace.PartialRejected++;trace.LastRejection=fault;trace.LastRejectedOpcode=trace.LastOpcode;trace.LastRejectedLength=e-s;trace.LastRejectedAt=time;return;}
-  if(full){trace.FullAccepted++;f.FullWireTime=rawTime;f.Slots.Clear();f.HasBar=true;if(f.AwaitingSelf!=0)f.FullWhileAwaiting=true;}
-  if(!f.HasBar){trace.PartialWithoutFull++;return;}
+  if(full){trace.FullAccepted++;f.FullWireTime=rawTime;f.Slots.Clear();f.PendingPartials.Clear();f.HasBar=true;if(f.AwaitingSelf!=0)f.FullWhileAwaiting=true;}
+  if(!f.HasBar){trace.PartialWithoutFull++;foreach(var slot in entries)f.PendingPartials[slot.Index]=slot;return;}
   if(!full)trace.PartialAccepted++;
-  foreach(var slot in entries){if(slot.Skill==0)f.Slots.Remove(slot.Index);else f.Slots[slot.Index]=slot;}
+  ApplySlots(f,entries);
   f.Context.Enabled=f.Slots.Values.Any(HasContext);changed=true;
  }
  else if(f.Self!=0&&active==key&&SkillSlotContext.Handles(op)){changed=f.Context.Consume(b,s,e,time,f.Self);}

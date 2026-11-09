@@ -57,7 +57,7 @@ internal static class PlayerVitalDesign {
         Bitmap measurement;Graphics graphics;readonly Font[] fonts=new Font[4];readonly int[] sizes=new int[4];readonly bool[] weights=new bool[4];
         readonly CrispOverlayText[] captions={new CrispOverlayText(),new CrispOverlayText(),new CrispOverlayText(),new CrispOverlayText()};
         readonly string[] measuredText=new string[4];readonly int[] measuredWidth=new int[4];
-        sealed class Raster {internal bool Valid,Bold;internal string Text,Color;internal int Width,Height,Size,Padding,Opacity;}
+        sealed class Raster {internal bool Valid,Bold;internal string Text,Color,OutlineColor;internal int Width,Height,Size,Padding,Opacity;}
         readonly Raster[] raster={new Raster(),new Raster(),new Raster(),new Raster()};
         internal Graphics Measurement {get{if(graphics==null){measurement=new Bitmap(1,1);graphics=Graphics.FromImage(measurement);}return graphics;}}
         internal Font FontFor(int index,int size,bool bold){if(fonts[index]==null||sizes[index]!=size||weights[index]!=bold){if(fonts[index]!=null)fonts[index].Dispose();fonts[index]=new Font("Segoe UI",size,bold?FontStyle.Bold:FontStyle.Regular,GraphicsUnit.Pixel);sizes[index]=size;weights[index]=bold;measuredText[index]=null;}return fonts[index];}
@@ -66,9 +66,9 @@ internal static class PlayerVitalDesign {
             // Very large user-selected fonts still render at their requested
             // size, but their glyph buffers must not become a permanent cache.
             bool retain=(long)(caption.Bounds.Width+2*pad)*(caption.Bounds.Height+2*pad)<=65536;if(!retain)cached.Valid=false;
-            if(!cached.Valid||cached.Text!=caption.Text||cached.Color!=o.Color||cached.Width!=caption.Bounds.Width||cached.Height!=caption.Bounds.Height||cached.Size!=caption.Size||cached.Bold!=o.Bold||cached.Padding!=pad||cached.Opacity!=o.Outline.Opacity){
+            if(!cached.Valid||cached.Text!=caption.Text||cached.Color!=o.Color||cached.OutlineColor!=o.Outline.Color||cached.Width!=caption.Bounds.Width||cached.Height!=caption.Bounds.Height||cached.Size!=caption.Size||cached.Bold!=o.Bold||cached.Padding!=pad||cached.Opacity!=o.Outline.Opacity){
                 var outline=o.Outline.Copy();outline.Width=Math.Min(8,caption.Outline);captions[i].Draw(destination,caption.Text,caption.Size,o.Bold,ColorTranslator.FromHtml(o.Color),caption.Bounds,0,false,outline);
-                cached.Valid=retain;cached.Text=caption.Text;cached.Color=o.Color;cached.Width=caption.Bounds.Width;cached.Height=caption.Bounds.Height;cached.Size=caption.Size;cached.Bold=o.Bold;cached.Padding=pad;cached.Opacity=o.Outline.Opacity;if(!retain)captions[i].Dispose();
+                cached.Valid=retain;cached.Text=caption.Text;cached.Color=o.Color;cached.OutlineColor=o.Outline.Color;cached.Width=caption.Bounds.Width;cached.Height=caption.Bounds.Height;cached.Size=caption.Size;cached.Bold=o.Bold;cached.Padding=pad;cached.Opacity=o.Outline.Opacity;if(!retain)captions[i].Dispose();
             }else captions[i].Present(destination,caption.Bounds,pad);
         }
         internal void Clear(){for(int i=0;i<4;i++){captions[i].Dispose();raster[i].Valid=false;measuredText[i]=null;if(fonts[i]!=null){fonts[i].Dispose();fonts[i]=null;}}}
@@ -114,19 +114,23 @@ internal static class PlayerVitalDesign {
         using(var g=Graphics.FromImage(result.Bitmap)){g.SmoothingMode=SmoothingMode.AntiAlias;g.TranslateTransform(-layout.Surface.X,-layout.Surface.Y);if(editing)using(var brush=new SolidBrush(Color.FromArgb(1,0,0,0)))g.FillRectangle(brush,layout.Surface);
             var core=layout.Core;var color=BarDesign.EnergyColor(ratio,o.Bar);int border=o.Border?Math.Min(Math.Max(1,core.Height/3),Math.Max(1,Metric(o.BorderWidth,layout.Scale))):0;float inset=Math.Max(1,Math.Min(core.Height/3f,Math.Max(2,border+1)));var inner=new RectangleF(inset,inset,Math.Max(1,core.Width-2*inset),Math.Max(1,core.Height-2*inset));
             if(o.Bar.Emissive&&ratio>0&&o.Bar.GlowPercent>0)for(int i=Math.Max(2,Metric(8,layout.Scale));i>=1;i--){var halo=new RectangleF(-i,-i,(float)(core.Width*ratio)+2*i,core.Height+2*i);int alpha=Math.Max(1,Math.Min(45,(int)(o.Bar.GlowPercent*.12/(1+i*.3))));using(var brush=new SolidBrush(Color.FromArgb(alpha,color)))using(var shape=FpsDesign.Round(halo.X,halo.Y,halo.Width,halo.Height,halo.Height/2))g.FillPath(brush,shape);}
-            using(var track=new SolidBrush(Color.FromArgb(o.Bar.TrackOpacity,12,15,16)))using(var shape=FpsDesign.Round(0,0,core.Width,core.Height,core.Height/2f))g.FillPath(track,shape);
-            if(ratio>0){float filled=(float)(inner.Width*ratio);using(var clip=FpsDesign.Round(inner.X,inner.Y,inner.Width,inner.Height,inner.Height/2)){var saved=g.Save();g.SetClip(clip);using(var fill=new LinearGradientBrush(inner,Mix(color,Color.White,.18),Mix(color,Color.Black,.22),LinearGradientMode.Vertical))using(var shape=FpsDesign.Round(inner.X,inner.Y,filled,inner.Height,inner.Height/2))g.FillPath(fill,shape);if(o.Bar.Emissive)using(var filament=new Pen(Mix(color,Color.White,.8),Math.Max(1,inner.Height/4))){filament.StartCap=filament.EndCap=LineCap.Round;if(filled>2)g.DrawLine(filament,inner.X+1,inner.Y+inner.Height/2,inner.X+filled-1,inner.Y+inner.Height/2);}g.Restore(saved);}}
-            // Independent capacity layer over HP; no separate frame, maximum or
-            // extra width. Clip the emissive strokes to the same capsule as HP.
+            if(o.Bar.Style==ProgressBarStyle.Classic){
+                using(var track=new SolidBrush(Color.FromArgb(o.Bar.TrackOpacity,12,15,16)))using(var shape=FpsDesign.Round(0,0,core.Width,core.Height,core.Height/2f))g.FillPath(track,shape);
+                if(ratio>0){float filled=(float)(inner.Width*ratio);using(var clip=FpsDesign.Round(inner.X,inner.Y,inner.Width,inner.Height,inner.Height/2)){var saved=g.Save();g.SetClip(clip);using(var fill=new LinearGradientBrush(inner,Mix(color,Color.White,.18),Mix(color,Color.Black,.22),LinearGradientMode.Vertical))using(var shape=FpsDesign.Round(inner.X,inner.Y,filled,inner.Height,inner.Height/2))g.FillPath(fill,shape);if(o.Bar.Emissive)using(var filament=new Pen(Mix(color,Color.White,.8),Math.Max(1,inner.Height/4))){filament.StartCap=filament.EndCap=LineCap.Round;if(filled>2)g.DrawLine(filament,inner.X+1,inner.Y+inner.Height/2,inner.X+filled-1,inner.Y+inner.Height/2);}g.Restore(saved);}}
+            }else{
+                var edge=o.Border?Color.FromArgb(o.BorderOpacity*255/100,ColorTranslator.FromHtml(o.BorderColor)):Color.Transparent;
+                inner=BarDesign.DrawStyledFace(g,core,ratio,o.Bar,true,edge,edge.A==0?0:border);
+            }
+            // Independent capacity layer, clipped to the selected bar shape.
             if(!mana&&o.Shield.Enabled&&o.Shield.Opacity>0&&shieldRatio>0){
                 float filled=(float)(inner.Width*Math.Max(0,Math.Min(1,shieldRatio)));var gold=ColorTranslator.FromHtml(o.Shield.Color);int a=o.Shield.Opacity*255/100;
-                using(var clip=FpsDesign.Round(inner.X,inner.Y,inner.Width,inner.Height,inner.Height/2)){var saved=g.Save();g.SetClip(clip);
+                using(var clip=FpsDesign.Round(inner.X,inner.Y,inner.Width,inner.Height,BarDesign.FaceRadius(inner,o.Bar.Style))){var saved=g.Save();g.SetClip(clip);
                     using(var fill=new LinearGradientBrush(inner,Color.FromArgb(a,Mix(gold,Color.White,.22)),Color.FromArgb(a,Mix(gold,Color.Black,.18)),LinearGradientMode.Vertical))g.FillRectangle(fill,inner.X,inner.Y,filled,inner.Height);
                     if(o.Shield.Emissive&&o.Shield.GlowPercent>0){var glowState=g.Save();g.SetClip(new RectangleF(inner.X,inner.Y,filled,inner.Height),CombineMode.Intersect);for(int i=3;i>=1;i--)using(var glow=new Pen(Color.FromArgb(Math.Min(a,(int)(a*o.Shield.GlowPercent/200.0/(i+2))),Mix(gold,Color.White,.8)),Math.Max(1,inner.Height*i/3)))g.DrawLine(glow,inner.X,inner.Y+inner.Height/2,inner.X+filled,inner.Y+inner.Height/2);g.Restore(glowState);}
                     g.Restore(saved);
                 }
             }
-            if(o.Border)using(var pen=new Pen(Color.FromArgb(o.BorderOpacity*255/100,ColorTranslator.FromHtml(o.BorderColor)),border))using(var shape=FpsDesign.Round(border/2f,border/2f,core.Width-border,core.Height-border,(core.Height-border)/2f))g.DrawPath(pen,shape);
+            if(o.Border&&o.Bar.Style==ProgressBarStyle.Classic)using(var pen=new Pen(Color.FromArgb(o.BorderOpacity*255/100,ColorTranslator.FromHtml(o.BorderColor)),border))using(var shape=FpsDesign.Round(border/2f,border/2f,core.Width-border,core.Height-border,(core.Height-border)/2f))g.DrawPath(pen,shape);
             foreach(var caption in layout.Captions)work.DrawCaption(g,caption);
             if(editing)using(var pen=new Pen(Color.FromArgb(100,170,180,185))){pen.DashStyle=DashStyle.Dot;g.DrawRectangle(pen,-2,-2,core.Width+4,core.Height+4);}
         }return result;

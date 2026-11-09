@@ -15,10 +15,11 @@ internal sealed class StaggerCountdownOptions {
     public bool Enabled=true,Glow=true,Shrink=true;
     public int Position=4,FontSize=24,GlowPercent=100,MinimumScalePercent=55,OffsetY=0;
     public string Color="#FFE08A";
+    public TextOutlineOptions Outline=new TextOutlineOptions();
     // The observed state lasts ~5s. This is an estimated display, never a reset.
     public double ReferenceSeconds=5;
-    internal StaggerCountdownOptions Copy(){return (StaggerCountdownOptions)MemberwiseClone();}
-    internal void Normalize(){OffsetY=Math.Max(-600,Math.Min(600,OffsetY));Position=Math.Max(0,Math.Min(5,Position));FontSize=Math.Max(10,Math.Min(192,FontSize));GlowPercent=Math.Max(0,Math.Min(200,GlowPercent));MinimumScalePercent=Math.Max(20,Math.Min(100,MinimumScalePercent));if(!EnergyBarOptions.ValidColor(Color))Color="#FFE08A";if(double.IsNaN(ReferenceSeconds)||double.IsInfinity(ReferenceSeconds))ReferenceSeconds=5;ReferenceSeconds=Math.Max(1,Math.Min(30,ReferenceSeconds));}
+    internal StaggerCountdownOptions Copy(){var copy=(StaggerCountdownOptions)MemberwiseClone();copy.Outline=Outline==null?new TextOutlineOptions():Outline.Copy();return copy;}
+    internal void Normalize(){if(Outline==null)Outline=new TextOutlineOptions();Outline.Normalize();OffsetY=Math.Max(-600,Math.Min(600,OffsetY));Position=Math.Max(0,Math.Min(5,Position));FontSize=Math.Max(10,Math.Min(192,FontSize));GlowPercent=Math.Max(0,Math.Min(200,GlowPercent));MinimumScalePercent=Math.Max(20,Math.Min(100,MinimumScalePercent));if(!EnergyBarOptions.ValidColor(Color))Color="#FFE08A";if(double.IsNaN(ReferenceSeconds)||double.IsInfinity(ReferenceSeconds))ReferenceSeconds=5;ReferenceSeconds=Math.Max(1,Math.Min(30,ReferenceSeconds));}
 }
 
 internal sealed class StaggerOptions {
@@ -101,7 +102,7 @@ internal static class ProgressBarText {
     internal sealed class Label {internal int Position,Offset;internal string Text;}
     internal static List<Label> Labels(EnergyBarOptions o,bool known,uint current,uint maximum,CultureInfo culture=null){var labels=new List<Label>();if(!known||maximum==0)return labels;AddLabel(labels,o.CurrentPosition,o.CurrentOffsetY,o.CurrentText?(culture==null?current.ToString(CultureInfo.InvariantCulture):current.ToString("N0",culture)):null);AddLabel(labels,o.MaximumPosition,o.MaximumOffsetY,o.MaximumText?"/ "+(culture==null?maximum.ToString(CultureInfo.InvariantCulture):maximum.ToString("N0",culture)):null);AddLabel(labels,o.PercentagePosition,o.PercentageOffsetY,o.PercentageText?(100.0*current/maximum).ToString("0",CultureInfo.InvariantCulture)+(culture==null?"%":" %"):null);return labels;}
     static void AddLabel(List<Label> labels,int position,int offset,string text){if(text==null)return;foreach(var label in labels)if(label.Position==position&&label.Offset==offset){label.Text+="  "+text;return;}labels.Add(new Label{Position=position,Offset=offset,Text=text});}
-    internal static bool Same(EnergyBarOptions a,EnergyBarOptions b){return TextOutlineOptions.Same(a.TextOutline,b.TextOutline)&&a.ScalePercent==b.ScalePercent&&ProgressScaleReference.Same(a.ScaleReference,b.ScaleReference)&&a.CurrentOffsetY==b.CurrentOffsetY&&a.MaximumOffsetY==b.MaximumOffsetY&&a.PercentageOffsetY==b.PercentageOffsetY&&a.CurrentText==b.CurrentText&&a.MaximumText==b.MaximumText&&a.PercentageText==b.PercentageText&&a.CurrentPosition==b.CurrentPosition&&a.MaximumPosition==b.MaximumPosition&&a.PercentagePosition==b.PercentagePosition&&a.TextSize==b.TextSize&&a.TextColor==b.TextColor;}
+    internal static bool Same(EnergyBarOptions a,EnergyBarOptions b){return a.Style==b.Style&&a.BorderEnabled==b.BorderEnabled&&a.BorderWidth==b.BorderWidth&&a.BorderOpacity==b.BorderOpacity&&a.BorderColor==b.BorderColor&&TextOutlineOptions.Same(a.TextOutline,b.TextOutline)&&a.ScalePercent==b.ScalePercent&&ProgressScaleReference.Same(a.ScaleReference,b.ScaleReference)&&a.CurrentOffsetY==b.CurrentOffsetY&&a.MaximumOffsetY==b.MaximumOffsetY&&a.PercentageOffsetY==b.PercentageOffsetY&&a.CurrentText==b.CurrentText&&a.MaximumText==b.MaximumText&&a.PercentageText==b.PercentageText&&a.CurrentPosition==b.CurrentPosition&&a.MaximumPosition==b.MaximumPosition&&a.PercentagePosition==b.PercentagePosition&&a.TextSize==b.TextSize&&a.TextColor==b.TextColor;}
     internal static string[] Slots(EnergyBarOptions o,bool known,uint current,uint maximum){var slots=new string[6];if(!known||maximum==0)return slots;Add(slots,o.CurrentPosition,o.CurrentText?current.ToString(CultureInfo.InvariantCulture):null);Add(slots,o.MaximumPosition,o.MaximumText?"/ "+maximum.ToString(CultureInfo.InvariantCulture):null);Add(slots,o.PercentagePosition,o.PercentageText?(100.0*current/maximum).ToString("0",CultureInfo.InvariantCulture)+"%":null);return slots;}
     static void Add(string[] slots,int position,string value){if(value==null)return;slots[position]=slots[position]==null?value:slots[position]+"  "+value;}
 }
@@ -118,11 +119,17 @@ internal sealed class ProgressLabelCache {
 internal static class ProgressBarPreview {
     internal static Bitmap Render(int width,double ratio,EnergyBarOptions o,StaggerCountdownOptions countdown,BarDesign.GlowWorkspace workspace,uint maximum=100){
         var labels=ProgressBarText.Labels(o,true,(uint)Math.Round(maximum*ratio),maximum);int min=0,max=112;
-        foreach(var label in labels){int y=(label.Position<3?26:64)+label.Offset;min=Math.Min(min,y);max=Math.Max(max,y+24);}
-        int countdownY=countdown==null?0:(countdown.Position<3?0:88)+countdown.OffsetY;if(countdown!=null&&countdown.Enabled){min=Math.Min(min,countdownY);max=Math.Max(max,countdownY+24);}
-        var result=new Bitmap(width+10,max-min,PixelFormat.Format32bppPArgb);using(var g=Graphics.FromImage(result)){g.Clear(Color.Transparent);g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;using(var bar=BarDesign.RenderEmissive(width,4,ratio,false,true,1,o,workspace))g.DrawImageUnscaled(bar,0,52-min);
-            using(var font=new Font("Segoe UI",Math.Min(o.TextSize,22),FontStyle.Regular,GraphicsUnit.Pixel))using(var brush=new SolidBrush(ColorTranslator.FromHtml(o.TextColor)))foreach(var label in labels)using(var format=new StringFormat{Alignment=label.Position%3==0?StringAlignment.Near:label.Position%3==1?StringAlignment.Center:StringAlignment.Far,LineAlignment=StringAlignment.Center})g.DrawString(label.Text,font,brush,new RectangleF(5,(label.Position<3?26:64)+label.Offset-min,width,24),format);
-            if(countdown!=null&&countdown.Enabled)using(var font=new Font("Segoe UI",Math.Min(countdown.FontSize,24),FontStyle.Regular,GraphicsUnit.Pixel))using(var brush=new SolidBrush(ColorTranslator.FromHtml(countdown.Color)))using(var format=new StringFormat{Alignment=countdown.Position%3==0?StringAlignment.Near:countdown.Position%3==1?StringAlignment.Center:StringAlignment.Far,LineAlignment=StringAlignment.Center})g.DrawString("4.0 s",font,brush,new RectangleF(5,countdownY-min,width,24),format);
+        int textPad=Math.Max(5,o.TextOutline.Padding);
+        foreach(var label in labels){int y=(label.Position<3?26:64)+label.Offset;min=Math.Min(min,y-textPad);max=Math.Max(max,y+24+textPad);}
+        int countdownY=countdown==null?0:(countdown.Position<3?0:88)+countdown.OffsetY;
+        if(countdown!=null&&countdown.Enabled){int pad=Math.Max(3,countdown.Outline.Padding);min=Math.Min(min,countdownY-pad);max=Math.Max(max,countdownY+Math.Min(countdown.FontSize,24)+14+pad);}
+        var result=new Bitmap(width+2*textPad,max-min,PixelFormat.Format32bppPArgb);using(var g=Graphics.FromImage(result))using(var crisp=new CrispOverlayText()){g.Clear(Color.Transparent);g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;using(var bar=BarDesign.RenderEmissive(width,4,ratio,false,true,1,o,workspace))g.DrawImageUnscaled(bar,textPad-5,52-min);
+            using(var font=new Font("Segoe UI",Math.Min(o.TextSize,22),FontStyle.Regular,GraphicsUnit.Pixel))using(var brush=new SolidBrush(ColorTranslator.FromHtml(o.TextColor)))foreach(var label in labels){
+                var bounds=new Rectangle(textPad,(label.Position<3?26:64)+label.Offset-min,width,24);
+                if(o.TextOutline.Padding>0)crisp.Draw(g,label.Text,Math.Min(o.TextSize,22),false,brush.Color,bounds,label.Position%3,true,o.TextOutline);
+                else using(var format=ProgressTextOverlay.Format(label.Position))g.DrawString(label.Text,font,brush,bounds,format);
+            }
+            if(countdown!=null&&countdown.Enabled)ProgressTextOverlay.DrawCountdown(g,countdown,Math.Min(countdown.FontSize,24),4,new RectangleF(textPad,countdownY-min,width,Math.Min(countdown.FontSize,24)+14));
         }return result;
     }
 }
@@ -140,17 +147,48 @@ internal sealed class ProgressTextOverlay:Form {
         foreach(var label in labels){above|=label.Position<3;below|=label.Position>=3;int y=(label.Position<3?-line-2:core.Height+2)+label.Offset;minY=Math.Min(minY,y);maxY=Math.Max(maxY,y+line);labelKey+=label.Position+":"+label.Offset+":"+label.Text+"|";}
         int countdownY=activeCountdown?(countdown.Position<3?-countdownLine-2-(above?line+4:0):core.Height+2+(below?line+4:0))+countdown.OffsetY:0;
         if(activeCountdown){minY=Math.Min(minY,countdownY);maxY=Math.Max(maxY,countdownY+countdownLine);}
-        int outlinePad=enemyStyle?o.TextOutline.Padding:0;minY-=outlinePad;maxY+=outlinePad;var bounds=new Rectangle(core.X-outlinePad,core.Y+minY,core.Width+2*outlinePad,Math.Max(1,maxY-minY));if(Bounds!=bounds)Bounds=bounds;
-        string next=labelKey+"/"+o.TextOutline.Key+"/"+enemyStyle+"/"+language+"/"+o.TextSize+o.TextColor+"/"+core.Width+"/"+core.Height+"/"+(activeCountdown?remaining.ToString("F1",CultureInfo.InvariantCulture)+"/"+countdown.Position+"/"+countdown.OffsetY+"/"+countdown.FontSize+"/"+countdown.Color+"/"+countdown.Glow+"/"+countdown.GlowPercent+"/"+countdown.Shrink+"/"+countdown.MinimumScalePercent+"/"+countdown.ReferenceSeconds.ToString(CultureInfo.InvariantCulture):"");
+        int valuePad=o.TextOutline.Padding,countdownPad=activeCountdown?Math.Max(3,countdown.Outline.Padding):0;
+        int outlinePad=Math.Max(valuePad,countdownPad);minY-=outlinePad;maxY+=outlinePad;var bounds=new Rectangle(core.X-outlinePad,core.Y+minY,core.Width+2*outlinePad,Math.Max(1,maxY-minY));if(Bounds!=bounds)Bounds=bounds;
+        Color? edge=enemyStyle&&valuePad>0?o.CrystalTextEdge:null;
+        string next=labelKey+"/"+o.TextOutline.Key+"/"+edge.GetValueOrDefault().ToArgb()+"/"+enemyStyle+"/"+language+"/"+o.TextSize+o.TextColor+"/"+core.Width+"/"+core.Height+"/"+(activeCountdown?remaining.ToString("F1",CultureInfo.InvariantCulture)+"/"+countdown.Position+"/"+countdown.OffsetY+"/"+countdown.FontSize+"/"+countdown.Color+"/"+countdown.Glow+"/"+countdown.GlowPercent+"/"+countdown.Shrink+"/"+countdown.MinimumScalePercent+"/"+countdown.ReferenceSeconds.ToString(CultureInfo.InvariantCulture)+"/"+countdown.Outline.Key:"");
         if(next!=key){key=next;using(var bitmap=new Bitmap(Width,Height,PixelFormat.Format32bppPArgb))using(var g=Graphics.FromImage(bitmap)){g.Clear(Color.Transparent);g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-                using(var font=new Font("Segoe UI",o.TextSize,enemyStyle?FontStyle.Bold:FontStyle.Regular,GraphicsUnit.Pixel))using(var brush=new SolidBrush(ColorTranslator.FromHtml(o.TextColor)))foreach(var label in labels){int y=(label.Position<3?-line-2:core.Height+2)+label.Offset-minY;var rect=new RectangleF(outlinePad,y,core.Width,line);using(var format=Format(label.Position)){if(enemyStyle)crisp.Draw(g,label.Text,o.TextSize,true,label.Text.Contains("%")&&o.TextColor=="#EEEEEE"?Color.FromArgb(255,167,140):ColorTranslator.FromHtml(o.TextColor),Rectangle.Round(rect),label.Position%3,true,o.TextOutline);else g.DrawString(label.Text,font,brush,rect,format);}}
-                if(activeCountdown){double fraction=Math.Max(0,Math.Min(1,remaining/countdown.ReferenceSeconds));float size=(float)(countdown.FontSize*(countdown.Shrink?countdown.MinimumScalePercent/100.0+(1-countdown.MinimumScalePercent/100.0)*fraction:1));var rect=new RectangleF(4,countdownY-minY,Math.Max(1,Width-8),countdownLine);using(var format=Format(countdown.Position))using(var path=new GraphicsPath()){path.AddString(remaining.ToString("F1",CultureInfo.InvariantCulture)+" s",FontFamily.GenericSansSerif,0,size,rect,format);var color=ColorTranslator.FromHtml(countdown.Color);if(countdown.Glow&&countdown.GlowPercent>0)for(int stroke=6;stroke>=2;stroke-=2)using(var pen=new Pen(Color.FromArgb(Math.Min(150,40*countdown.GlowPercent/100),color),stroke)){pen.LineJoin=LineJoin.Round;g.DrawPath(pen,path);}using(var brush=new SolidBrush(color))g.FillPath(brush,path);}}
+                using(var font=new Font("Segoe UI",o.TextSize,FontStyle.Regular,GraphicsUnit.Pixel))
+                using(var brush=new SolidBrush(ColorTranslator.FromHtml(o.TextColor)))foreach(var label in labels){
+                    int y=(label.Position<3?-line-2:core.Height+2)+label.Offset-minY;
+                    var rect=new Rectangle(outlinePad,y,core.Width,line);
+                    var color=enemyStyle&&label.Text.Contains("%")&&o.TextColor=="#EEEEEE"?Color.FromArgb(255,167,140):brush.Color;
+                    if(enemyStyle||valuePad>0)crisp.Draw(g,label.Text,o.TextSize,enemyStyle,color,rect,label.Position%3,true,o.TextOutline,edge);
+                    else using(var format=Format(label.Position))g.DrawString(label.Text,font,brush,rect,format);
+                }
+                if(activeCountdown){
+                    double fraction=Math.Max(0,Math.Min(1,remaining/countdown.ReferenceSeconds));
+                    float size=(float)(countdown.FontSize*(countdown.Shrink?countdown.MinimumScalePercent/100.0+(1-countdown.MinimumScalePercent/100.0)*fraction:1));
+                    DrawCountdown(g,countdown,size,remaining,new RectangleF(outlinePad+4,countdownY-minY,Math.Max(1,core.Width-8),countdownLine));
+                }
                 image.Upload(bitmap);
             }alpha=0;
         }
         if(alpha!=opacity||shown!=Bounds||!Visible){image.Present(Handle,Left,Top,opacity);alpha=opacity;shown=Bounds;}if(!Visible){Show();nextRaise=0;}long now=Stopwatch.GetTimestamp();if(now>=nextRaise){nextRaise=now+Stopwatch.Frequency;OverlayNative.RaiseWithoutFocus(Handle);}
     }
-    static StringFormat Format(int position){return new StringFormat{Alignment=position%3==0?StringAlignment.Near:position%3==1?StringAlignment.Center:StringAlignment.Far,LineAlignment=StringAlignment.Center,FormatFlags=StringFormatFlags.NoWrap,Trimming=StringTrimming.EllipsisCharacter};}
+    internal static void DrawCountdown(Graphics g,StaggerCountdownOptions countdown,float size,double remaining,RectangleF bounds){
+        using(var format=Format(countdown.Position))
+        using(var path=new GraphicsPath()){
+            path.AddString(remaining.ToString("F1",CultureInfo.InvariantCulture)+" s",FontFamily.GenericSansSerif,0,size,bounds,format);
+            var color=ColorTranslator.FromHtml(countdown.Color);
+            if(countdown.Glow&&countdown.GlowPercent>0)
+                for(int stroke=6;stroke>=2;stroke-=2)using(var pen=new Pen(Color.FromArgb(Math.Min(150,40*countdown.GlowPercent/100),color),stroke)){
+                    pen.LineJoin=LineJoin.Round;
+                    g.DrawPath(pen,path);
+                }
+            if(countdown.Outline.Padding>0)
+                using(var pen=new Pen(Color.FromArgb(countdown.Outline.Opacity*255/100,countdown.Outline.Paint),countdown.Outline.Width*2)){
+                    pen.LineJoin=LineJoin.Round;
+                    g.DrawPath(pen,path);
+                }
+            using(var brush=new SolidBrush(color))g.FillPath(brush,path);
+        }
+    }
+    internal static StringFormat Format(int position){return new StringFormat{Alignment=position%3==0?StringAlignment.Near:position%3==1?StringAlignment.Center:StringAlignment.Far,LineAlignment=StringAlignment.Center,FormatFlags=StringFormatFlags.NoWrap,Trimming=StringTrimming.EllipsisCharacter};}
     internal void Clear(){if(Visible)Hide();}
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x20|0x80|0x08000000)&~0x40000;return cp;}}
     protected override bool ShowWithoutActivation {get{return true;}}

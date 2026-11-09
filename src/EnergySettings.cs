@@ -4,7 +4,19 @@ using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
 
+internal enum ProgressBarStyle { Classic, Crystal, Compact }
+
 internal sealed class EnergyBarOptions {
+    public ProgressBarStyle Style;
+    public bool? BorderEnabled;
+    public int BorderWidth=1;
+    public int? BorderOpacity;
+    public string BorderColor;
+    internal bool HasBorder {get{return BorderEnabled??Style!=ProgressBarStyle.Classic;}}
+    internal int EdgeOpacity {get{return BorderOpacity??(Style==ProgressBarStyle.Crystal?69:Style==ProgressBarStyle.Compact?88:85);}}
+    internal string EdgeColor {get{return BorderColor??(Style==ProgressBarStyle.Crystal?"#C0DBF6":Style==ProgressBarStyle.Compact?"#0A0B0F":"#B4A68D");}}
+    internal Color EdgePaint {get{return HasBorder?Color.FromArgb((int)Math.Round(EdgeOpacity*255/100.0),CachedColor(EdgeColor,ref edgeCache,ref edgePaint)):Color.Transparent;}}
+    internal Color? CrystalTextEdge {get{return Style==ProgressBarStyle.Crystal?(Color?)CachedColor(EdgeColor,ref edgeCache,ref edgePaint):null;}}
     public bool Enabled=true, AutoHide=true, Fade=true, Smooth=true, Emissive=true, DynamicColors=true;
     public double HoldSeconds=1.5, FadeSeconds=.2, SmoothingSeconds=.07;
     public int GlowPercent=100, TrackOpacity=170,ScalePercent=100;public ProgressScaleReference ScaleReference;
@@ -13,7 +25,7 @@ internal sealed class EnergyBarOptions {
     public int CurrentPosition=0,MaximumPosition=2,PercentagePosition=1,TextSize=14;
     public int CurrentOffsetY=0,MaximumOffsetY=0,PercentageOffsetY=0;
     public string TextColor="#EEEEEE";public TextOutlineOptions TextOutline=new TextOutlineOptions();
-    string lowCache,mediumCache,highCache;Color lowPaint,mediumPaint,highPaint;
+    string lowCache,mediumCache,highCache,edgeCache;Color lowPaint,mediumPaint,highPaint,edgePaint;
     static Color CachedColor(string value,ref string cached,ref Color color){if(cached!=value){color=ColorTranslator.FromHtml(value);cached=value;}return color;}
     internal Color LowPaint {get{return CachedColor(LowColor,ref lowCache,ref lowPaint);}}
     internal Color MediumPaint {get{return CachedColor(MediumColor,ref mediumCache,ref mediumPaint);}}
@@ -22,6 +34,10 @@ internal sealed class EnergyBarOptions {
     internal EnergyBarOptions Copy(){var copy=(EnergyBarOptions)MemberwiseClone();copy.ScaleReference=ScaleReference==null?null:ScaleReference.Copy();copy.TextOutline=TextOutline==null?new TextOutlineOptions():TextOutline.Copy();return copy;}
     internal static bool ValidColor(string value){int hex;return value!=null&&value.Length==7&&value[0]=='#'&&int.TryParse(value.Substring(1),NumberStyles.HexNumber,CultureInfo.InvariantCulture,out hex);}
     internal void Normalize(){
+        if(Style<ProgressBarStyle.Classic||Style>ProgressBarStyle.Compact)Style=ProgressBarStyle.Classic;
+        BorderWidth=Math.Max(1,Math.Min(4,BorderWidth));
+        if(BorderOpacity.HasValue)BorderOpacity=Math.Max(0,Math.Min(100,BorderOpacity.Value));
+        if(!ValidColor(BorderColor))BorderColor=null;
         if(TextOutline==null)TextOutline=new TextOutlineOptions();TextOutline.Normalize();ScalePercent=Math.Max(50,Math.Min(300,ScalePercent));HoldSeconds=Finite(HoldSeconds,1.5,0,30);FadeSeconds=Finite(FadeSeconds,.2,0,2);SmoothingSeconds=Finite(SmoothingSeconds,.07,0,1);
         GlowPercent=Math.Max(0,Math.Min(200,GlowPercent));TrackOpacity=Math.Max(0,Math.Min(255,TrackOpacity));
         CurrentPosition=Math.Max(0,Math.Min(5,CurrentPosition));MaximumPosition=Math.Max(0,Math.Min(5,MaximumPosition));PercentagePosition=Math.Max(0,Math.Min(5,PercentagePosition));TextSize=Math.Max(10,Math.Min(144,TextSize));if(!ValidColor(TextColor))TextColor="#EEEEEE";
@@ -37,11 +53,17 @@ internal sealed class EnergyBarOptions {
     }
     internal static void Verify(){
         var legacy=Read(new Dictionary<string,object>{{"width",425},{"height",4},{"emissive",true}});
-        if(!legacy.Enabled||!legacy.AutoHide||legacy.HoldSeconds!=1.5||legacy.FadeSeconds!=.2||!legacy.Emissive)throw new Exception("Legacy settings must preserve existing defaults");
-        legacy.Enabled=false;legacy.AutoHide=false;legacy.HoldSeconds=2.25;legacy.LowColor="#123456";legacy.Emissive=false;
+        if(!legacy.Enabled||!legacy.AutoHide||legacy.HoldSeconds!=1.5||legacy.FadeSeconds!=.2||!legacy.Emissive||legacy.Style!=ProgressBarStyle.Classic)throw new Exception("Legacy settings must preserve existing defaults");
+        legacy.Enabled=false;legacy.AutoHide=false;legacy.HoldSeconds=2.25;legacy.LowColor="#123456";legacy.Emissive=false;legacy.Style=ProgressBarStyle.Compact;
         var serializer=new System.Web.Script.Serialization.JavaScriptSerializer();var restored=Read(serializer.Deserialize<Dictionary<string,object>>(serializer.Serialize(new {energyBar=legacy})));
-        if(restored.Enabled||restored.AutoHide||restored.Emissive||restored.HoldSeconds!=2.25||restored.LowColor!="#123456")throw new Exception("Settings must survive saving/reopening, including a disabled energy bar");
+        if(restored.Enabled||restored.AutoHide||restored.Emissive||restored.HoldSeconds!=2.25||restored.LowColor!="#123456"||restored.Style!=ProgressBarStyle.Compact)throw new Exception("Settings must survive saving/reopening, including a disabled energy bar");
         var previous=Read(serializer.Deserialize<Dictionary<string,object>>("{\"energyBar\":{\"AutoMaximum\":false,\"LowColor\":\"#123456\",\"Enabled\":false}}"));if(previous.LowColor!="#123456"||previous.Enabled)throw new Exception("Retired calibration switch must not reset other preferences");
+        if(previous.HasBorder)throw new Exception("Legacy classic bars must remain borderless");
+        previous.Style=ProgressBarStyle.Crystal;
+        if(!previous.HasBorder||previous.EdgeColor!="#C0DBF6")throw new Exception("Crystal border defaults");
+        previous.BorderEnabled=false;previous.BorderColor="#AABBCC";previous.BorderWidth=4;previous.BorderOpacity=43;
+        var bordered=Read(serializer.Deserialize<Dictionary<string,object>>(serializer.Serialize(new {energyBar=previous})));
+        if(!Same(previous,bordered)||bordered.HasBorder||bordered.EdgeColor!="#AABBCC")throw new Exception("Bar border overrides survive saving/reopening");
         restored.LowColor="bad";restored.FadeSeconds=double.NaN;restored.GlowPercent=999;restored.Normalize();
         if(restored.LowColor!="#A02D2D"||restored.FadeSeconds!=.2||restored.GlowPercent!=200)throw new Exception("Invalid settings must have safe drawing/animation limits");
     }

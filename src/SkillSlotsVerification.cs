@@ -114,7 +114,37 @@ internal static class SkillSlotsVerification {
   Feed(signal,Profile(),now+19);Feed(signal,Map(1010),now+20);signal.Reset();Feed(signal,Profile(),now+21);Check(signal.Read(now+21)==null,"Transport reset revokes the suspended layout");Feed(signal,original,now+22);Feed(signal,Map(200003),now+23);signal.Configure(false);signal.Configure(true);Feed(signal,Profile(),now+24);Check(signal.Read(now+24)!=null,"Visibility changes during map loading preserve assignments after own identity is confirmed");
  }
  static void ReceptionClockRegression(){double now=1000;var signal=new SkillSlotsSignal();signal.ReceiptClock=delegate{return now;};signal.Configure(true);Feed(signal,Profile(),now+1.5);Feed(signal,Bar(),now+1.5);Check(signal.Read(now)!=null,"Npcap clock ahead cannot hide a received live bar");Feed(signal,Cd(15210000,42000),now+1.5);var view=signal.Read(now);var cd=SkillSlotsSignal.For(view,15210000);Check(cd!=null&&Math.Abs(SkillSlotsSignal.Remaining(cd,now)-42)<.001,"Received duration anchors to reception, not drifted capture clock");now+=1;Feed(signal,Clock(now),now-20);view=signal.Read(now);Check(view!=null&&Math.Abs(SkillSlotsSignal.Remaining(SkillSlotsSignal.For(view,15210000),now)-41)<.001,"Capture clock moving backwards cannot freeze live reception");Check(signal.Read(now+16)==null,"Real stale reception still hides the bar");signal.Reset();Check(signal.Read(now)==null,"Clock fix cannot retain bar across transport reset");}
- internal static void Regression(string root){ReceptionClockRegression();MapTransitionRegression();CharacterSwitchRegression();CastFlashRegression();ContextRegression(DpsHistory.UtcNow());EvasionRegression(DpsHistory.UtcNow());var signal=new SkillSlotsSignal();signal.Configure(true);double now=DpsHistory.UtcNow();Feed(signal,Profile(),now);Feed(signal,Bar(),now);var cast=Hex("02380C00AFCCE500C402EAFC0171921BC3B924EFC71916D0C70080C0469E550180C502");uint actor,skill,ms;bool charges;
+ static void ConnectionTransitionRegression(){
+  const string name="SameCharacter";
+  var signal=new SkillSlotsSignal();signal.Configure(true,true);
+  var profile=EnemyTargetVerification.Player(18,name,100,200,true);
+  Feed(signal,profile,1,"instance");Feed(signal,Bar(),1,"instance");
+  Feed(signal,Cd(SkillSlotsOverlay.ExampleSkills[0],42000),2,"instance");
+  var partial=Bar().Take(45).ToArray();partial[0]=5;partial[2]=1;
+  uint replacement=15110000;
+  Buffer.BlockCopy(BitConverter.GetBytes(replacement),0,partial,18,4);
+  Buffer.BlockCopy(BitConverter.GetBytes(replacement),0,partial,23,4);
+  Feed(signal,partial,220,"world");
+  Check(signal.Read(220)==null,"A partial on a new flow cannot publish an unconfirmed layout");
+  Feed(signal,EnemyTargetVerification.Player(13014,name,100,200,true),235,"world");
+  var view=signal.Read(235);
+  Check(view!=null&&view.Flow=="world"&&view.Self==13014&&view.Slots.Count==2
+      &&view.Slots[0].Skill==replacement&&view.Slots[1].Skill==SkillSlotsOverlay.ExampleSkills[1]
+      &&view.Cooldowns.Count==0&&view.Chains.Count==0,"Confirmed dungeon exit resumes assignments and merges early partials, without carrying combat state");
+  var differentServer=EnemyTargetVerification.Player(23,name,100,200,true);
+  differentServer[9+name.Length]=0x16;
+  Feed(signal,partial,236,"other-server");Feed(signal,differentServer,237,"other-server");
+  Check(signal.Read(237)==null,"Identical names on different servers cannot inherit assignments");
+  Feed(signal,EnemyTargetVerification.Player(13014,name,100,200,true),238,"world");
+  Feed(signal,DashSignal.LoginFixture(34),239,"explicit-login");
+  Feed(signal,EnemyTargetVerification.Player(34,name,100,200,true),240,"explicit-login");
+  Check(signal.Read(240)==null,"An explicit character login must wait for its own full bar");
+  Feed(signal,Bar(),241,"explicit-login");
+  Feed(signal,partial,242,"world2");Feed(signal,Bar(),243,"world2");
+  Feed(signal,EnemyTargetVerification.Player(35,name,100,200,true),244,"world2");
+  Check(signal.Read(244).Slots[0].Skill==SkillSlotsOverlay.ExampleSkills[0],"A new complete bar supersedes both cached assignments and early partials");
+ }
+ internal static void Regression(string root){ReceptionClockRegression();MapTransitionRegression();ConnectionTransitionRegression();CharacterSwitchRegression();CastFlashRegression();ContextRegression(DpsHistory.UtcNow());EvasionRegression(DpsHistory.UtcNow());var signal=new SkillSlotsSignal();signal.Configure(true);double now=DpsHistory.UtcNow();Feed(signal,Profile(),now);Feed(signal,Bar(),now);var cast=Hex("02380C00AFCCE500C402EAFC0171921BC3B924EFC71916D0C70080C0469E550180C502");uint actor,skill,ms;bool charges;
  using(var icons=new SkillSlotAssets()){Check(icons.Icon(15210340)!=null&&icons.Icon(15030340)!=null&&icons.Icon(15250340)!=null,"All three chain stages have actual bundled icons");}
  Check(SkillSlotsOverlay.Counter(null,now,true)==null,"Missing cooldown data must not draw a question mark, zero or invented countdown");Check(SkillSlotsOverlay.Counter(new SkillSlotsSignal.Cooldown{Raw=41600,Peak=41600,At=now},now,true)=="42","Received milliseconds become the actual displayed countdown");
  Check(SkillSlotsSignal.Cast(cast,0,cast.Length,out actor,out skill,out ms,out charges)&&actor==12&&skill==15060143&&ms==41600&&!charges,"Captured charged release has explicit cooldown milliseconds");for(int i=0;i<cast.Length;i++)Check(!SkillSlotsSignal.Cast(cast,0,i,out actor,out skill,out ms,out charges),"A truncated cast cannot start a cooldown");

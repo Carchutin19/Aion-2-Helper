@@ -9,11 +9,14 @@ using System.Windows.Forms;
 internal sealed class TextOutlineOptions {
     public bool Enabled=false;
     public int Width=1,Opacity=100;
+    public string Color;
     internal TextOutlineOptions Copy(){return (TextOutlineOptions)MemberwiseClone();}
-    internal void Normalize(){Width=Math.Max(1,Math.Min(8,Width));Opacity=Math.Max(0,Math.Min(100,Opacity));}
+    internal void Normalize(){Width=Math.Max(1,Math.Min(8,Width));Opacity=Math.Max(0,Math.Min(100,Opacity));if(!EnergyBarOptions.ValidColor(Color))Color=null;}
+    internal string DisplayColor(string fallback="#000000"){return Color??fallback;}
+    internal System.Drawing.Color Paint {get{return Color==null?System.Drawing.Color.Black:ColorTranslator.FromHtml(Color);}}
     internal int Padding {get{return Enabled&&Opacity>0?Width:0;}}
-    internal string Key {get{return Enabled+"/"+Width+"/"+Opacity;}}
-    internal static bool Same(TextOutlineOptions a,TextOutlineOptions b){return a==null||b==null?a==b:a.Enabled==b.Enabled&&a.Width==b.Width&&a.Opacity==b.Opacity;}
+    internal string Key {get{return Enabled+"/"+Width+"/"+Opacity+"/"+Color;}}
+    internal static bool Same(TextOutlineOptions a,TextOutlineOptions b){return a==null||b==null?a==b:a.Enabled==b.Enabled&&a.Width==b.Width&&a.Opacity==b.Opacity&&a.Color==b.Color;}
 }
 
 internal sealed class EnemyNameOptions {
@@ -31,7 +34,7 @@ internal sealed class EnemyNameOverlay:Form {
     readonly LayeredImage image=new LayeredImage();readonly CrispOverlayText crisp=new CrispOverlayText();string key;Rectangle presented;byte alpha;bool disposed;long nextRaise;
     internal EnemyNameOverlay(){FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;Text="Aion 2 Helper - Enemy name";}
     internal static Rectangle CaptionBounds(Rectangle core,EnemyNameOptions options){double scale=options.LayoutScalePercent/100.0;int height=options.FontSize+(int)Math.Round(12*scale);int x=core.X+options.OffsetX,y=(options.Position<3?core.Y-height:core.Bottom+(int)Math.Round(8*scale))+options.OffsetY;var bounds=new Rectangle(x,y,core.Width+(int)Math.Round(10*scale),height);int pad=options.Outline.Padding;bounds.Inflate(pad,pad);return bounds;}
-    internal static void Draw(Graphics g,Rectangle bounds,EnemyNameOptions options,string name,bool locked,CrispOverlayText workspace=null){
+    internal static void Draw(Graphics g,Rectangle bounds,EnemyNameOptions options,string name,bool locked,CrispOverlayText workspace=null,Color? edge=null){
         g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         int padding=options.Outline.Padding;bounds.Inflate(-padding,-padding);
         float scale=options.LayoutScalePercent/100f;int reserve=locked&&options.Position<3?(int)Math.Round(65*scale):0;var text=new RectangleF(bounds.X+20*scale,bounds.Y,Math.Max(20,bounds.Width-25*scale-reserve),bounds.Height);
@@ -39,9 +42,9 @@ internal sealed class EnemyNameOverlay:Form {
             var measured=g.MeasureString(name,font,new SizeF(text.Width,text.Height),format);float marker=options.Position%3==0?bounds.X+5*scale:options.Position%3==1?text.X+(text.Width-measured.Width)/2-15*scale:text.Right-measured.Width-15*scale;float center=bounds.Y+(options.FontSize+7)/2f;float diamond=6*scale;
             var color=ColorTranslator.FromHtml(options.Color);if(options.Marker)using(var brush=new SolidBrush(color))g.FillPolygon(brush,new[]{new PointF(marker,center-diamond),new PointF(marker+diamond,center),new PointF(marker,center+diamond),new PointF(marker-diamond,center)});if(options.Marker)using(var brush=new SolidBrush(Color.FromArgb(255,25,29,31)))g.FillPolygon(brush,new[]{new PointF(marker,center-diamond/3),new PointF(marker+diamond/3,center),new PointF(marker,center+diamond/3),new PointF(marker-diamond/3,center)});
         }
-        bool own=workspace==null;if(own)workspace=new CrispOverlayText();try{workspace.Draw(g,name,options.FontSize,options.Bold,ColorTranslator.FromHtml(options.Color),Rectangle.Round(text),options.Position%3,false,options.Outline);}finally{if(own)workspace.Dispose();}
+        bool own=workspace==null;if(own)workspace=new CrispOverlayText();try{workspace.Draw(g,name,options.FontSize,options.Bold,ColorTranslator.FromHtml(options.Color),Rectangle.Round(text),options.Position%3,false,options.Outline,edge);}finally{if(own)workspace.Dispose();}
     }
-    internal void Update(Rectangle core,EnemyNameOptions options,string name,bool locked,byte opacity){if(disposed)return;if(!options.Enabled||opacity==0||string.IsNullOrEmpty(name)||DpsDesign.ShellUiActive()){Clear();return;}var bounds=CaptionBounds(core,options);if(Bounds!=bounds)Bounds=bounds;string next=name+"/"+locked+"/"+bounds.Size+"/"+options.FontSize+"/"+options.Position+"/"+options.Color+"/"+options.Bold+"/"+options.Marker+"/"+options.LayoutScalePercent+"/"+options.Outline.Key;if(key!=next){key=next;using(var bitmap=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppPArgb))using(var g=Graphics.FromImage(bitmap)){g.Clear(Color.Transparent);Draw(g,new Rectangle(Point.Empty,bounds.Size),options,name,locked,crisp);image.Upload(bitmap);}alpha=0;}if(alpha!=opacity||presented!=bounds||!Visible){image.Present(Handle,Left,Top,opacity);alpha=opacity;presented=bounds;}if(!Visible){Show();nextRaise=0;}long now=Stopwatch.GetTimestamp();if(now>=nextRaise){nextRaise=now+Stopwatch.Frequency;OverlayNative.RaiseWithoutFocus(Handle);}}
+    internal void Update(Rectangle core,EnemyNameOptions options,string name,bool locked,byte opacity,Color? edge=null){if(disposed)return;if(!options.Enabled||opacity==0||string.IsNullOrEmpty(name)||DpsDesign.ShellUiActive()){Clear();return;}var bounds=CaptionBounds(core,options);if(Bounds!=bounds)Bounds=bounds;string next=name+"/"+locked+"/"+bounds.Size+"/"+options.FontSize+"/"+options.Position+"/"+options.Color+"/"+options.Bold+"/"+options.Marker+"/"+options.LayoutScalePercent+"/"+options.Outline.Key+"/"+edge.GetValueOrDefault().ToArgb();if(key!=next){key=next;using(var bitmap=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppPArgb))using(var g=Graphics.FromImage(bitmap)){g.Clear(Color.Transparent);Draw(g,new Rectangle(Point.Empty,bounds.Size),options,name,locked,crisp,edge);image.Upload(bitmap);}alpha=0;}if(alpha!=opacity||presented!=bounds||!Visible){image.Present(Handle,Left,Top,opacity);alpha=opacity;presented=bounds;}if(!Visible){Show();nextRaise=0;}long now=Stopwatch.GetTimestamp();if(now>=nextRaise){nextRaise=now+Stopwatch.Frequency;OverlayNative.RaiseWithoutFocus(Handle);}}
     internal void Clear(){if(Visible)Hide();}
     protected override CreateParams CreateParams {get{var cp=base.CreateParams;cp.ExStyle=(cp.ExStyle|0x80000|0x20|0x80|0x08000000)&~0x40000;return cp;}}
     protected override bool ShowWithoutActivation {get{return true;}}

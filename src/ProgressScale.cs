@@ -12,7 +12,19 @@ internal sealed class ProgressScaleReference {
 }
 internal static class ProgressWidgetScale {
     static bool IsTarget(int kind){return kind==2||kind==3;}
-    internal static EnergyBarOptions Bar(EnergyConfiguration c,int kind){return kind==7?c.FlightEnergy.Bar:kind==0?c.Options:kind==1?c.Stagger.Bar:kind==2?c.EnemyHealth.Bar:c.EnemyTarget.Bar;}
+    internal static EnergyBarOptions Bar(EnergyConfiguration c,int kind){
+        switch(kind){
+            case 0:return c.Options;
+            case 1:return c.Stagger.Bar;
+            case 2:return c.EnemyHealth.Bar;
+            case 3:return c.EnemyTarget.Bar;
+            case 4:return c.PlayerHealth.Bar;
+            case 5:return c.PlayerMana.Bar;
+            case 6:return c.CharacterProgress.Experience;
+            case 7:return c.FlightEnergy.Bar;
+            default:throw new ArgumentOutOfRangeException("kind");
+        }
+    }
     static Rectangle Bounds(EnergyConfiguration c,int kind){return kind==7?c.FlightEnergy.Bounds:kind==0?c.Bounds:kind==1?c.Stagger.Bounds:kind==2?c.EnemyHealth.Bounds:c.EnemyTarget.Bounds;}
     static ProgressScaleReference Read(EnergyConfiguration c,int kind){var b=Bar(c,kind);var r=Bounds(c,kind);var result=new ProgressScaleReference{Percent=b.ScalePercent,Width=r.Width,Height=r.Height,TextSize=b.TextSize,CurrentY=b.CurrentOffsetY,MaximumY=b.MaximumOffsetY,PercentageY=b.PercentageOffsetY};if(kind==1){result.CountdownSize=c.Stagger.Countdown.FontSize;result.CountdownY=c.Stagger.Countdown.OffsetY;}if(IsTarget(kind)){var n=(kind==2?c.EnemyHealth:c.EnemyTarget).Name;result.NameSize=n.FontSize;result.NameX=n.OffsetX;result.NameY=n.OffsetY;result.NameLayout=n.LayoutScalePercent;var d=(kind==2?c.EnemyHealth:c.EnemyTarget).Details;result.DetailMetrics=new[]{d.DistanceText.FontSize,d.DistanceText.OffsetX,d.DistanceText.OffsetY,d.DistanceText.LayoutScalePercent,d.SpeciesText.FontSize,d.SpeciesText.OffsetX,d.SpeciesText.OffsetY,d.SpeciesText.LayoutScalePercent,(kind==2?c.EnemyHealth:c.EnemyTarget).LockText.FontSize,(kind==2?c.EnemyHealth:c.EnemyTarget).LockText.OffsetX,(kind==2?c.EnemyHealth:c.EnemyTarget).LockText.OffsetY,(kind==2?c.EnemyHealth:c.EnemyTarget).LockText.LayoutScalePercent};result.OutlineWidths=new[]{b.TextOutline.Width,n.Outline.Width,d.DistanceText.Outline.Width,d.SpeciesText.Outline.Width,(kind==2?c.EnemyHealth:c.EnemyTarget).LockText.Outline.Width};}return result;}
     static int Scale(int value,double factor,int min,int max){return Math.Max(min,Math.Min(max,(int)Math.Round(Math.Max(int.MinValue,Math.Min(int.MaxValue,value*factor)))));}

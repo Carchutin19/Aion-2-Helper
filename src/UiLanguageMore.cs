@@ -45,6 +45,25 @@ Show party buffs|Gruppenbuffs anzeigen|Afficher les buffs du groupe|إظهار �
 Show buff names|Buff-Namen anzeigen|Afficher les noms des buffs|إظهار أسماء التأثيرات
 Glass|Glas|Verre|زجاجي
 Compact|Kompakt|Compact|مدمج
+Classic|Klassisch|Classique|كلاسيكي
+All bars|Alle Leisten|Toutes les barres|كل الأشرطة
+Character bars|Charakter|Personnage|الشخصية
+Movement|Bewegung|Déplacement|الحركة
+Targets|Ziele|Cibles|الأهداف
+Preview style|Vorschaustil|Style de l’aperçu|نمط المعاينة
+Current styles|Aktuelle Stile|Styles actuels|الأنماط الحالية
+Bar style|Leistenstil|Style de la barre|نمط الشريط
+Example values|Beispielwerte|Valeurs d’exemple|قيم توضيحية
+Edit|Bearbeiten|Modifier|تعديل
+Browse and customize your progress bars|Wähle und gestalte deine Fortschrittsleisten|Choisissez et personnalisez vos barres de progression|اختر أشرطة التقدم وخصّصها
+BAR BORDER|LEISTENRAHMEN|BORDURE DE LA BARRE|إطار الشريط
+Bar border|Leistenrahmen|Bordure de la barre|إظهار إطار الشريط
+Border color|Rahmenfarbe|Couleur de la bordure|لون الإطار
+Border thickness|Rahmenstärke|Épaisseur de la bordure|سماكة إطار الشريط
+Border opacity|Deckkraft des Rahmens|Opacité de la bordure|عتامة الإطار
+Name outline|Namenskontur|Contour du nom|حدود الاسم
+Text outline|Textkontur|Contour du texte|حدود النص
+Use default color|Standardfarbe verwenden|Utiliser la couleur par défaut|استخدام اللون الافتراضي
 Buff growth direction|Wachstumsrichtung der Buffs|Sens d’ajout des buffs|اتجاه إضافة التأثيرات
 Buff group scale|Größe der Buff-Gruppe|Échelle du groupe de buffs|حجم مجموعة التأثيرات
 Buff spacing|Buff-Abstand|Espacement des buffs|المسافة بين التأثيرات

@@ -108,6 +108,31 @@ internal static class EnemyHealthVerification {
             Check(DarkPixels(thick)>DarkPixels(thin)&&DarkPixels(thin)>DarkPixels(plainImage),"Genuine glyph border expands with thickness");int maxFaint=0;for(int y=0;y<faint.Height;y++)for(int x=0;x<faint.Width;x++){var pixel=faint.GetPixel(x,y);if(pixel.R<10&&pixel.G<10&&pixel.B<10)maxFaint=Math.Max(maxFaint,pixel.A);}Check(maxFaint>0&&maxFaint<=64,"Outline opacity adjusts alpha without dimming glyphs");for(int y=0;y<zero.Height;y++)for(int x=0;x<zero.Width;x++)Check(zero.GetPixel(x,y)==plainImage.GetPixel(x,y),"Zero outline intensity preserves old text pixels");
             var folder=Path.Combine(root,"designs");Directory.CreateDirectory(folder);using(var compare=new Bitmap(760,150))using(var g=Graphics.FromImage(compare)){g.Clear(Color.FromArgb(219,215,196));g.DrawImageUnscaled(plainImage,0,10);g.DrawImageUnscaled(thin,250,10);g.DrawImageUnscaled(thick,500,10);compare.Save(Path.Combine(folder,"enemy-text-outline-comparison.png"));}
         }
+        original.Name.Color="#FFFFFF";
+        original.Name.Marker=false;
+        original.Bar.Style=ProgressBarStyle.Crystal;
+        original.Bar.BorderColor="#326EFF";
+        using(var image=new Bitmap(240,65))
+        using(var g=Graphics.FromImage(image)){
+            EnemyNameOverlay.Draw(g,new Rectangle(0,0,240,65),original.Name,"Feras",false,null,original.Bar.CrystalTextEdge);
+            int tinted=0;
+            for(int y=0;y<image.Height;y++)for(int x=0;x<image.Width;x++){
+                var pixel=image.GetPixel(x,y);
+                if(pixel.A>40&&pixel.B>pixel.R+30)tinted++;
+            }
+            Check(tinted>0,"Crystal target name outline follows the configured frame color");
+            g.Clear(Color.Transparent);
+            original.Name.Outline.Color="#2DE83C";
+            EnemyNameOverlay.Draw(g,new Rectangle(0,0,240,65),original.Name,"Feras",false,null,original.Bar.CrystalTextEdge);
+            int custom=0;
+            for(int y=0;y<image.Height;y++)for(int x=0;x<image.Width;x++){
+                var pixel=image.GetPixel(x,y);
+                if(pixel.A>40&&pixel.G>pixel.B+80)custom++;
+            }
+            Check(custom>0,"An explicit outline color overrides the Crystal tint");
+            var restored=EnemyHealthOptions.Read(json.Deserialize<Dictionary<string,object>>(json.Serialize(new{enemyHealth=original})));
+            Check(restored.Name.Outline.Color=="#2DE83C"&&restored.Bar.BorderColor=="#326EFF","Text and frame colors persist independently");
+        }
     }
     internal static void Replay(string root,string frames){
         var json=new JavaScriptSerializer();string flow=null;double first=0;foreach(var line in File.ReadLines(frames)){var row=json.Deserialize<Dictionary<string,object>>(line);if(Convert.ToString(row["opcode"])!="0238")continue;string hex=Convert.ToString(row["hex"]);var b=Hex(hex);uint actor,target,skill;if(EnemyHealthSignal.Aim(b,0,b.Length,out actor,out target,out skill)&&actor==1923){flow=Convert.ToString(row["stream"]);first=Convert.ToDouble(row["ts"]);break;}}

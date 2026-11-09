@@ -3,14 +3,15 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using Drawing = System.Drawing;
 
-internal sealed class CharacterProgressSettingsPane : ScrollViewer {
+internal sealed class CharacterProgressSettingsPane : Grid {
     readonly EnergyOverlay owner;
     readonly Window window;
     readonly bool power;
-    readonly StackPanel content = new StackPanel { Margin = new Thickness(0,0,12,0) };
+    readonly StackPanel[] pages={new StackPanel(),new StackPanel(),new StackPanel()};
     readonly Image preview = new Image { Height = 54, Stretch = Stretch.Uniform };
     readonly List<Action<CharacterProgressOptions>> refresh = new List<Action<CharacterProgressOptions>>();
     CharacterProgressOptions shown;
@@ -20,18 +21,48 @@ internal sealed class CharacterProgressSettingsPane : ScrollViewer {
         this.owner = owner;
         this.window = window;
         this.power = power;
-        Content = content;
-        VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
-        HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        SetResourceReference(StyleProperty,"SlimScroll");
+        RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
+        RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
+        RowDefinitions.Add(new RowDefinition());
+        var scroll=new ScrollViewer{VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};
+        scroll.SetResourceReference(StyleProperty,"SlimScroll");
+        SetRow(scroll,2);
+        Children.Add(scroll);
+        foreach(var page in pages)page.Margin=new Thickness(0,0,12,0);
+        var previewPanel=power?pages[0]:new StackPanel{Margin=new Thickness(0,0,12,0)};
+        if(!power){
+            Children.Add(previewPanel);
+            var host=new Grid();
+            foreach(var page in pages)host.Children.Add(page);
+            scroll.Content=host;
+            var nav=new UniformGrid{Rows=1,Margin=new Thickness(0,0,12,10)};
+            SetRow(nav,1);
+            Children.Add(nav);
+            var tabs=new Button[3];
+            Action<int> select=tab=>{
+                for(int i=0;i<tabs.Length;i++){
+                    pages[i].Visibility=i==tab?Visibility.Visible:Visibility.Collapsed;
+                    FantasyUi.Select(tabs[i],i==tab);
+                }
+                scroll.ScrollToTop();
+            };
+            string[] names={"Behavior","Appearance","Position & size"};
+            for(int i=0;i<tabs.Length;i++){
+                int index=i;
+                tabs[i]=SettingsVisual.Button(names[i],delegate{select(index);});
+                tabs[i].Margin=new Thickness(i==0?0:4,0,i==2?0:4,0);
+                nav.Children.Add(tabs[i]);
+            }
+            select(0);
+        }else scroll.Content=pages[0];
 
-        var group = Group("PREVIEW");
+        var group = Group(previewPanel,"PREVIEW");
         group.Children.Add(preview);
         var note = SettingsVisual.Text("Sample value · not a game reading",11,"#8994A6");
         note.HorizontalAlignment = HorizontalAlignment.Center;
         group.Children.Add(note);
 
-        group = Group("BEHAVIOR");
+        group = Group(pages[0],"BEHAVIOR");
         if (power) {
             Toggle(group,"Show Combat Power",o=>o.Power.Enabled,(o,v)=>o.Power.Enabled=v);
             Toggle(group,"Show the second value",o=>o.AlternatePower,(o,v)=>o.AlternatePower=v);
@@ -45,7 +76,8 @@ internal sealed class CharacterProgressSettingsPane : ScrollViewer {
             Toggle(group,"Hide at maximum level",o=>o.HideAtCap,(o,v)=>o.HideAtCap=v);
         }
 
-        group = Group("APPEARANCE");
+        var appearance=power?pages[0]:pages[1];
+        group = Group(appearance,power?"APPEARANCE":"PALETTE");
         if (power) {
             Color(group,"Text and icon color",o=>o.Power.Color,(o,v)=>o.Power.Color=v);
             Toggle(group,"Dark background",o=>o.Power.Background,(o,v)=>o.Power.Background=v);
@@ -53,17 +85,28 @@ internal sealed class CharacterProgressSettingsPane : ScrollViewer {
             Number(group,"Background softness","px",0,24,o=>o.Power.Softness,(o,v)=>o.Power.Softness=(int)v);
         } else {
             Color(group,"Bar color",o=>o.Experience.HighColor,(o,v)=>o.Experience.HighColor=v);
+            group=Group(appearance,"LIGHT & CONTRAST");
+            Toggle(group,"Emissive glow",o=>o.Experience.Emissive,(o,v)=>o.Experience.Emissive=v);
+            Number(group,"Glow intensity","%",0,200,o=>o.Experience.GlowPercent,(o,v)=>o.Experience.GlowPercent=(int)v);
+            Number(group,"Dark track opacity","%",0,100,o=>o.Experience.TrackOpacity*100m/255,(o,v)=>o.Experience.TrackOpacity=(int)Math.Round(v*255/100));
+            group=Group(appearance,"BAR BORDER");
+            Toggle(group,"Bar border",o=>o.Experience.HasBorder,(o,v)=>o.Experience.BorderEnabled=v);
+            Color(group,"Border color",o=>o.Experience.EdgeColor,(o,v)=>o.Experience.BorderColor=v);
+            Number(group,"Border thickness","px",1,4,o=>o.Experience.BorderWidth,(o,v)=>o.Experience.BorderWidth=(int)v);
+            Number(group,"Border opacity","%",0,100,o=>o.Experience.EdgeOpacity,(o,v)=>o.Experience.BorderOpacity=(int)v);
+            group=Group(appearance,"VALUES & TEXT");
             Color(group,"Text color",o=>o.Experience.TextColor,(o,v)=>o.Experience.TextColor=v);
             Number(group,"Text size","px",10,80,o=>o.Experience.TextSize,(o,v)=>o.Experience.TextSize=(int)v);
             Toggle(group,"Show current value",o=>o.Experience.CurrentText,(o,v)=>o.Experience.CurrentText=v);
             Toggle(group,"Show maximum value",o=>o.Experience.MaximumText,(o,v)=>o.Experience.MaximumText=v);
             Toggle(group,"Show percentage",o=>o.Experience.PercentageText,(o,v)=>o.Experience.PercentageText=v);
-            Toggle(group,"Glow",o=>o.Experience.Emissive,(o,v)=>o.Experience.Emissive=v);
-            Number(group,"Glow intensity","%",0,200,o=>o.Experience.GlowPercent,(o,v)=>o.Experience.GlowPercent=(int)v);
-            Number(group,"Track opacity","%",0,100,o=>o.Experience.TrackOpacity*100m/255,(o,v)=>o.Experience.TrackOpacity=(int)Math.Round(v*255/100));
+            Toggle(group,"Text outline",o=>o.Experience.TextOutline.Enabled,(o,v)=>o.Experience.TextOutline.Enabled=v);
+            Color(group,"Outline color",o=>o.Experience.TextOutline.DisplayColor(),(o,v)=>o.Experience.TextOutline.Color=v);
+            Number(group,"Outline thickness","px",1,8,o=>o.Experience.TextOutline.Width,(o,v)=>o.Experience.TextOutline.Width=(int)v);
+            Number(group,"Outline opacity","%",0,100,o=>o.Experience.TextOutline.Opacity,(o,v)=>o.Experience.TextOutline.Opacity=(int)v);
         }
 
-        group = Group("POSITION & SIZE");
+        group = Group(power?pages[0]:pages[2],"POSITION & SIZE");
         Number(group,"Horizontal position","px",-100000,100000,o=>Bounds(o).X,(o,v)=>{var b=Bounds(o);b.X=(int)v;Bounds(o,b);});
         Number(group,"Vertical position","px",-100000,100000,o=>Bounds(o).Y,(o,v)=>{var b=Bounds(o);b.Y=(int)v;Bounds(o,b);});
         Number(group,"Width","px",power?48:120,power?1600:2400,o=>Bounds(o).Width,(o,v)=>{var b=Bounds(o);b.Width=(int)v;Bounds(o,b);});
@@ -79,7 +122,7 @@ internal sealed class CharacterProgressSettingsPane : ScrollViewer {
         edit(cfg.CharacterProgress);
         owner.ApplyConfiguration(cfg);
     }
-    StackPanel Group(string title) {
+    static StackPanel Group(StackPanel content,string title) {
         var heading=SettingsVisual.Text(title,11,"#929CAD");
         heading.Margin=new Thickness(2,14,0,8);
         content.Children.Add(heading);

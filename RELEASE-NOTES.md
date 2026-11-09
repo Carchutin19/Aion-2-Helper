@@ -1,3 +1,27 @@
+# Aion 2 Helper v1.28.0 Alpha — Progress Bar Styles & Text Outlines
+
+## Progress bars
+
+- Browse all eight overlays in **Progress bars**. Filter by Character, Movement or Targets, switch each bar on or off, and change its style directly from its card. The overview preview lets you compare styles before changing a bar.
+- Choose **Classic**, **Glass** or **Compact** independently for HP, MP, Ground Energy, Flight Energy, Experience, Stagger, Our target and Target of target. Classic stays the default for existing setups, and switching styles keeps your positions and sizes.
+- Each bar has its own frame controls in **Appearance → Bar border**. Set visibility, color, thickness and opacity. Experience now uses the same Behavior, Appearance and Position & size tabs.
+
+## Text readability
+
+- Enable **Text outline** and choose its color, thickness and opacity. Target values, name, distance, enemy type and lock status have separate controls. Glass target text can use the theme tint or a custom color.
+- Stagger has separate outlines for its gauge values and countdown. HP and MP have per-field outlines, and Experience has its own text outline controls.
+
+## Dungeon exits and map changes
+
+- Ground Energy retains the last confirmed maximum across map changes. On a new connection, the Helper requires a matching character and server before reusing it. The bar resumes when a fresh current reading arrives. A new maximum received from the game takes priority.
+- The Hotbar can restore the same character's skill assignments after a dungeon exit that sends only partial bar updates. The Helper merges those updates after confirming the character and server. Cooldowns and temporary combo state are read on the new connection.
+
+## Updating
+
+Use the built-in updater or close the Helper and extract the full ZIP into your existing Helper folder. Keep your personal JSON files and open the Helper before launching Aion.
+
+---
+
 # Aion 2 Helper v1.27.0 Alpha — Desktop Redesign & Hotbar Buffs
 
 ## Desktop interface

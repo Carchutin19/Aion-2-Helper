@@ -17,6 +17,7 @@
 
 | Feature | What is included | First release |
 | :--- | :--- | :---: |
+| **Progress bar styles and text outlines** | Filterable overview with quick controls for eight bars. Independent Classic, Glass and Compact styles, configurable frames and text outlines, and separate Stagger values and countdown styling. | [v1.28.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.28.0) |
 | **Desktop redesign** | Artwork and glass styling across the Settings sections, pet registry, offline Atlas and native Windows tray menu. Scroll-edge fades and refreshed icons. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
 | **Compact Hotbar and buff widget** | Compact style with a radial cooldown, optional ready flash, and a separately configurable widget for supported personal and party buffs. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
 | **Combat opacity** | Optional out-of-combat opacity and a fade to full opacity in combat for HP, MP and the Hotbar. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
@@ -47,6 +48,7 @@ is described separately from cases that still need more testing.
 
 | Status | Report / correction | Update |
 | :--- | :--- | :---: |
+| 🟡 Regression checks passed | **Ground Energy or Hotbar could disappear after a dungeon exit:** the last confirmed Energy maximum and skill assignments can resume after a matching own profile on the new connection. A live retest of the new connection case is pending. | [v1.28.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.28.0) |
 | ✅ Confirmed in tested cases | **Switching characters could leave the Hotbar empty or retain old Energy data.** The Helper resets the previous character's bar and values, restores the incoming Hotbar preset, and refreshes Energy, Combat Power and XP from the incoming character. | [v1.26.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.26.0) |
 | ✅ Released | **Target distance can be missing or intermittent.** Added support for another connection setup and an approximate fallback from recent confirmed server positions. Exact mode still depends on connection setup and fresh readings. | [v1.26.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.26.0) |
 | ✅ Released | **Flight Energy missing after login:** reads the current value and maximum from the own-character profile, then applies live changes. The 2,500 → 3,500 wings change and subsequent full recharge were checked in game. | [v1.25.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.25.0) |

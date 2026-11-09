@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.27.0 release — Desktop Redesign & Hotbar Buffs](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.27.0/Aion-2-Helper-v1.27.0-windows-x64.zip).
+The [v1.28.0 release — Progress Bar Styles & Text Outlines](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.28.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.28.0/Aion-2-Helper-v1.28.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Experience, Combat Power, Energy, Flight Energy, Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
@@ -27,8 +27,8 @@ the game must be running with your character in the world to receive energy upda
 
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
 This helps the Helper receive your character's initial HP/MP, Flight Energy and
-maximum stamina when you enter the world. Opening it after character entry can miss that stat and leave
-a saved/default reference that may affect auto-hide. If this happens, return to
+maximum stamina when you enter the world. Opening it after character entry can miss that stat
+and leave the Ground Energy bar waiting for it. If this happens, return to
 character selection and enter again with the helper running. Maximum-stamina
 changes during play are still updated automatically when the game sends them.
 
@@ -47,6 +47,12 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.28.0
+
+- **Progress bars** has a filterable overview with quick toggles, previews and independent Classic, Glass and Compact styles for all eight bars.
+- **Appearance** adds consistent frame settings across the bars and configurable text outlines. Stagger values and the countdown can be styled separately.
+- **Dungeon exits** can restore the Hotbar assignments and Ground Energy maximum after confirming the same character and server on the new connection.
 
 ## New in v1.27.0
 

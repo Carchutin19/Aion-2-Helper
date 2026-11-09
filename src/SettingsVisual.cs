@@ -18,6 +18,189 @@ using Drawing=System.Drawing;
 
 // This UI loads only when Settings is opened. The game overlay keeps its existing
 // WinForms/native drawing path and does not run a second animation loop.
+internal sealed class ProgressOverviewPane : Grid {
+    internal static readonly string[] Names={"Energy Bar","Stagger Bar","Our target","Target of target","Player health","Player MP","Experience","Flight Energy"};
+    static readonly int[] Order={4,5,0,7,6,1,2,3};
+    static readonly int[] Groups={2,3,3,3,1,1,1,2};
+    static readonly double[] Fractions={.78,.58,.72,.87,.83,.66,.61,.68};
+    static readonly string[] Samples={"78%","58%","72%","87%","HP  12 450 / 15 000","MP  3 300 / 5 000","61% XP","68%"};
+    readonly Button[] filters=new Button[4];
+    readonly Border[] cards=new Border[8];
+    readonly CheckBox[] switches=new CheckBox[8];
+    readonly Image[] previews=new Image[8];
+    readonly ComboBox[] styles=new ComboBox[8];
+    readonly EnergyBarOptions[] lastPreview=new EnergyBarOptions[8];
+    readonly PlayerVitalOptions[] lastVitalPreview=new PlayerVitalOptions[2];
+    readonly ComboBox previewStyle=StylePicker(true);
+    readonly ScrollViewer scroller;
+    readonly EnergyOverlay overlay;
+    bool syncing;
+
+    internal static ComboBox StylePicker(bool preview){
+        var picker=new ComboBox{MinWidth=134};
+        if(preview)picker.Items.Add(new ComboBoxItem{Content="Current styles"});
+        foreach(string name in new[]{"Classic","Glass","Compact"})picker.Items.Add(new ComboBoxItem{Content=name});
+        picker.SelectedIndex=0;
+        AutomationProperties.SetName(picker,preview?"Preview style":"Bar style");
+        return picker;
+    }
+
+    internal ProgressOverviewPane(EnergyOverlay overlay,Action<int> edit){
+        this.overlay=overlay;
+        RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
+        RowDefinitions.Add(new RowDefinition());
+        var controls=new StackPanel{Margin=new Thickness(0,0,8,14)};
+        Children.Add(controls);
+        var categories=new UniformGrid{Rows=1};
+        controls.Children.Add(categories);
+        string[] groups={"All","Character bars","Movement","Targets"};
+        for(int i=0;i<groups.Length;i++){
+            int group=i;
+            var button=SettingsVisual.Button(groups[i],delegate{Filter(group);});
+            button.Margin=new Thickness(i==0?0:3,0,i==groups.Length-1?0:3,0);
+            filters[i]=button;
+            categories.Children.Add(button);
+        }
+        var styleRow=new DockPanel{Margin=new Thickness(0,12,0,0)};
+        var previewControls=new StackPanel{Orientation=Orientation.Horizontal};
+        DockPanel.SetDock(previewControls,Dock.Right);
+        var label=SettingsVisual.Text("Preview style",12);
+        label.Margin=new Thickness(0,0,8,0);
+        previewControls.Children.Add(label);
+        previewControls.Children.Add(previewStyle);
+        styleRow.Children.Add(previewControls);
+        styleRow.Children.Add(SettingsVisual.Text("Example values",11,"#929CAD"));
+        controls.Children.Add(styleRow);
+
+        var grid=new UniformGrid{Columns=2,Margin=new Thickness(0,0,8,0),VerticalAlignment=VerticalAlignment.Top};
+        scroller=new ScrollViewer{Content=grid,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};
+        scroller.SetResourceReference(FrameworkElement.StyleProperty,"SlimScroll");
+        SetRow(scroller,1);
+        Children.Add(scroller);
+        foreach(int kind in Order){
+            var content=new StackPanel();
+            var heading=new DockPanel();
+            var enabled=new CheckBox{VerticalAlignment=VerticalAlignment.Center};
+            AutomationProperties.SetName(enabled,Names[kind]);
+            DockPanel.SetDock(enabled,Dock.Right);
+            heading.Children.Add(enabled);
+            var button=SettingsVisual.Button("Edit",delegate{edit(kind);});
+            button.Margin=new Thickness(0,0,8,0);
+            DockPanel.SetDock(button,Dock.Right);
+            heading.Children.Add(button);
+            var name=SettingsVisual.Text(Names[kind],14);
+            name.FontWeight=FontWeights.SemiBold;
+            name.Margin=new Thickness(0,0,8,0);
+            heading.Children.Add(name);
+            content.Children.Add(heading);
+            var preview=new Image{Height=28,Stretch=Stretch.Fill,Margin=new Thickness(0,7,0,5),FlowDirection=FlowDirection.LeftToRight};
+            content.Children.Add(preview);
+            var actions=new DockPanel();
+            var style=StylePicker(false);
+            style.MinWidth=108;
+            style.ToolTip="Bar style";
+            DockPanel.SetDock(style,Dock.Right);
+            actions.Children.Add(style);
+            actions.Children.Add(SettingsVisual.Text(Samples[kind],11,"#929CAD"));
+            content.Children.Add(actions);
+            var card=SettingsVisual.Card(content,new Thickness(13,9,13,9));
+            card.Margin=new Thickness(4,0,4,8);
+            cards[kind]=card;
+            switches[kind]=enabled;
+            previews[kind]=preview;
+            styles[kind]=style;
+            style.SelectionChanged+=delegate{
+                if(syncing||style.SelectedIndex<0)return;
+                var configuration=overlay.Configuration;
+                ProgressWidgetScale.Bar(configuration,kind).Style=(ProgressBarStyle)style.SelectedIndex;
+                previewStyle.SelectedIndex=0;
+                overlay.ApplyConfiguration(configuration);
+            };
+            enabled.Click+=delegate{
+                if(syncing)return;
+                var configuration=overlay.Configuration;
+                ProgressWidgetScale.Bar(configuration,kind).Enabled=enabled.IsChecked==true;
+                overlay.ApplyConfiguration(configuration);
+            };
+            grid.Children.Add(card);
+        }
+        previewStyle.SelectionChanged+=delegate{if(!syncing)Reload(overlay.Configuration);};
+        Filter(0);
+    }
+
+    void Filter(int group){
+        for(int i=0;i<filters.Length;i++)FantasyUi.Select(filters[i],i==group);
+        foreach(int kind in Order)cards[kind].Visibility=group==0||Groups[kind]==group?Visibility.Visible:Visibility.Collapsed;
+        scroller.ScrollToTop();
+    }
+
+    internal void Reload(EnergyConfiguration configuration){
+        syncing=true;
+        try{
+            foreach(int kind in Order){
+                var options=ProgressWidgetScale.Bar(configuration,kind).Copy();
+                switches[kind].IsChecked=options.Enabled;
+                styles[kind].SelectedIndex=(int)options.Style;
+                if(previewStyle.SelectedIndex>0)options.Style=(ProgressBarStyle)(previewStyle.SelectedIndex-1);
+                if(kind==4||kind==5){
+                    int index=kind-4;
+                    var vital=(index==0?configuration.PlayerHealth:configuration.PlayerMana).Copy();
+                    vital.Bar=options;
+                    vital.Bounds=new Drawing.Rectangle(0,0,340,12);
+                    vital.DisplayScale=1;
+                    vital.Bar.ScalePercent=100;
+                    foreach(var caption in vital.Texts)caption.Enabled=false;
+                    if(lastVitalPreview[index]!=null&&PlayerVitalOptions.Same(lastVitalPreview[index],vital))continue;
+                    using(var rendered=PlayerVitalDesign.Render(vital,index==1,Fractions[kind],false)){
+                        previews[kind].Source=SettingsVisual.Bitmap(rendered.Bitmap);
+                    }
+                    lastVitalPreview[index]=vital;
+                    continue;
+                }
+                if(lastPreview[kind]!=null&&EnergyBarOptions.Same(lastPreview[kind],options))continue;
+                if((kind==2||kind==3)&&options.Style==ProgressBarStyle.Classic){
+                    var target=(kind==2?configuration.EnemyHealth:configuration.EnemyTarget).Copy();
+                    target.Bar=options;
+                    using(var rendered=EnemyHealthOverlay.Render(340,4,Fractions[kind],target,"",false,false,null,configuration.Language,false)){
+                        var crop=new CroppedBitmap(SettingsVisual.Bitmap(rendered),new Int32Rect(0,46,350,14));
+                        crop.Freeze();
+                        previews[kind].Source=crop;
+                    }
+                }else using(var bitmap=BarDesign.RenderEmissive(340,4,Fractions[kind],false,true,1,options)){
+                    previews[kind].Source=SettingsVisual.Bitmap(bitmap);
+                }
+                lastPreview[kind]=options;
+            }
+        }finally{syncing=false;}
+    }
+
+    internal void Verify(){
+        var original=overlay.Configuration;
+        for(int group=1;group<=3;group++){
+            Filter(group);
+            foreach(int kind in Order)if((cards[kind].Visibility==Visibility.Visible)!=(Groups[kind]==group))
+                throw new Exception("Progress overview filter");
+        }
+        Filter(0);
+        previewStyle.SelectedIndex=3;
+        if(!ConfigurationHistory.Same(original,overlay.Configuration))throw new Exception("Overview previews must not change saved styles");
+        previewStyle.SelectedIndex=0;
+        switches[7].IsChecked=!original.FlightEnergy.Bar.Enabled;
+        switches[7].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        var expected=original.Copy();
+        expected.FlightEnergy.Bar.Enabled=!expected.FlightEnergy.Bar.Enabled;
+        if(!ConfigurationHistory.Same(expected,overlay.Configuration))throw new Exception("Overview activation must change just one bar");
+        overlay.UndoConfiguration();
+        if(!ConfigurationHistory.Same(original,overlay.Configuration))throw new Exception("Overview activation must support undo");
+        styles[4].SelectedIndex=2;
+        expected=original.Copy();
+        expected.PlayerHealth.Bar.Style=ProgressBarStyle.Compact;
+        if(!ConfigurationHistory.Same(expected,overlay.Configuration))throw new Exception("A quick style selection must change just its own bar");
+        overlay.UndoConfiguration();
+        if(!ConfigurationHistory.Same(original,overlay.Configuration))throw new Exception("Quick style selection must support undo");
+    }
+}
+
 internal static class SettingsVisual {
     internal static readonly Color Accent=Color.FromRgb(143,236,255);
     static readonly Dictionary<string,string> TextPalette=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase){
@@ -182,7 +365,7 @@ internal sealed class HelperSettings : Window {
     readonly Button[] sections=new Button[13];readonly HiddenCubeSettingsPane hiddenCubePage;readonly CombatLogSettingsPane combatLogPage;readonly CharacterProgressSettingsPane powerPage,experiencePage;readonly FloatingTextSettingsPane floatingTextPage;readonly SkillSlotsSettingsPane skillSlotsPage;readonly GatheringSettingsPane craftingPage;readonly PetsSettingsPane petsPage;readonly FpsSettingsPane fpsPage,pingPage;readonly Grid performancePage=new Grid();readonly Button[] performanceTabs=new Button[2];readonly DpsSettingsPane dpsPage;readonly NotificationSettingsPane notificationPage;readonly GameTweaksPane gameTweaksPage;readonly ComboBox languagePicker=new ComboBox{Width=190,Height=38};
     readonly NpcapSupport npcSupport;readonly TextBlock npcMessage=SettingsVisual.Text("",13,"#E4B986");Border npcCard;Button npcDownload;
     readonly TextBlock sectionTitle=SettingsVisual.Text("Energy Bar",27),sectionSubtitle=SettingsVisual.Text("Energy bar for dash and sprint",13,"#929AA8");
-    readonly Grid progressTabs=new Grid{Margin=new Thickness(0,14,0,0)};readonly Button[] progressButtons=new Button[8];bool experienceSelected,flightSelected;readonly Dictionary<string,ComboBox> positions=new Dictionary<string,ComboBox>();readonly StackPanel countdownPage=new StackPanel(),staggerScreenPage=new StackPanel(),enemyNamePage=new StackPanel(),valuePage=new StackPanel(),targetIdentityPage=new StackPanel(),enemyDetailPage=new StackPanel(),enemyBehaviorPage=new StackPanel(),valueOutlinePage=new StackPanel(),lockTextPage=new StackPanel();Button staggerEffectTest;readonly TextBlock activationLabel=SettingsVisual.Text("Enable Energy Bar",13),detectionHint=SettingsVisual.Text("",11,"#8994A6");bool staggerSelected,enemySelected,targetSelected;int vitalSelected=-1;readonly PlayerVitalSettingsPane healthPage,manaPage;
+    readonly Grid progressTabs=new Grid{Margin=new Thickness(0,14,0,0)};readonly ProgressOverviewPane progressOverview;readonly ComboBox progressStyle=ProgressOverviewPane.StylePicker(false);bool progressOverviewSelected;int progressSelection;bool experienceSelected,flightSelected;readonly Dictionary<string,ComboBox> positions=new Dictionary<string,ComboBox>();readonly StackPanel countdownPage=new StackPanel(),staggerScreenPage=new StackPanel(),enemyNamePage=new StackPanel(),valuePage=new StackPanel(),targetIdentityPage=new StackPanel(),enemyDetailPage=new StackPanel(),enemyBehaviorPage=new StackPanel(),valueOutlinePage=new StackPanel(),lockTextPage=new StackPanel();Button staggerEffectTest;readonly TextBlock activationLabel=SettingsVisual.Text("Enable Energy Bar",13),detectionHint=SettingsVisual.Text("",11,"#8994A6");bool staggerSelected,enemySelected,targetSelected;int vitalSelected=-1;readonly PlayerVitalSettingsPane healthPage,manaPage;
     readonly Grid activationRow=new Grid{Margin=new Thickness(0,18,0,0)};readonly StackPanel generalPage=new StackPanel();readonly ScrollViewer generalScroller=new ScrollViewer{VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};UpdateSettingsPane updatePage;bool generalSelected;
     readonly GameLaunchService gameLaunch;GameLaunchService.Target gameTarget;Button playGame,detectGame,chooseGameFolder,chooseGameLauncher,automaticGameLauncher;readonly TextBlock gameLaunchStatus=SettingsVisual.Text("Game detection has not run yet.",12,"#A7ADBA"),gameLaunchPath=SettingsVisual.Text("",11,"#8994A6");bool gameDetecting,gameDetectionStarted;string gameLaunchMessage="Game detection has not run yet.";
     bool loading;DateTime noticeUntil,nextGameLaunch;internal bool IsDisposed {get;private set;}
@@ -205,7 +388,35 @@ internal sealed class HelperSettings : Window {
         var minimize=SettingsVisual.Button("−",delegate{WindowState=WindowState.Minimized;});minimize.Width=30;minimize.Height=30;minimize.Padding=new Thickness(0);minimize.Background=SettingsVisual.Brush("#102F3542");AutomationProperties.SetName(minimize,"Minimize Settings");tools.Children.Add(minimize);
         var close=SettingsVisual.Button("×",delegate{Close();});close.Width=30;close.Height=30;close.FontSize=18;close.Margin=new Thickness(8,0,0,0);close.Padding=new Thickness(0);close.Background=SettingsVisual.Brush("#102F3542");AutomationProperties.SetName(close,"Close Settings");tools.Children.Add(close);
         titles.MouseLeftButtonDown+=delegate(object sender,MouseButtonEventArgs e){if(e.ButtonState==MouseButtonState.Pressed)DragMove();};
-        activationRow.ColumnDefinitions.Add(new ColumnDefinition());activationRow.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});Grid.SetRow(activationRow,1);Grid.SetColumnSpan(activationRow,2);header.Children.Add(activationRow);activationRow.Children.Add(activationLabel);header.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});Grid.SetRow(activationRow,2);Grid.SetRow(progressTabs,1);Grid.SetColumnSpan(progressTabs,2);header.Children.Add(progressTabs);progressTabs.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});progressTabs.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});for(int n=0;n<3;n++)progressTabs.ColumnDefinitions.Add(new ColumnDefinition());progressTabs.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});for(int n=0;n<progressButtons.Length;n++){int progress=n;var b=SettingsVisual.Button(n==7?"Flight Energy":n==6?"Experience":n==5?"Player MP":n==4?"Player health":n==3?"Target of target":n==2?"Our target":n==1?"Stagger Bar":"Energy Bar",delegate{SelectProgress(progress);});progressButtons[n]=b;Grid.SetColumn(b,n%3);Grid.SetRow(b,n/3);if(n==7)Grid.SetColumnSpan(b,2);b.Margin=new Thickness(n%3==0?0:4,n>=3?4:0,n%3==2?0:4,0);progressTabs.Children.Add(b);}
+        activationRow.ColumnDefinitions.Add(new ColumnDefinition());
+        activationRow.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
+        Grid.SetColumnSpan(activationRow,2);
+        header.Children.Add(activationRow);
+        activationRow.Children.Add(activationLabel);
+        header.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
+        Grid.SetRow(activationRow,2);
+        Grid.SetRow(progressTabs,1);
+        Grid.SetColumnSpan(progressTabs,2);
+        header.Children.Add(progressTabs);
+        var back=SettingsVisual.Button("All bars",ShowProgressOverview);
+        back.HorizontalAlignment=HorizontalAlignment.Left;
+        progressTabs.Children.Add(back);
+        var styleControls=new StackPanel{Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right};
+        var styleLabel=SettingsVisual.Text("Bar style",12);
+        styleLabel.Margin=new Thickness(0,0,8,0);
+        styleControls.Children.Add(styleLabel);
+        styleControls.Children.Add(progressStyle);
+        progressTabs.Children.Add(styleControls);
+        progressStyle.SelectionChanged+=delegate{
+            if(loading||progressStyle.SelectedIndex<0)return;
+            var configuration=overlay.Configuration;
+            ProgressWidgetScale.Bar(configuration,progressSelection).Style=(ProgressBarStyle)progressStyle.SelectedIndex;
+            overlay.ApplyConfiguration(configuration);
+        };
+        progressOverview=new ProgressOverviewPane(overlay,SelectProgress);
+        Grid.SetRow(progressOverview,1);
+        Grid.SetRowSpan(progressOverview,3);
+        body.Children.Add(progressOverview);
         var activationControls=new StackPanel{Orientation=Orientation.Horizontal};Grid.SetColumn(activationControls,1);activationRow.Children.Add(activationControls);activation.Margin=new Thickness(0,0,10,0);activationControls.Children.Add(activation);var enabled=new CheckBox();switches["Enabled"]=enabled;AutomationProperties.SetName(enabled,"Enable Energy Bar");activationControls.Children.Add(enabled);
         BuildPreview(body);
         Grid.SetRow(segmented,2);body.Children.Add(segmented);
@@ -241,7 +452,7 @@ internal sealed class HelperSettings : Window {
         var brand=new Image{Source=FantasyUi.Brand,Width=160,Height=143,HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,15,0,3),Stretch=Stretch.Uniform};
         AutomationProperties.SetName(brand,"Aion 2 Helper");nav.Children.Add(brand);
         var section=new StackPanel{Margin=new Thickness(12,12,12,0)};var navScroll=new ScrollViewer{Content=section,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};navScroll.SetResourceReference(FrameworkElement.StyleProperty,"SlimScroll");Grid.SetRow(navScroll,1);nav.Children.Add(navScroll);
-        for(int n=0;n<sections.Length;n++){int module=n;var button=SettingsVisual.Button(n==0?"General":n==1?"Progress bar":n==2?"FPS/Ping":n==3?"DPS Meter":n==4?"Notifications":n==5?"Game Tweaks":n==6?"Pets":n==7?"Crafting":n==8?"Hotbar":n==9?"Floating Text":n==10?"Combat Power":n==11?"Combat Log":"Hidden Cube Radar",delegate{SelectModule(module);});button.Tag=FantasyUi.ModuleIcons[n];button.HorizontalContentAlignment=HorizontalAlignment.Stretch;button.Padding=new Thickness(5,8,10,8);button.Margin=new Thickness(0,0,0,3);sections[n]=button;if(module==11)section.Children.Insert(4,button);else if(module==12)section.Children.Insert(9,button);else section.Children.Add(button);}
+        for(int n=0;n<sections.Length;n++){int module=n;var button=SettingsVisual.Button(n==0?"General":n==1?"Progress bar":n==2?"FPS/Ping":n==3?"DPS Meter":n==4?"Notifications":n==5?"Game Tweaks":n==6?"Pets":n==7?"Crafting":n==8?"Hotbar":n==9?"Floating Text":n==10?"Combat Power":n==11?"Combat Log":"Hidden Cube Radar",delegate{if(module==1)ShowProgressOverview();else SelectModule(module);});button.Tag=FantasyUi.ModuleIcons[n];button.HorizontalContentAlignment=HorizontalAlignment.Stretch;button.Padding=new Thickness(5,8,10,8);button.Margin=new Thickness(0,0,0,3);sections[n]=button;if(module==11)section.Children.Insert(4,button);else if(module==12)section.Children.Insert(9,button);else section.Children.Add(button);}
         var general=new StackPanel();var stateCard=SettingsVisual.Card(general,new Thickness(13,11,13,11));stateCard.Margin=new Thickness(12,10,15,14);Grid.SetRow(stateCard,2);nav.Children.Add(stateCard);
         general.Children.Add(SettingsVisual.Text("GENERAL STATUS",10,"#818A9B"));
         status.Margin=new Thickness(0,8,0,0);status.LineHeight=16;general.Children.Add(status);
@@ -304,10 +515,18 @@ internal sealed class HelperSettings : Window {
     void ChooseGameLauncher(){using(var dialog=new System.Windows.Forms.OpenFileDialog{Title=UiLanguage.Text("Select your Aion 2 shortcut or launcher",overlay.Language),Filter=UiLanguage.Text("Launchers and shortcuts (*.exe;*.lnk;*.url)|*.exe;*.lnk;*.url",overlay.Language),CheckFileExists=true,DereferenceLinks=false,Multiselect=false})if(dialog.ShowDialog()==System.Windows.Forms.DialogResult.OK)ChangeGameLaunch(delegate{gameLaunch.ChooseLauncher(dialog.FileName);});}
     void DownloadFailed(){noticeUntil=DateTime.UtcNow.AddSeconds(10);status.Text=UiLanguage.Text("Could not open the browser. Download Npcap at https://npcap.com/#download",overlay.Language);}
     void UpdateNpcap(){var visibility=npcSupport.Required?Visibility.Visible:Visibility.Collapsed;if(npcCard.Visibility!=visibility)npcCard.Visibility=visibility;string message=UiLanguage.Text(npcSupport.Message,overlay.Language);if(npcMessage.Text!=message)npcMessage.Text=message;}
-    void SelectSection(bool general){SelectModule(general?0:1);}
+    void SelectSection(bool general){if(!general)progressOverviewSelected=false;SelectModule(general?0:1);}
     void SelectModule(int module){
-        generalSelected=module==0;sectionTitle.Text=module==0?"General":module==1?"Progress bar":module==2?"FPS/Ping":module==3?"DPS Meter":module==4?"Notifications":module==5?"Game Tweaks":module==6?"Pets":module==7?"Crafting":module==8?"Hotbar":module==9?"Floating Combat Text":module==10?"Combat Power":module==11?"Combat Log":"Hidden Cube Radar";sectionSubtitle.Text=module==0?"App preferences":module==1?(flightSelected?"Flight energy and recovery":experienceSelected?"Character level and experience":vitalSelected>=0?"Player HP and MP":staggerSelected?"Enemy stagger gauge":targetSelected?"Selected target's target":enemySelected?"Selected NPCs and players":"Energy bar for dash and sprint"):module==2?"Frame rate and server latency, in separate widgets":module==3?"Combat analysis · Beta":module==4?"Useful alerts while you play":module==5?"Startup and optional game adjustments":module==6?"Pet collection and soul tracking":module==7?"Gathering resources and remaining uses":module==8?"Hotbar and cooldowns · Experimental":module==9?"Damage dealt, damage taken and received healing":module==10?"Two views of your character power":module==11?"Your recent hits in real time":"Nearby hidden cubes";
-        generalScroller.Visibility=generalPage.Visibility=module==0?Visibility.Visible:Visibility.Collapsed;performancePage.Visibility=module==2?Visibility.Visible:Visibility.Collapsed;dpsPage.Visibility=module==3?Visibility.Visible:Visibility.Collapsed;notificationPage.Visibility=module==4?Visibility.Visible:Visibility.Collapsed;gameTweaksPage.Visibility=module==5?Visibility.Visible:Visibility.Collapsed;petsPage.Visibility=module==6?Visibility.Visible:Visibility.Collapsed;skillSlotsPage.Visibility=module==8?Visibility.Visible:Visibility.Collapsed;craftingPage.Visibility=module==7?Visibility.Visible:Visibility.Collapsed;floatingTextPage.Visibility=module==9?Visibility.Visible:Visibility.Collapsed;powerPage.Visibility=module==10?Visibility.Visible:Visibility.Collapsed;combatLogPage.Visibility=module==11?Visibility.Visible:Visibility.Collapsed;hiddenCubePage.Visibility=module==12?Visibility.Visible:Visibility.Collapsed;experiencePage.Visibility=module==1&&experienceSelected?Visibility.Visible:Visibility.Collapsed;if(module==5)gameTweaksPage.Open();progressTabs.Visibility=module==1?Visibility.Visible:Visibility.Collapsed;activationRow.Visibility=previewCard.Visibility=segmented.Visibility=scroller.Visibility=module==1&&vitalSelected<0&&!experienceSelected?Visibility.Visible:Visibility.Collapsed;healthPage.Visibility=module==1&&vitalSelected==0?Visibility.Visible:Visibility.Collapsed;manaPage.Visibility=module==1&&vitalSelected==1?Visibility.Visible:Visibility.Collapsed;
+        generalSelected=module==0;sectionTitle.Text=module==0?"General":module==1?"Progress bar":module==2?"FPS/Ping":module==3?"DPS Meter":module==4?"Notifications":module==5?"Game Tweaks":module==6?"Pets":module==7?"Crafting":module==8?"Hotbar":module==9?"Floating Combat Text":module==10?"Combat Power":module==11?"Combat Log":"Hidden Cube Radar";sectionSubtitle.Text=module==0?"App preferences":module==1?(progressOverviewSelected?"Browse and customize your progress bars":flightSelected?"Flight energy and recovery":experienceSelected?"Character level and experience":vitalSelected>=0?"Player HP and MP":staggerSelected?"Enemy stagger gauge":targetSelected?"Selected target's target":enemySelected?"Selected NPCs and players":"Energy bar for dash and sprint"):module==2?"Frame rate and server latency, in separate widgets":module==3?"Combat analysis · Beta":module==4?"Useful alerts while you play":module==5?"Startup and optional game adjustments":module==6?"Pet collection and soul tracking":module==7?"Gathering resources and remaining uses":module==8?"Hotbar and cooldowns · Experimental":module==9?"Damage dealt, damage taken and received healing":module==10?"Two views of your character power":module==11?"Your recent hits in real time":"Nearby hidden cubes";
+        generalScroller.Visibility=generalPage.Visibility=module==0?Visibility.Visible:Visibility.Collapsed;performancePage.Visibility=module==2?Visibility.Visible:Visibility.Collapsed;dpsPage.Visibility=module==3?Visibility.Visible:Visibility.Collapsed;notificationPage.Visibility=module==4?Visibility.Visible:Visibility.Collapsed;gameTweaksPage.Visibility=module==5?Visibility.Visible:Visibility.Collapsed;petsPage.Visibility=module==6?Visibility.Visible:Visibility.Collapsed;skillSlotsPage.Visibility=module==8?Visibility.Visible:Visibility.Collapsed;craftingPage.Visibility=module==7?Visibility.Visible:Visibility.Collapsed;floatingTextPage.Visibility=module==9?Visibility.Visible:Visibility.Collapsed;powerPage.Visibility=module==10?Visibility.Visible:Visibility.Collapsed;combatLogPage.Visibility=module==11?Visibility.Visible:Visibility.Collapsed;hiddenCubePage.Visibility=module==12?Visibility.Visible:Visibility.Collapsed;if(module==5)gameTweaksPage.Open();
+        bool overview=module==1&&progressOverviewSelected,detail=module==1&&!overview;
+        progressOverview.Visibility=overview?Visibility.Visible:Visibility.Collapsed;
+        if(overview)progressOverview.Reload(overlay.Configuration);
+        progressTabs.Visibility=detail?Visibility.Visible:Visibility.Collapsed;
+        experiencePage.Visibility=detail&&experienceSelected?Visibility.Visible:Visibility.Collapsed;
+        activationRow.Visibility=previewCard.Visibility=segmented.Visibility=scroller.Visibility=detail&&vitalSelected<0&&!experienceSelected?Visibility.Visible:Visibility.Collapsed;
+        healthPage.Visibility=detail&&vitalSelected==0?Visibility.Visible:Visibility.Collapsed;
+        manaPage.Visibility=detail&&vitalSelected==1?Visibility.Visible:Visibility.Collapsed;
         for(int n=0;n<sections.Length;n++)FantasyUi.Select(sections[n],n==module,true);titleGlyph.Source=FantasyUi.ModuleIcons[module];
         UiLanguage.Apply(this,overlay.Language);
     }
@@ -348,20 +567,67 @@ internal sealed class HelperSettings : Window {
         }
         pages[1].Children.Add(targetIdentityPage);var identity=Group(targetIdentityPage,"TARGET IDENTITY");Toggle(identity,"SelfHighlight","Different color when the target is you");TextColorChoice(identity,"SelfColor","Color when targeting you");TextColorChoice(identity,"SelfNameColor","Name color when targeting you");
         group=Group(pages[1],"LIGHT & CONTRAST");Toggle(group,"Emissive","Emissive glow","A bright filament with a soft halo.");Number(group,"GlowPercent","Glow intensity","%",0,200,0,5);Number(group,"TrackPercent","Dark track opacity","%",0,100,0,1,"Opacity of the background line.");
+        var edge=Group(pages[1],"BAR BORDER");
+        Toggle(edge,"BarBorder","Bar border");
+        TextColorChoice(edge,"BarBorderColor","Border color");
+        Number(edge,"BarBorderWidth","Border thickness","px",1,4,0,1);
+        Number(edge,"BarBorderOpacity","Border opacity","%",0,100,0,1);
         BuildTextSettings();
-        resetEffects=ActionRow(group,"Reset effects and colors",delegate{var cfg=overlay.Configuration;if(enemySelected&&!targetSelected){var defaults=new EnemyHealthOptions();SelectedEnemy(cfg).StoreColors(targetPalette,targetPalette==0?TargetColorPalette.Capture(defaults):TargetColorPalette.Defaults(defaults,targetPalette));}else if(enemySelected){var defaults=targetSelected?EnemyHealthOptions.TargetDefaults():new EnemyHealthOptions();defaults.Bar.Enabled=SelectedEnemy(cfg).Bar.Enabled;defaults.Bar.ScalePercent=SelectedEnemy(cfg).Bar.ScalePercent;defaults.Bar.ScaleReference=SelectedEnemy(cfg).Bar.ScaleReference==null?null:SelectedEnemy(cfg).Bar.ScaleReference.Copy();SelectedEnemy(cfg).Bar=defaults.Bar;}else if(staggerSelected){var defaults=new StaggerOptions();defaults.Bar.Enabled=cfg.Stagger.Bar.Enabled;defaults.Bar.ScalePercent=cfg.Stagger.Bar.ScalePercent;defaults.Bar.ScaleReference=cfg.Stagger.Bar.ScaleReference==null?null:cfg.Stagger.Bar.ScaleReference.Copy();cfg.Stagger.Bar=defaults.Bar;}else if(flightSelected){var bar=cfg.FlightEnergy.Bar;cfg.FlightEnergy.Bar=FlightEnergyOptions.DefaultBar();cfg.FlightEnergy.Bar.Enabled=bar.Enabled;cfg.FlightEnergy.Bar.ScalePercent=bar.ScalePercent;cfg.FlightEnergy.Bar.ScaleReference=bar.ScaleReference;}else cfg.Options=new EnergyBarOptions{Enabled=cfg.Options.Enabled,ScalePercent=cfg.Options.ScalePercent,ScaleReference=cfg.Options.ScaleReference==null?null:cfg.Options.ScaleReference.Copy()};overlay.ApplyConfiguration(cfg);});
+        resetEffects=ActionRow(group,"Reset effects and colors",delegate{var cfg=overlay.Configuration;var style=ProgressWidgetScale.Bar(cfg,SelectedProgressKind).Style;if(enemySelected&&!targetSelected){var defaults=new EnemyHealthOptions();SelectedEnemy(cfg).StoreColors(targetPalette,targetPalette==0?TargetColorPalette.Capture(defaults):TargetColorPalette.Defaults(defaults,targetPalette));}else if(enemySelected){var defaults=targetSelected?EnemyHealthOptions.TargetDefaults():new EnemyHealthOptions();defaults.Bar.Enabled=SelectedEnemy(cfg).Bar.Enabled;defaults.Bar.ScalePercent=SelectedEnemy(cfg).Bar.ScalePercent;defaults.Bar.ScaleReference=SelectedEnemy(cfg).Bar.ScaleReference==null?null:SelectedEnemy(cfg).Bar.ScaleReference.Copy();SelectedEnemy(cfg).Bar=defaults.Bar;}else if(staggerSelected){var defaults=new StaggerOptions();defaults.Bar.Enabled=cfg.Stagger.Bar.Enabled;defaults.Bar.ScalePercent=cfg.Stagger.Bar.ScalePercent;defaults.Bar.ScaleReference=cfg.Stagger.Bar.ScaleReference==null?null:cfg.Stagger.Bar.ScaleReference.Copy();cfg.Stagger.Bar=defaults.Bar;}else if(flightSelected){var bar=cfg.FlightEnergy.Bar;cfg.FlightEnergy.Bar=FlightEnergyOptions.DefaultBar();cfg.FlightEnergy.Bar.Enabled=bar.Enabled;cfg.FlightEnergy.Bar.ScalePercent=bar.ScalePercent;cfg.FlightEnergy.Bar.ScaleReference=bar.ScaleReference;}else cfg.Options=new EnergyBarOptions{Enabled=cfg.Options.Enabled,ScalePercent=cfg.Options.ScalePercent,ScaleReference=cfg.Options.ScaleReference==null?null:cfg.Options.ScaleReference.Copy()};ProgressWidgetScale.Bar(cfg,SelectedProgressKind).Style=style;overlay.ApplyConfiguration(cfg);});
     }
     void PositionChoice(StackPanel group,string key,string label){var row=Row(group,label);var control=new ComboBox{Width=190,Height=34};positions[key]=control;Grid.SetColumn(control,1);row.Children.Add(control);foreach(string choice in new[]{"Above · left","Above · center","Above · right","Below · left","Below · center","Below · right"})control.Items.Add(new ComboBoxItem{Content=choice});AutomationProperties.SetName(control,label);control.SelectionChanged+=delegate{Changed();};}
     void TextColorChoice(StackPanel group,string key,string label){var row=Row(group,label);var b=SettingsVisual.Button("",delegate{PickColor(key,label);});b.Width=142;Grid.SetColumn(b,1);row.Children.Add(b);colors[key]=b;}
-    void OutlineControls(StackPanel group,string prefix){Toggle(group,prefix+"Outline","Black text outline");Number(group,prefix+"OutlineWidth","Outline thickness","px",1,8,0,1);Number(group,prefix+"OutlineOpacity","Outline opacity","%",0,100,0,1);}
-    TextOutlineOptions ReadOutline(string prefix){return new TextOutlineOptions{Enabled=Flag(prefix+"Outline"),Width=(int)Num(prefix+"OutlineWidth"),Opacity=(int)Num(prefix+"OutlineOpacity")};}
-    void LoadOutline(string prefix,TextOutlineOptions outline,bool available){switches[prefix+"Outline"].IsChecked=outline.Enabled;numbers[prefix+"OutlineWidth"].Value=outline.Width;numbers[prefix+"OutlineOpacity"].Value=outline.Opacity;switches[prefix+"Outline"].IsEnabled=available;numbers[prefix+"OutlineWidth"].IsEnabled=numbers[prefix+"OutlineOpacity"].IsEnabled=available&&outline.Enabled;}
+    void OutlineControls(StackPanel group,string prefix,Func<EnergyConfiguration,TextOutlineOptions> read,string label="Text outline"){
+        Toggle(group,prefix+"Outline",label);
+        string key=prefix+"OutlineColor";
+        var row=Row(group,"Outline color");
+        var actions=new StackPanel{Orientation=Orientation.Horizontal,VerticalAlignment=VerticalAlignment.Center};
+        Grid.SetColumn(actions,1);
+        row.Children.Add(actions);
+        var choose=SettingsVisual.Button("",delegate{
+            var picker=new HelperColorPicker(colorValues[key],"Outline color",overlay.Language){Owner=this};
+            if(picker.ShowDialog()==true){
+                var cfg=overlay.Configuration;
+                read(cfg).Color=picker.SelectedHex;
+                overlay.ApplyConfiguration(cfg);
+            }
+        });
+        choose.MinWidth=110;
+        AutomationProperties.SetName(choose,"Outline color");
+        colors[key]=choose;
+        actions.Children.Add(choose);
+        var reset=SettingsVisual.Button("Use default color",delegate{
+            var cfg=overlay.Configuration;
+            var outline=read(cfg);
+            if(outline.Color==null)return;
+            outline.Color=null;
+            overlay.ApplyConfiguration(cfg);
+        });
+        reset.Margin=new Thickness(6,0,0,0);
+        actions.Children.Add(reset);
+        Number(group,prefix+"OutlineWidth","Outline thickness","px",1,8,0,1);
+        Number(group,prefix+"OutlineOpacity","Outline opacity","%",0,100,0,1);
+    }
+    TextOutlineOptions ReadOutline(string prefix,TextOutlineOptions previous){
+        return new TextOutlineOptions{Enabled=Flag(prefix+"Outline"),Width=(int)Num(prefix+"OutlineWidth"),Opacity=(int)Num(prefix+"OutlineOpacity"),Color=previous.Color};
+    }
+    void LoadOutline(string prefix,TextOutlineOptions outline,bool available,string defaultColor="#000000"){
+        switches[prefix+"Outline"].IsChecked=outline.Enabled;
+        numbers[prefix+"OutlineWidth"].Value=outline.Width;
+        numbers[prefix+"OutlineOpacity"].Value=outline.Opacity;
+        switches[prefix+"Outline"].IsEnabled=available;
+        bool active=available&&outline.Enabled;
+        numbers[prefix+"OutlineWidth"].IsEnabled=numbers[prefix+"OutlineOpacity"].IsEnabled=active;
+        string key=prefix+"OutlineColor";
+        SetColor(key,outline.DisplayColor(defaultColor));
+        ((StackPanel)colors[key].Parent).IsEnabled=active;
+    }
     void BuildTextSettings(){
-        pages[1].Children.Add(valuePage);var group=Group(valuePage,"VALUES & TEXT");Toggle(group,"CurrentText","Show current value");PositionChoice(group,"CurrentPosition","Current value position");Number(group,"CurrentOffsetY","Current value vertical offset","px",-600,600,0,1);Toggle(group,"MaximumText","Show maximum value");PositionChoice(group,"MaximumPosition","Maximum value position");Number(group,"MaximumOffsetY","Maximum value vertical offset","px",-600,600,0,1);Toggle(group,"PercentageText","Show percentage");PositionChoice(group,"PercentagePosition","Percentage position");Number(group,"PercentageOffsetY","Percentage vertical offset","px",-600,600,0,1);Number(group,"TextSize","Text size","px",10,144,0,1);TextColorChoice(group,"TextColor","Value text color");valuePage.Children.Add(valueOutlinePage);OutlineControls(Group(valueOutlinePage,"VALUE TEXT OUTLINE"),"Value");
-        pages[1].Children.Insert(0,enemyNamePage);var nameGroup=Group(enemyNamePage,"NAME");Toggle(nameGroup,"EnemyNameEnabled","Show name");Number(nameGroup,"EnemyNameSize","Name size","px",10,192,0,1);PositionChoice(nameGroup,"EnemyNamePosition","Name position");Number(nameGroup,"EnemyNameOffsetX","Name horizontal offset","px",-1500,1500,0,1);Number(nameGroup,"EnemyNameOffsetY","Name vertical offset","px",-1500,1500,0,1);TextColorChoice(nameGroup,"EnemyNameColor","Name color");Toggle(nameGroup,"EnemyNameBold","Bold name");OutlineControls(nameGroup,"EnemyName");ActionRow(nameGroup,"Reset name",delegate{var cfg=overlay.Configuration;SelectedEnemy(cfg).Name=targetSelected?EnemyHealthOptions.TargetDefaults().Name:new EnemyNameOptions();overlay.ApplyConfiguration(cfg);});
-        pages[1].Children.Insert(2,enemyDetailPage);var details=Group(enemyDetailPage,"TARGET DETAILS");Toggle(details,"EnemyLevel","Show NPC level");Toggle(details,"EnemyBaseLevel","Show base level in parentheses","At character level 45, displays 45 (base level). The base level is sent by the game.");details=Group(enemyDetailPage,"DISTANCE");Toggle(details,"EnemyDistance","Show distance in metres","Experimental distance: uses confirmed positions, not skill impact points. The game does not always send your position; missing or stale positions hide the distance.");Toggle(details,"EnemyExactPosition","Exact distance (reads game memory)","Reads Aion session keys from game memory and uses outgoing movement packets. Off by default. Enable before opening Aion; if already playing, restart the game. Only active while this bar and metres are enabled.");Number(details,"EnemyDistanceSize","Distance text size","px",10,192,0,1);PositionChoice(details,"EnemyDistancePosition","Distance position");Number(details,"EnemyDistanceX","Distance horizontal offset","px",-1500,1500,0,1);Number(details,"EnemyDistanceY","Distance vertical offset","px",-1500,1500,0,1);TextColorChoice(details,"EnemyDistanceColor","Distance color");Toggle(details,"EnemyDistanceBold","Bold distance");OutlineControls(details,"EnemyDistance");details=Group(enemyDetailPage,"ENEMY TYPE");Toggle(details,"EnemySpecies","Show enemy type","Shown only for identified types; unknown types are not guessed.");Number(details,"EnemySpeciesSize","Type text size","px",10,192,0,1);PositionChoice(details,"EnemySpeciesPosition","Type position");Number(details,"EnemySpeciesX","Type horizontal offset","px",-1500,1500,0,1);Number(details,"EnemySpeciesY","Type vertical offset","px",-1500,1500,0,1);TextColorChoice(details,"EnemySpeciesColor","Type color");Toggle(details,"EnemySpeciesBold","Bold type");OutlineControls(details,"EnemySpecies");
-        pages[1].Children.Add(lockTextPage);var lockGroup=Group(lockTextPage,"LOCK STATUS");Toggle(lockGroup,"EnemyLockEnabled","Show lock status");Number(lockGroup,"EnemyLockSize","Lock status text size","px",10,192,0,1);PositionChoice(lockGroup,"EnemyLockPosition","Lock status position");Number(lockGroup,"EnemyLockX","Lock status horizontal offset","px",-1500,1500,0,1);Number(lockGroup,"EnemyLockY","Lock status vertical offset","px",-1500,1500,0,1);TextColorChoice(lockGroup,"EnemyLockColor","Lock status color");Toggle(lockGroup,"EnemyLockBold","Bold lock status");OutlineControls(lockGroup,"EnemyLock");
-        pages[1].Children.Add(countdownPage);group=Group(countdownPage,"STAGGER COUNTDOWN");Toggle(group,"CountdownEnabled","Show stagger countdown");PositionChoice(group,"CountdownPosition","Countdown position");Number(group,"CountdownOffsetY","Countdown vertical offset","px",-600,600,0,1);Number(group,"CountdownSize","Countdown text size","px",10,192,0,1);TextColorChoice(group,"CountdownColor","Countdown color");Toggle(group,"CountdownGlow","Countdown luminous outline");Number(group,"CountdownGlowPercent","Countdown glow intensity","%",0,200,0,5);Toggle(group,"CountdownShrink","Shrink countdown text");Number(group,"CountdownMinimumScale","Final countdown scale","%",20,100,0,5);Number(group,"CountdownSeconds","Reference stagger duration","s",1,30,1,.1M);group.Children.Add(SettingsVisual.Text("During the estimated countdown, the bar fills visually from empty to full. Numeric labels retain the actual game value. New game data or an inactive phase overrides the animation.",11,"#8994A6"));
+        pages[1].Children.Add(valuePage);var group=Group(valuePage,"VALUES & TEXT");Toggle(group,"CurrentText","Show current value");PositionChoice(group,"CurrentPosition","Current value position");Number(group,"CurrentOffsetY","Current value vertical offset","px",-600,600,0,1);Toggle(group,"MaximumText","Show maximum value");PositionChoice(group,"MaximumPosition","Maximum value position");Number(group,"MaximumOffsetY","Maximum value vertical offset","px",-600,600,0,1);Toggle(group,"PercentageText","Show percentage");PositionChoice(group,"PercentagePosition","Percentage position");Number(group,"PercentageOffsetY","Percentage vertical offset","px",-600,600,0,1);Number(group,"TextSize","Text size","px",10,144,0,1);TextColorChoice(group,"TextColor","Value text color");valuePage.Children.Add(valueOutlinePage);OutlineControls(Group(valueOutlinePage,"VALUE TEXT OUTLINE"),"Value",c=>ProgressWidgetScale.Bar(c,SelectedProgressKind).TextOutline);
+        pages[1].Children.Add(enemyNamePage);var nameGroup=Group(enemyNamePage,"NAME");Toggle(nameGroup,"EnemyNameEnabled","Show name");Number(nameGroup,"EnemyNameSize","Name size","px",10,192,0,1);PositionChoice(nameGroup,"EnemyNamePosition","Name position");Number(nameGroup,"EnemyNameOffsetX","Name horizontal offset","px",-1500,1500,0,1);Number(nameGroup,"EnemyNameOffsetY","Name vertical offset","px",-1500,1500,0,1);TextColorChoice(nameGroup,"EnemyNameColor","Name color");Toggle(nameGroup,"EnemyNameBold","Bold name");OutlineControls(nameGroup,"EnemyName",c=>SelectedEnemy(c).Name.Outline,"Name outline");ActionRow(nameGroup,"Reset name",delegate{var cfg=overlay.Configuration;SelectedEnemy(cfg).Name=targetSelected?EnemyHealthOptions.TargetDefaults().Name:new EnemyNameOptions();overlay.ApplyConfiguration(cfg);});
+        pages[1].Children.Add(enemyDetailPage);var details=Group(enemyDetailPage,"TARGET DETAILS");Toggle(details,"EnemyLevel","Show NPC level");Toggle(details,"EnemyBaseLevel","Show base level in parentheses","At character level 45, displays 45 (base level). The base level is sent by the game.");details=Group(enemyDetailPage,"DISTANCE");Toggle(details,"EnemyDistance","Show distance in metres","Experimental distance: uses confirmed positions, not skill impact points. The game does not always send your position; missing or stale positions hide the distance.");Toggle(details,"EnemyExactPosition","Exact distance (reads game memory)","Reads Aion session keys from game memory and uses outgoing movement packets. Off by default. Enable before opening Aion; if already playing, restart the game. Only active while this bar and metres are enabled.");Number(details,"EnemyDistanceSize","Distance text size","px",10,192,0,1);PositionChoice(details,"EnemyDistancePosition","Distance position");Number(details,"EnemyDistanceX","Distance horizontal offset","px",-1500,1500,0,1);Number(details,"EnemyDistanceY","Distance vertical offset","px",-1500,1500,0,1);TextColorChoice(details,"EnemyDistanceColor","Distance color");Toggle(details,"EnemyDistanceBold","Bold distance");OutlineControls(details,"EnemyDistance",c=>SelectedEnemy(c).Details.DistanceText.Outline);details=Group(enemyDetailPage,"ENEMY TYPE");Toggle(details,"EnemySpecies","Show enemy type","Shown only for identified types; unknown types are not guessed.");Number(details,"EnemySpeciesSize","Type text size","px",10,192,0,1);PositionChoice(details,"EnemySpeciesPosition","Type position");Number(details,"EnemySpeciesX","Type horizontal offset","px",-1500,1500,0,1);Number(details,"EnemySpeciesY","Type vertical offset","px",-1500,1500,0,1);TextColorChoice(details,"EnemySpeciesColor","Type color");Toggle(details,"EnemySpeciesBold","Bold type");OutlineControls(details,"EnemySpecies",c=>SelectedEnemy(c).Details.SpeciesText.Outline);
+        pages[1].Children.Add(lockTextPage);var lockGroup=Group(lockTextPage,"LOCK STATUS");Toggle(lockGroup,"EnemyLockEnabled","Show lock status");Number(lockGroup,"EnemyLockSize","Lock status text size","px",10,192,0,1);PositionChoice(lockGroup,"EnemyLockPosition","Lock status position");Number(lockGroup,"EnemyLockX","Lock status horizontal offset","px",-1500,1500,0,1);Number(lockGroup,"EnemyLockY","Lock status vertical offset","px",-1500,1500,0,1);TextColorChoice(lockGroup,"EnemyLockColor","Lock status color");Toggle(lockGroup,"EnemyLockBold","Bold lock status");OutlineControls(lockGroup,"EnemyLock",c=>SelectedEnemy(c).LockText.Outline);
+        pages[1].Children.Add(countdownPage);group=Group(countdownPage,"STAGGER COUNTDOWN");Toggle(group,"CountdownEnabled","Show stagger countdown");PositionChoice(group,"CountdownPosition","Countdown position");Number(group,"CountdownOffsetY","Countdown vertical offset","px",-600,600,0,1);Number(group,"CountdownSize","Countdown text size","px",10,192,0,1);TextColorChoice(group,"CountdownColor","Countdown color");Toggle(group,"CountdownGlow","Countdown luminous outline");Number(group,"CountdownGlowPercent","Countdown glow intensity","%",0,200,0,5);OutlineControls(group,"Countdown",c=>c.Stagger.Countdown.Outline);Toggle(group,"CountdownShrink","Shrink countdown text");Number(group,"CountdownMinimumScale","Final countdown scale","%",20,100,0,5);Number(group,"CountdownSeconds","Reference stagger duration","s",1,30,1,.1M);group.Children.Add(SettingsVisual.Text("During the estimated countdown, the bar fills visually from empty to full. Numeric labels retain the actual game value. New game data or an inactive phase overrides the animation.",11,"#8994A6"));
         pages[1].Children.Add(staggerScreenPage);group=Group(staggerScreenPage,"STAGGER SCREEN EFFECT");Toggle(group,"StaggerScreenEnabled","Show animation when the enemy is staggered");TextColorChoice(group,"StaggerScreenTextColor","Staggered text color");TextColorChoice(group,"StaggerScreenEffectColor","Glow and effect color");staggerEffectTest=ActionRow(group,"Test effect",delegate{overlay.TestStaggerEffect(System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position).Bounds);});group.Children.Add(SettingsVisual.Text("A broken ring, a flash and Staggered appear at the center of the screen. Test effect plays once, even with the automatic animation off.",11,"#8994A6"));
     }
     static int PaletteKind(int index){return index==1?3:index==2?1:index==3?2:0;}
@@ -369,7 +635,20 @@ internal sealed class HelperSettings : Window {
     EnemyHealthOptions SelectedEnemy(EnergyConfiguration cfg){return targetSelected?cfg.EnemyTarget:cfg.EnemyHealth;}
     int SelectedProgressKind {get{return flightSelected?7:targetSelected?3:enemySelected?2:staggerSelected?1:0;}}
     void SelectProgress(bool stagger){SelectProgress(stagger?1:0);}
-    void SelectProgress(int selected){if(selected!=2)targetPalette=0;experienceSelected=selected==6;flightSelected=selected==7;vitalSelected=selected==4||selected==5?selected-4:-1;staggerSelected=selected==1;enemySelected=selected==2||selected==3;targetSelected=selected==3;for(int n=0;n<progressButtons.Length;n++)FantasyUi.Select(progressButtons[n],n==selected);Reload();SelectModule(1);}
+    void ShowProgressOverview(){progressOverviewSelected=true;SelectModule(1);}
+    void SelectProgress(int selected){
+        progressOverviewSelected=false;
+        progressSelection=selected;
+        if(selected!=2)targetPalette=0;
+        experienceSelected=selected==6;
+        flightSelected=selected==7;
+        vitalSelected=selected==4||selected==5?selected-4:-1;
+        staggerSelected=selected==1;
+        enemySelected=selected==2||selected==3;
+        targetSelected=selected==3;
+        Reload();
+        SelectModule(1);
+    }
     void BuildPosition(){
         var scale=Group(pages[2],"WIDGET SCALE");Number(scale,"WidgetScale","Whole widget scale","%",50,300,0,5,"Scales this bar, its name, values and countdown together. Text is redrawn at the final size.");var group=Group(pages[2],"GEOMETRY");Number(group,"Width","Width","px",BarDesign.MinimumWidth,BarDesign.MaximumWidth,0,1);Number(group,"Height","Thickness","px",BarDesign.MinimumHeight,BarDesign.MaximumHeight,0,1);Number(group,"X","Horizontal position","px",-100000,100000,0,1);Number(group,"Y","Vertical position","px",-100000,100000,0,1);
         ActionRow(group,"Reset size · 320 × 4",delegate{var cfg=overlay.Configuration;if(enemySelected)SelectedEnemy(cfg).Bounds=new Drawing.Rectangle(SelectedEnemy(cfg).Bounds.Location,new Drawing.Size(320,4));else if(staggerSelected)cfg.Stagger.Bounds=new Drawing.Rectangle(cfg.Stagger.Bounds.Location,new Drawing.Size(320,4));else if(flightSelected)cfg.FlightEnergy.Bounds=new Drawing.Rectangle(cfg.FlightEnergy.Bounds.Location,new Drawing.Size(320,4));else cfg.Bounds=new Drawing.Rectangle(cfg.Bounds.Location,new Drawing.Size(320,4));overlay.ApplyConfiguration(cfg);});
@@ -377,26 +656,46 @@ internal sealed class HelperSettings : Window {
     void SelectTab(int selected){for(int n=0;n<3;n++){pages[n].Visibility=n==selected?Visibility.Visible:Visibility.Collapsed;FantasyUi.Select(tabs[n],n==selected);}scroller.ScrollToTop();}
     bool Flag(string key){return switches[key].IsChecked==true;}decimal Num(string key){return numbers[key].Value;}
     internal EnergyConfiguration ReadConfiguration(){
-        var options=new EnergyBarOptions{ScalePercent=ProgressWidgetScale.Bar(overlay.Configuration,SelectedProgressKind).ScalePercent,ScaleReference=ProgressWidgetScale.Bar(overlay.Configuration,SelectedProgressKind).ScaleReference,Enabled=Flag("Enabled"),AutoHide=Flag("AutoHide"),Fade=Flag("Fade"),Smooth=Flag("Smooth"),Emissive=Flag("Emissive"),DynamicColors=Flag("DynamicColors"),HoldSeconds=(double)Num("HoldSeconds"),FadeSeconds=(double)Num("FadeMs")/1000,SmoothingSeconds=(double)Num("SmoothMs")/1000,GlowPercent=(int)Num("GlowPercent"),TrackOpacity=(int)Math.Round((double)Num("TrackPercent")*255/100),LowColor=colorValues["LowColor"],MediumColor=colorValues["MediumColor"],HighColor=colorValues["HighColor"]};options.CurrentText=Flag("CurrentText");options.MaximumText=Flag("MaximumText");options.PercentageText=Flag("PercentageText");options.CurrentPosition=positions["CurrentPosition"].SelectedIndex;options.MaximumPosition=positions["MaximumPosition"].SelectedIndex;options.PercentagePosition=positions["PercentagePosition"].SelectedIndex;options.CurrentOffsetY=(int)Num("CurrentOffsetY");options.MaximumOffsetY=(int)Num("MaximumOffsetY");options.PercentageOffsetY=(int)Num("PercentageOffsetY");options.TextSize=(int)Num("TextSize");options.TextColor=colorValues["TextColor"];options.TextOutline=ReadOutline("Value");options.Normalize();
-        var result=overlay.Configuration;var previousNpcColors=TargetColorPalette.Capture(result.EnemyHealth);var bounds=new Drawing.Rectangle((int)Num("X"),(int)Num("Y"),(int)Num("Width"),(int)Num("Height"));if(enemySelected){options.AutoHide=false;if(targetSelected)options.CurrentText=options.MaximumText=options.PercentageText=false;SelectedEnemy(result).OnlyLocked=Flag("EnemyOnlyLocked");SelectedEnemy(result).Bar=options;SelectedEnemy(result).Bounds=bounds;var name=SelectedEnemy(result).Name;name.Enabled=Flag("EnemyNameEnabled");name.Bold=Flag("EnemyNameBold");name.Outline=ReadOutline("EnemyName");name.FontSize=(int)Num("EnemyNameSize");name.Position=positions["EnemyNamePosition"].SelectedIndex;name.OffsetX=(int)Num("EnemyNameOffsetX");name.OffsetY=(int)Num("EnemyNameOffsetY");name.Color=colorValues["EnemyNameColor"];SelectedEnemy(result).SelfHighlight=Flag("SelfHighlight");SelectedEnemy(result).SelfColor=colorValues["SelfColor"];SelectedEnemy(result).SelfNameColor=colorValues["SelfNameColor"];var d=SelectedEnemy(result).Details;d.Level=Flag("EnemyLevel");d.BaseLevel=Flag("EnemyBaseLevel");d.Distance=Flag("EnemyDistance");d.ExactPosition=Flag("EnemyExactPosition");d.Species=Flag("EnemySpecies");d.DistanceText.FontSize=(int)Num("EnemyDistanceSize");d.DistanceText.Position=positions["EnemyDistancePosition"].SelectedIndex;d.DistanceText.OffsetX=(int)Num("EnemyDistanceX");d.DistanceText.OffsetY=(int)Num("EnemyDistanceY");d.DistanceText.Color=colorValues["EnemyDistanceColor"];d.DistanceText.Bold=Flag("EnemyDistanceBold");d.DistanceText.Outline=ReadOutline("EnemyDistance");d.SpeciesText.FontSize=(int)Num("EnemySpeciesSize");d.SpeciesText.Position=positions["EnemySpeciesPosition"].SelectedIndex;d.SpeciesText.OffsetX=(int)Num("EnemySpeciesX");d.SpeciesText.OffsetY=(int)Num("EnemySpeciesY");d.SpeciesText.Color=colorValues["EnemySpeciesColor"];d.SpeciesText.Bold=Flag("EnemySpeciesBold");d.SpeciesText.Outline=ReadOutline("EnemySpecies");var lockText=SelectedEnemy(result).LockText;lockText.Enabled=Flag("EnemyLockEnabled");lockText.Bold=Flag("EnemyLockBold");lockText.FontSize=(int)Num("EnemyLockSize");lockText.Position=positions["EnemyLockPosition"].SelectedIndex;lockText.OffsetX=(int)Num("EnemyLockX");lockText.OffsetY=(int)Num("EnemyLockY");lockText.Color=colorValues["EnemyLockColor"];lockText.Outline=ReadOutline("EnemyLock");if(!targetSelected&&targetPalette>0){var edited=TargetColorPalette.Capture(SelectedEnemy(result));SelectedEnemy(result).StoreColors(targetPalette,edited);previousNpcColors.Apply(SelectedEnemy(result));}SelectedEnemy(result).Normalize();}else if(staggerSelected){result.Stagger.Bar=options;result.Stagger.Bounds=bounds;var c=result.Stagger.Countdown;c.Enabled=Flag("CountdownEnabled");c.Glow=Flag("CountdownGlow");c.Shrink=Flag("CountdownShrink");c.Position=positions["CountdownPosition"].SelectedIndex;c.OffsetY=(int)Num("CountdownOffsetY");c.FontSize=(int)Num("CountdownSize");c.Color=colorValues["CountdownColor"];c.GlowPercent=(int)Num("CountdownGlowPercent");c.MinimumScalePercent=(int)Num("CountdownMinimumScale");c.ReferenceSeconds=(double)Num("CountdownSeconds");c.Normalize();var effect=result.Stagger.ScreenEffect;effect.Enabled=Flag("StaggerScreenEnabled");effect.TextColor=colorValues["StaggerScreenTextColor"];effect.EffectColor=colorValues["StaggerScreenEffectColor"];effect.Normalize();}else if(flightSelected){result.FlightEnergy.Bar=options;result.FlightEnergy.Bounds=bounds;result.FlightEnergy.RechargeOnly=Flag("RechargeOnly");}else{result.Options=options;result.Bounds=bounds;}ProgressWidgetScale.Apply(result,SelectedProgressKind,(int)Num("WidgetScale"));return result;
+        var previous=ProgressWidgetScale.Bar(overlay.Configuration,SelectedProgressKind);
+        var options=new EnergyBarOptions{Style=previous.Style,ScalePercent=previous.ScalePercent,ScaleReference=previous.ScaleReference,Enabled=Flag("Enabled"),AutoHide=Flag("AutoHide"),Fade=Flag("Fade"),Smooth=Flag("Smooth"),Emissive=Flag("Emissive"),DynamicColors=Flag("DynamicColors"),HoldSeconds=(double)Num("HoldSeconds"),FadeSeconds=(double)Num("FadeMs")/1000,SmoothingSeconds=(double)Num("SmoothMs")/1000,GlowPercent=(int)Num("GlowPercent"),TrackOpacity=(int)Math.Round((double)Num("TrackPercent")*255/100),LowColor=colorValues["LowColor"],MediumColor=colorValues["MediumColor"],HighColor=colorValues["HighColor"]};options.CurrentText=Flag("CurrentText");options.MaximumText=Flag("MaximumText");options.PercentageText=Flag("PercentageText");options.CurrentPosition=positions["CurrentPosition"].SelectedIndex;options.MaximumPosition=positions["MaximumPosition"].SelectedIndex;options.PercentagePosition=positions["PercentagePosition"].SelectedIndex;options.CurrentOffsetY=(int)Num("CurrentOffsetY");options.MaximumOffsetY=(int)Num("MaximumOffsetY");options.PercentageOffsetY=(int)Num("PercentageOffsetY");options.TextSize=(int)Num("TextSize");options.TextColor=colorValues["TextColor"];options.TextOutline=ReadOutline("Value",previous.TextOutline);
+        options.BorderEnabled=Flag("BarBorder")==previous.HasBorder?previous.BorderEnabled:Flag("BarBorder");
+        options.BorderWidth=(int)Num("BarBorderWidth");
+        int opacity=(int)Num("BarBorderOpacity");
+        options.BorderOpacity=opacity==previous.EdgeOpacity?previous.BorderOpacity:opacity;
+        string edge=colorValues["BarBorderColor"];
+        options.BorderColor=edge==previous.EdgeColor?previous.BorderColor:edge;
+        options.Normalize();
+        var result=overlay.Configuration;var previousNpcColors=TargetColorPalette.Capture(result.EnemyHealth);var bounds=new Drawing.Rectangle((int)Num("X"),(int)Num("Y"),(int)Num("Width"),(int)Num("Height"));if(enemySelected){options.AutoHide=false;if(targetSelected)options.CurrentText=options.MaximumText=options.PercentageText=false;SelectedEnemy(result).OnlyLocked=Flag("EnemyOnlyLocked");SelectedEnemy(result).Bar=options;SelectedEnemy(result).Bounds=bounds;var name=SelectedEnemy(result).Name;name.Enabled=Flag("EnemyNameEnabled");name.Bold=Flag("EnemyNameBold");name.Outline=ReadOutline("EnemyName",name.Outline);name.FontSize=(int)Num("EnemyNameSize");name.Position=positions["EnemyNamePosition"].SelectedIndex;name.OffsetX=(int)Num("EnemyNameOffsetX");name.OffsetY=(int)Num("EnemyNameOffsetY");name.Color=colorValues["EnemyNameColor"];SelectedEnemy(result).SelfHighlight=Flag("SelfHighlight");SelectedEnemy(result).SelfColor=colorValues["SelfColor"];SelectedEnemy(result).SelfNameColor=colorValues["SelfNameColor"];var d=SelectedEnemy(result).Details;d.Level=Flag("EnemyLevel");d.BaseLevel=Flag("EnemyBaseLevel");d.Distance=Flag("EnemyDistance");d.ExactPosition=Flag("EnemyExactPosition");d.Species=Flag("EnemySpecies");d.DistanceText.FontSize=(int)Num("EnemyDistanceSize");d.DistanceText.Position=positions["EnemyDistancePosition"].SelectedIndex;d.DistanceText.OffsetX=(int)Num("EnemyDistanceX");d.DistanceText.OffsetY=(int)Num("EnemyDistanceY");d.DistanceText.Color=colorValues["EnemyDistanceColor"];d.DistanceText.Bold=Flag("EnemyDistanceBold");d.DistanceText.Outline=ReadOutline("EnemyDistance",d.DistanceText.Outline);d.SpeciesText.FontSize=(int)Num("EnemySpeciesSize");d.SpeciesText.Position=positions["EnemySpeciesPosition"].SelectedIndex;d.SpeciesText.OffsetX=(int)Num("EnemySpeciesX");d.SpeciesText.OffsetY=(int)Num("EnemySpeciesY");d.SpeciesText.Color=colorValues["EnemySpeciesColor"];d.SpeciesText.Bold=Flag("EnemySpeciesBold");d.SpeciesText.Outline=ReadOutline("EnemySpecies",d.SpeciesText.Outline);var lockText=SelectedEnemy(result).LockText;lockText.Enabled=Flag("EnemyLockEnabled");lockText.Bold=Flag("EnemyLockBold");lockText.FontSize=(int)Num("EnemyLockSize");lockText.Position=positions["EnemyLockPosition"].SelectedIndex;lockText.OffsetX=(int)Num("EnemyLockX");lockText.OffsetY=(int)Num("EnemyLockY");lockText.Color=colorValues["EnemyLockColor"];lockText.Outline=ReadOutline("EnemyLock",lockText.Outline);if(!targetSelected&&targetPalette>0){var edited=TargetColorPalette.Capture(SelectedEnemy(result));SelectedEnemy(result).StoreColors(targetPalette,edited);previousNpcColors.Apply(SelectedEnemy(result));}SelectedEnemy(result).Normalize();}else if(staggerSelected){result.Stagger.Bar=options;result.Stagger.Bounds=bounds;var c=result.Stagger.Countdown;c.Enabled=Flag("CountdownEnabled");c.Glow=Flag("CountdownGlow");c.Shrink=Flag("CountdownShrink");c.Position=positions["CountdownPosition"].SelectedIndex;c.OffsetY=(int)Num("CountdownOffsetY");c.FontSize=(int)Num("CountdownSize");c.Color=colorValues["CountdownColor"];c.GlowPercent=(int)Num("CountdownGlowPercent");c.MinimumScalePercent=(int)Num("CountdownMinimumScale");c.ReferenceSeconds=(double)Num("CountdownSeconds");c.Outline=ReadOutline("Countdown",c.Outline);c.Normalize();var effect=result.Stagger.ScreenEffect;effect.Enabled=Flag("StaggerScreenEnabled");effect.TextColor=colorValues["StaggerScreenTextColor"];effect.EffectColor=colorValues["StaggerScreenEffectColor"];effect.Normalize();}else if(flightSelected){result.FlightEnergy.Bar=options;result.FlightEnergy.Bounds=bounds;result.FlightEnergy.RechargeOnly=Flag("RechargeOnly");}else{result.Options=options;result.Bounds=bounds;}ProgressWidgetScale.Apply(result,SelectedProgressKind,(int)Num("WidgetScale"));return result;
     }
     void Changed(){if(loading||IsDisposed)return;overlay.ApplyConfiguration(ReadConfiguration());}
     void UpdateWidgetStatus(){widgetLock.IsChecked=overlay.InteractionLock.Locked;string text=UiLanguage.Text(overlay.InteractionLock.Locked?"Widgets locked":"Widgets unlocked",overlay.Language);if(widgetStatus.Text==text)return;widgetStatus.Text=text;widgetStatus.Foreground=SettingsVisual.Brush(overlay.InteractionLock.Locked?"#EB9A91":"#84B8AB");}
     void RefreshStatus(object sender,EventArgs e){if(skillSlotsPage.Visibility==Visibility.Visible)skillSlotsPage.Reload();healthPage.UpdateStatus();manaPage.UpdateStatus();fpsPage.UpdateStatus();pingPage.UpdateStatus();dpsPage.UpdateStatus();notificationPage.UpdateStatus();petsPage.UpdateStatus();UpdateNpcap();string reading=UiLanguage.Text(vitalSelected>=0?overlay.PlayerVitalStatus(vitalSelected==1):targetSelected?overlay.EnemyTargetStatus:enemySelected?overlay.EnemyHealthStatus:staggerSelected?overlay.StaggerStatus:flightSelected?overlay.FlightEnergyStatus:overlay.ReadingStatus,overlay.Language);if(DateTime.UtcNow>=noticeUntil&&status.Text!=reading)status.Text=reading;UpdateWidgetStatus();}
     void Reload(){if(IsDisposed)return;loading=true;try{
-        var cfg=overlay.Configuration;foregroundOnly.IsChecked=cfg.ForegroundOnly;widgetSnap.IsChecked=cfg.SnapWidgets;widgetGrid.IsChecked=cfg.ShowWidgetGrid;widgetGridOpacityRow.Visibility=cfg.ShowWidgetGrid?Visibility.Visible:Visibility.Collapsed;widgetGridOpacity.Value=cfg.WidgetGridOpacity;combatOpacity.IsChecked=cfg.CombatOpacityEnabled;combatOpacityRow.Visibility=cfg.CombatOpacityEnabled?Visibility.Visible:Visibility.Collapsed;idleOpacity.Value=cfg.IdleCombatOpacity;if(powerPage!=null)powerPage.Reload();if(combatLogPage!=null)combatLogPage.Reload();if(hiddenCubePage!=null)hiddenCubePage.Reload();if(experiencePage!=null)experiencePage.Reload();if(healthPage!=null)healthPage.Reload();if(manaPage!=null)manaPage.Reload();if(updatePage!=null)updatePage.Translate();if(supportPage!=null)supportPage.Reload();if(fpsPage!=null)fpsPage.Reload();if(pingPage!=null)pingPage.Reload();if(dpsPage!=null)dpsPage.Reload();if(notificationPage!=null)notificationPage.Reload();if(petsPage!=null)petsPage.Reload();if(craftingPage!=null)craftingPage.Reload();if(floatingTextPage!=null)floatingTextPage.Reload();skillSlotsPage.Reload();if(gameTweaksPage!=null)gameTweaksPage.Translate();languagePicker.SelectedIndex=Array.IndexOf(UiLanguageMore.Codes,UiLanguage.Normalize(cfg.Language));var o=ProgressWidgetScale.Bar(cfg,SelectedProgressKind);var bounds=enemySelected?SelectedEnemy(cfg).Bounds:staggerSelected?cfg.Stagger.Bounds:flightSelected?cfg.FlightEnergy.Bounds:cfg.Bounds;activationLabel.Text=targetSelected?"Enable target of target":enemySelected?"Enable our target":staggerSelected?"Enable Stagger Bar":flightSelected?"Enable Flight Energy":"Enable Energy Bar";enemyBehaviorPage.Visibility=enemySelected?Visibility.Visible:Visibility.Collapsed;valueOutlinePage.Visibility=enemySelected&&!targetSelected?Visibility.Visible:Visibility.Collapsed;lockTextPage.Visibility=enemySelected&&!targetSelected?Visibility.Visible:Visibility.Collapsed;enemyDetailPage.Visibility=enemySelected&&!targetSelected?Visibility.Visible:Visibility.Collapsed;targetIdentityPage.Visibility=targetSelected?Visibility.Visible:Visibility.Collapsed;countdownPage.Visibility=staggerScreenPage.Visibility=staggerSelected?Visibility.Visible:Visibility.Collapsed;enemyNamePage.Visibility=enemySelected?Visibility.Visible:Visibility.Collapsed;valuePage.Visibility=targetSelected?Visibility.Collapsed:Visibility.Visible;detectionHint.Text=targetSelected?"Shows the received name and health of whoever your selected target is targeting, including players. Open the Helper before entering your character.":enemySelected?"Follows your selected NPC or player, or the primary target of your attack. Layout and text settings are shared; the preview selector edits only colors. Player colors use faction in the world and received teams in supported 1v1 arenas. Unknown modes keep the base colors.":staggerSelected?"Only enemies with received stagger data are shown. After character identification, follows the last enemy you attack. Area hits on enemies without a gauge do not replace the tracked enemy. Selecting a target without attacking may not send gauge data. A gauge that remains at zero for five seconds is hidden until a positive value arrives.":flightSelected?"If flight energy is missing, open the Helper before entering your character so it can receive the maximum.":"Maximum energy is detected from game stats. If the status says it is waiting for the maximum, start the helper before entering your character or return to character selection and enter again. Until then, a saved or default reference may be inaccurate.";switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["RechargeOnly"].IsChecked=cfg.FlightEnergy.RechargeOnly;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
+        var cfg=overlay.Configuration;progressStyle.SelectedIndex=(int)ProgressWidgetScale.Bar(cfg,progressSelection).Style;if(progressOverview.Visibility==Visibility.Visible)progressOverview.Reload(cfg);foregroundOnly.IsChecked=cfg.ForegroundOnly;widgetSnap.IsChecked=cfg.SnapWidgets;widgetGrid.IsChecked=cfg.ShowWidgetGrid;widgetGridOpacityRow.Visibility=cfg.ShowWidgetGrid?Visibility.Visible:Visibility.Collapsed;widgetGridOpacity.Value=cfg.WidgetGridOpacity;combatOpacity.IsChecked=cfg.CombatOpacityEnabled;combatOpacityRow.Visibility=cfg.CombatOpacityEnabled?Visibility.Visible:Visibility.Collapsed;idleOpacity.Value=cfg.IdleCombatOpacity;if(powerPage!=null)powerPage.Reload();if(combatLogPage!=null)combatLogPage.Reload();if(hiddenCubePage!=null)hiddenCubePage.Reload();if(experiencePage!=null)experiencePage.Reload();if(healthPage!=null)healthPage.Reload();if(manaPage!=null)manaPage.Reload();if(updatePage!=null)updatePage.Translate();if(supportPage!=null)supportPage.Reload();if(fpsPage!=null)fpsPage.Reload();if(pingPage!=null)pingPage.Reload();if(dpsPage!=null)dpsPage.Reload();if(notificationPage!=null)notificationPage.Reload();if(petsPage!=null)petsPage.Reload();if(craftingPage!=null)craftingPage.Reload();if(floatingTextPage!=null)floatingTextPage.Reload();skillSlotsPage.Reload();if(gameTweaksPage!=null)gameTweaksPage.Translate();languagePicker.SelectedIndex=Array.IndexOf(UiLanguageMore.Codes,UiLanguage.Normalize(cfg.Language));var o=ProgressWidgetScale.Bar(cfg,SelectedProgressKind);var bounds=enemySelected?SelectedEnemy(cfg).Bounds:staggerSelected?cfg.Stagger.Bounds:flightSelected?cfg.FlightEnergy.Bounds:cfg.Bounds;activationLabel.Text=targetSelected?"Enable target of target":enemySelected?"Enable our target":staggerSelected?"Enable Stagger Bar":flightSelected?"Enable Flight Energy":"Enable Energy Bar";enemyBehaviorPage.Visibility=enemySelected?Visibility.Visible:Visibility.Collapsed;valueOutlinePage.Visibility=targetSelected?Visibility.Collapsed:Visibility.Visible;lockTextPage.Visibility=enemySelected&&!targetSelected?Visibility.Visible:Visibility.Collapsed;enemyDetailPage.Visibility=enemySelected&&!targetSelected?Visibility.Visible:Visibility.Collapsed;targetIdentityPage.Visibility=targetSelected?Visibility.Visible:Visibility.Collapsed;countdownPage.Visibility=staggerScreenPage.Visibility=staggerSelected?Visibility.Visible:Visibility.Collapsed;enemyNamePage.Visibility=enemySelected?Visibility.Visible:Visibility.Collapsed;valuePage.Visibility=targetSelected?Visibility.Collapsed:Visibility.Visible;detectionHint.Text=targetSelected?"Shows the received name and health of whoever your selected target is targeting, including players. Open the Helper before entering your character.":enemySelected?"Follows your selected NPC or player, or the primary target of your attack. Layout and text settings are shared; the preview selector edits only colors. Player colors use faction in the world and received teams in supported 1v1 arenas. Unknown modes keep the base colors.":staggerSelected?"Only enemies with received stagger data are shown. After character identification, follows the last enemy you attack. Area hits on enemies without a gauge do not replace the tracked enemy. Selecting a target without attacking may not send gauge data. A gauge that remains at zero for five seconds is hidden until a positive value arrives.":flightSelected?"If flight energy is missing, open the Helper before entering your character so it can receive the maximum.":"Maximum energy is detected from game stats. If the status says it is waiting for the maximum, start the helper before entering your character or return to character selection and enter again. Until then, a saved or default reference may be inaccurate.";switches["Enabled"].IsChecked=o.Enabled;switches["AutoHide"].IsChecked=o.AutoHide;switches["RechargeOnly"].IsChecked=cfg.FlightEnergy.RechargeOnly;switches["Fade"].IsChecked=o.Fade;switches["Smooth"].IsChecked=o.Smooth;switches["Emissive"].IsChecked=o.Emissive;switches["DynamicColors"].IsChecked=o.DynamicColors;
         numbers["WidgetScale"].Value=o.ScalePercent;switches["SelfHighlight"].IsChecked=SelectedEnemy(cfg).SelfHighlight;SetColor("SelfColor",SelectedEnemy(cfg).SelfColor);SetColor("SelfNameColor",SelectedEnemy(cfg).SelfNameColor);numbers["Width"].Value=bounds.Width;numbers["Height"].Value=bounds.Height;numbers["X"].Value=bounds.X;numbers["Y"].Value=bounds.Y;numbers["HoldSeconds"].Value=(decimal)o.HoldSeconds;numbers["FadeMs"].Value=(decimal)(o.FadeSeconds*1000);numbers["SmoothMs"].Value=(decimal)(o.SmoothingSeconds*1000);numbers["GlowPercent"].Value=o.GlowPercent;numbers["TrackPercent"].Value=(decimal)(o.TrackOpacity*100.0/255);
         switches["CurrentText"].IsChecked=o.CurrentText;switches["MaximumText"].IsChecked=o.MaximumText;switches["PercentageText"].IsChecked=o.PercentageText;positions["CurrentPosition"].SelectedIndex=o.CurrentPosition;positions["MaximumPosition"].SelectedIndex=o.MaximumPosition;positions["PercentagePosition"].SelectedIndex=o.PercentagePosition;numbers["CurrentOffsetY"].Value=o.CurrentOffsetY;numbers["MaximumOffsetY"].Value=o.MaximumOffsetY;numbers["PercentageOffsetY"].Value=o.PercentageOffsetY;numbers["TextSize"].Value=o.TextSize;SetColor("TextColor",o.TextColor);var countdown=cfg.Stagger.Countdown;switches["CountdownEnabled"].IsChecked=countdown.Enabled;switches["CountdownGlow"].IsChecked=countdown.Glow;switches["CountdownShrink"].IsChecked=countdown.Shrink;positions["CountdownPosition"].SelectedIndex=countdown.Position;numbers["CountdownOffsetY"].Value=countdown.OffsetY;numbers["CountdownSize"].Value=countdown.FontSize;numbers["CountdownGlowPercent"].Value=countdown.GlowPercent;numbers["CountdownMinimumScale"].Value=countdown.MinimumScalePercent;numbers["CountdownSeconds"].Value=(decimal)countdown.ReferenceSeconds;SetColor("CountdownColor",countdown.Color);var screenEffect=cfg.Stagger.ScreenEffect;switches["StaggerScreenEnabled"].IsChecked=screenEffect.Enabled;SetColor("StaggerScreenTextColor",screenEffect.TextColor);SetColor("StaggerScreenEffectColor",screenEffect.EffectColor);
         var d=SelectedEnemy(cfg).Details;switches["EnemyOnlyLocked"].IsChecked=SelectedEnemy(cfg).OnlyLocked;switches["EnemyDistanceBold"].IsChecked=d.DistanceText.Bold;switches["EnemySpeciesBold"].IsChecked=d.SpeciesText.Bold;switches["EnemyLevel"].IsChecked=d.Level;switches["EnemyBaseLevel"].IsChecked=d.BaseLevel;switches["EnemyDistance"].IsChecked=d.Distance;switches["EnemyExactPosition"].IsChecked=d.ExactPosition;switches["EnemySpecies"].IsChecked=d.Species;numbers["EnemyDistanceSize"].Value=d.DistanceText.FontSize;positions["EnemyDistancePosition"].SelectedIndex=d.DistanceText.Position;numbers["EnemyDistanceX"].Value=d.DistanceText.OffsetX;numbers["EnemyDistanceY"].Value=d.DistanceText.OffsetY;SetColor("EnemyDistanceColor",d.DistanceText.Color);numbers["EnemySpeciesSize"].Value=d.SpeciesText.FontSize;positions["EnemySpeciesPosition"].SelectedIndex=d.SpeciesText.Position;numbers["EnemySpeciesX"].Value=d.SpeciesText.OffsetX;numbers["EnemySpeciesY"].Value=d.SpeciesText.OffsetY;SetColor("EnemySpeciesColor",d.SpeciesText.Color);var name=SelectedEnemy(cfg).Name;switches["EnemyNameEnabled"].IsChecked=name.Enabled;switches["EnemyNameBold"].IsChecked=name.Bold;numbers["EnemyNameSize"].Value=name.FontSize;positions["EnemyNamePosition"].SelectedIndex=name.Position;numbers["EnemyNameOffsetX"].Value=name.OffsetX;numbers["EnemyNameOffsetY"].Value=name.OffsetY;SetColor("EnemyNameColor",name.Color);
         var lockText=SelectedEnemy(cfg).LockText;switches["EnemyLockEnabled"].IsChecked=lockText.Enabled;switches["EnemyLockBold"].IsChecked=lockText.Bold;numbers["EnemyLockSize"].Value=lockText.FontSize;positions["EnemyLockPosition"].SelectedIndex=lockText.Position;numbers["EnemyLockX"].Value=lockText.OffsetX;numbers["EnemyLockY"].Value=lockText.OffsetY;SetColor("EnemyLockColor",lockText.Color);
         SetColor("LowColor",o.LowColor);SetColor("MediumColor",o.MediumColor);SetColor("HighColor",o.HighColor);
+        switches["BarBorder"].IsChecked=o.HasBorder;
+        numbers["BarBorderWidth"].Value=o.BorderWidth;
+        numbers["BarBorderOpacity"].Value=o.EdgeOpacity;
+        SetColor("BarBorderColor",o.EdgeColor);
         targetPaletteRow.Visibility=enemySelected&&!targetSelected?Visibility.Visible:Visibility.Collapsed;targetPalettePicker.SelectedIndex=PaletteIndex(targetPalette);resetEffects.Content=enemySelected&&!targetSelected?"Reset selected colors":"Reset effects and colors";if(enemySelected&&!targetSelected){var palette=SelectedEnemy(cfg).Colors(targetPalette);SetColor("LowColor",palette.Low);SetColor("MediumColor",palette.Medium);SetColor("HighColor",palette.High);SetColor("EnemyNameColor",palette.Name);SetColor("TextColor",palette.Value);SetColor("EnemyDistanceColor",palette.Distance);SetColor("EnemySpeciesColor",palette.Species);SetColor("EnemyLockColor",palette.Lock);}
         foreach(var input in numbers.Values)input.IsEnabled=o.Enabled;foreach(var input in colors.Values)input.IsEnabled=o.Enabled;foreach(var input in switches)if(input.Key!="Enabled")input.Value.IsEnabled=o.Enabled;foreach(var tab in tabs)tab.IsEnabled=o.Enabled;foreach(var input in positions.Values)input.IsEnabled=o.Enabled;numbers["CurrentOffsetY"].IsEnabled=positions["CurrentPosition"].IsEnabled=o.Enabled&&o.CurrentText;numbers["MaximumOffsetY"].IsEnabled=positions["MaximumPosition"].IsEnabled=o.Enabled&&o.MaximumText;numbers["PercentageOffsetY"].IsEnabled=positions["PercentagePosition"].IsEnabled=o.Enabled&&o.PercentageText;
         ((Grid)switches["RechargeOnly"].Parent).Visibility=flightSelected?Visibility.Visible:Visibility.Collapsed;
         ((Grid)switches["AutoHide"].Parent).Visibility=staggerSelected||enemySelected?Visibility.Collapsed:Visibility.Visible;((Grid)((StackPanel)numbers["HoldSeconds"].Parent).Parent).Visibility=staggerSelected||enemySelected?Visibility.Collapsed:Visibility.Visible;
         colors["SelfNameColor"].IsEnabled=colors["SelfColor"].IsEnabled=o.Enabled&&SelectedEnemy(cfg).SelfHighlight;numbers["EnemyNameSize"].IsEnabled=numbers["EnemyNameOffsetX"].IsEnabled=numbers["EnemyNameOffsetY"].IsEnabled=positions["EnemyNamePosition"].IsEnabled=colors["EnemyNameColor"].IsEnabled=switches["EnemyNameBold"].IsEnabled=o.Enabled&&name.Enabled;
         switches["EnemyBaseLevel"].IsEnabled=o.Enabled&&d.Level;switches["EnemyExactPosition"].IsEnabled=o.Enabled&&d.Distance&&!targetSelected;numbers["EnemyDistanceSize"].IsEnabled=numbers["EnemyDistanceX"].IsEnabled=numbers["EnemyDistanceY"].IsEnabled=positions["EnemyDistancePosition"].IsEnabled=colors["EnemyDistanceColor"].IsEnabled=o.Enabled&&d.Distance;numbers["EnemySpeciesSize"].IsEnabled=numbers["EnemySpeciesX"].IsEnabled=numbers["EnemySpeciesY"].IsEnabled=positions["EnemySpeciesPosition"].IsEnabled=colors["EnemySpeciesColor"].IsEnabled=o.Enabled&&d.Species;numbers["HoldSeconds"].IsEnabled=o.Enabled&&o.AutoHide;numbers["FadeMs"].IsEnabled=o.Enabled&&o.Fade;numbers["SmoothMs"].IsEnabled=o.Enabled&&o.Smooth;numbers["GlowPercent"].IsEnabled=o.Enabled&&o.Emissive;colors["LowColor"].IsEnabled=colors["HighColor"].IsEnabled=o.Enabled&&o.DynamicColors;
-        LoadOutline("Value",o.TextOutline,o.Enabled);LoadOutline("EnemyName",name.Outline,o.Enabled&&name.Enabled);LoadOutline("EnemyDistance",d.DistanceText.Outline,o.Enabled&&d.Distance);LoadOutline("EnemySpecies",d.SpeciesText.Outline,o.Enabled&&d.Species);LoadOutline("EnemyLock",lockText.Outline,o.Enabled&&lockText.Enabled);switches["EnemyDistanceBold"].IsEnabled=o.Enabled&&d.Distance;switches["EnemySpeciesBold"].IsEnabled=o.Enabled&&d.Species;
+        colors["BarBorderColor"].IsEnabled=numbers["BarBorderWidth"].IsEnabled=numbers["BarBorderOpacity"].IsEnabled=o.Enabled&&o.HasBorder;
+        LoadOutline("Countdown",countdown.Outline,o.Enabled&&countdown.Enabled);
+        string targetEdge=enemySelected&&o.Style==ProgressBarStyle.Crystal?o.EdgeColor:"#000000";
+        LoadOutline("Value",o.TextOutline,o.Enabled,targetEdge);
+        LoadOutline("EnemyName",name.Outline,o.Enabled&&name.Enabled,targetEdge);
+        LoadOutline("EnemyDistance",d.DistanceText.Outline,o.Enabled&&d.Distance,targetEdge);
+        LoadOutline("EnemySpecies",d.SpeciesText.Outline,o.Enabled&&d.Species,targetEdge);
+        LoadOutline("EnemyLock",lockText.Outline,o.Enabled&&lockText.Enabled,targetEdge);
+        switches["EnemyDistanceBold"].IsEnabled=o.Enabled&&d.Distance;switches["EnemySpeciesBold"].IsEnabled=o.Enabled&&d.Species;
         numbers["EnemyLockSize"].IsEnabled=numbers["EnemyLockX"].IsEnabled=numbers["EnemyLockY"].IsEnabled=positions["EnemyLockPosition"].IsEnabled=colors["EnemyLockColor"].IsEnabled=switches["EnemyLockBold"].IsEnabled=o.Enabled&&lockText.Enabled;
         bool countdownActive=o.Enabled&&countdown.Enabled;numbers["CountdownOffsetY"].IsEnabled=positions["CountdownPosition"].IsEnabled=colors["CountdownColor"].IsEnabled=numbers["CountdownSize"].IsEnabled=numbers["CountdownSeconds"].IsEnabled=switches["CountdownGlow"].IsEnabled=switches["CountdownShrink"].IsEnabled=countdownActive;numbers["CountdownGlowPercent"].IsEnabled=countdownActive&&countdown.Glow;numbers["CountdownMinimumScale"].IsEnabled=countdownActive&&countdown.Shrink;
         previewCard.IsEnabled=segmented.IsEnabled=scroller.IsEnabled=previewSlider.IsEnabled=o.Enabled;previewCard.Opacity=o.Enabled?1:.38;segmented.Opacity=scroller.Opacity=o.Enabled?1:.45;
@@ -550,13 +849,39 @@ internal sealed class HelperSettings : Window {
         if(!c.EnemyHealth.OnlyLocked||c.EnemyTarget.OnlyLocked||!c.EnemyHealth.Name.Outline.Enabled||c.EnemyHealth.Name.Outline.Width!=3||c.EnemyHealth.Name.Outline.Opacity!=65||!c.EnemyHealth.Bar.TextOutline.Enabled||c.EnemyHealth.Bar.TextOutline.Width!=2||!c.EnemyHealth.Details.DistanceText.Bold||c.EnemyHealth.Details.DistanceText.OffsetX!=-80||c.EnemyHealth.Details.DistanceText.OffsetY!=13||c.EnemyHealth.Details.DistanceText.Color!="#AABBCC"||c.EnemyHealth.Details.DistanceText.Outline.Width!=4||!c.EnemyHealth.Details.SpeciesText.Bold||c.EnemyHealth.Details.SpeciesText.Color!="#CCAA88"||!c.EnemyHealth.LockText.Outline.Enabled||c.EnemyHealth.LockText.FontSize!=16||c.EnemyHealth.LockText.OffsetX!=22)throw new Exception("Independent enemy text controls and lock-only setting");
         overlay.UndoConfiguration();if(!ConfigurationHistory.Same(original,overlay.Configuration))throw new Exception("Text/selection controls undo restores all prior options");SelectProgress(3);switches["EnemyOnlyLocked"].IsChecked=true;switches["EnemyNameOutline"].IsChecked=true;numbers["EnemyNameOutlineWidth"].Value=5;Changed();c=overlay.Configuration;if(!c.EnemyTarget.OnlyLocked||c.EnemyHealth.OnlyLocked||c.EnemyTarget.Name.Outline.Width!=5||c.EnemyHealth.Name.Outline.Enabled||lockTextPage.Visibility!=Visibility.Collapsed)throw new Exception("Target selection and name outline independent from main enemy");overlay.ApplyConfiguration(original);SelectProgress(2);switches["EnemyNameEnabled"].IsChecked=false;switches["EnemyDistance"].IsChecked=false;Changed();if(switches["EnemyNameOutline"].IsEnabled||numbers["EnemyNameOutlineWidth"].IsEnabled||switches["EnemyDistanceBold"].IsEnabled||switches["EnemyDistanceOutline"].IsEnabled)throw new Exception("Hidden texts disable their style controls");overlay.ApplyConfiguration(original);SelectProgress(0);
     }
+    void VerifyEnemyOutlineColors(){
+        var original=overlay.Configuration;
+        var configuration=original.Copy();
+        var target=configuration.EnemyHealth;
+        target.Bar.Enabled=true;
+        target.Bar.Style=ProgressBarStyle.Crystal;
+        target.Bar.BorderColor="#123456";
+        target.Bar.TextOutline.Enabled=true;
+        target.Bar.TextOutline.Color="#FF7700";
+        target.Details.Species=true;
+        target.Details.SpeciesText.Outline.Enabled=true;
+        target.Details.SpeciesText.Outline.Color="#00CC77";
+        overlay.ApplyConfiguration(configuration);
+        SelectProgress(2);
+        if(colorValues["ValueOutlineColor"]!="#FF7700"||colorValues["EnemySpeciesOutlineColor"]!="#00CC77"
+            ||colorValues["EnemyNameOutlineColor"]!="#123456")throw new Exception("Each outline editor shows its effective color");
+        numbers["ValueOutlineWidth"].Value=3;
+        Changed();
+        if(overlay.Configuration.EnemyHealth.Bar.TextOutline.Color!="#FF7700")throw new Exception("Editing width must keep the custom color");
+        var reset=(Button)((StackPanel)colors["EnemySpeciesOutlineColor"].Parent).Children[1];
+        reset.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        if(overlay.Configuration.EnemyHealth.Details.SpeciesText.Outline.Color!=null
+            ||colorValues["EnemySpeciesOutlineColor"]!="#123456"||overlay.Configuration.EnemyHealth.Bar.TextOutline.Color!="#FF7700")
+            throw new Exception("Default outline must inherit the theme and leave other text alone");
+        overlay.ApplyConfiguration(original);
+    }
     internal void VerifyEnemyDetails(string root){var original=overlay.Configuration;SelectProgress(2);if(enemyDetailPage.Visibility!=Visibility.Visible)throw new Exception("Main enemy detail controls visible");switches["EnemyBaseLevel"].IsChecked=false;switches["EnemyExactPosition"].IsChecked=true;numbers["EnemyDistanceSize"].Value=18;positions["EnemySpeciesPosition"].SelectedIndex=5;Changed();var c=overlay.Configuration;if(!c.EnemyHealth.Details.ExactPosition||c.EnemyTarget.Details.ExactPosition||c.EnemyHealth.Details.BaseLevel||c.EnemyHealth.Details.DistanceText.FontSize!=18||c.EnemyHealth.Details.SpeciesText.Position!=5||c.EnemyTarget.Details.Distance||c.EnemyTarget.Details.Level)throw new Exception("Independent main detail controls");overlay.UndoConfiguration();if(!ConfigurationHistory.Same(original,overlay.Configuration))throw new Exception("Enemy details undo");SelectProgress(3);if(enemyDetailPage.Visibility!=Visibility.Collapsed)throw new Exception("No details on target-of-target");overlay.ApplyConfiguration(original);var spanish=original.Copy();spanish.Language="es";overlay.ApplyConfiguration(spanish);SelectProgress(2);SelectTab(1);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-enemy-details-es.png"));SelectProgress(0);overlay.ApplyConfiguration(original);}
     internal void VerifyEnemyTarget(string root){var original=overlay.Configuration;SelectProgress(3);if(!ConfigurationHistory.Same(ReadConfiguration(),original)||valuePage.Visibility!=Visibility.Collapsed||enemyNamePage.Visibility!=Visibility.Visible)throw new Exception("Target tab retains settings and displays name only");numbers["EnemyNameSize"].Value=18;numbers["EnemyNameOffsetY"].Value=12;Changed();var c=overlay.Configuration;if(c.EnemyTarget.Name.FontSize!=18||c.EnemyTarget.Name.OffsetY!=12||c.EnemyHealth.Name.FontSize!=original.EnemyHealth.Name.FontSize||c.EnemyHealth.Bounds!=original.EnemyHealth.Bounds||c.EnemyTarget.Bar.CurrentText||c.EnemyTarget.Bar.MaximumText||c.EnemyTarget.Bar.PercentageText)throw new Exception("Target name and bar independent");overlay.UndoConfiguration();if(!ConfigurationHistory.Same(overlay.Configuration,original))throw new Exception("Target undo");c=original.Copy();c.Language="es";overlay.ApplyConfiguration(c);SelectTab(1);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-enemy-target-es.png"));SelectProgress(0);overlay.ApplyConfiguration(original);}
     void VerifyTargetColorEditor(string root){var original=overlay.Configuration;SelectProgress(2);SelectTab(1);var initial=overlay.Configuration;for(int kind=0;kind<4;kind++){targetPalettePicker.SelectedIndex=PaletteIndex(kind);if(!ConfigurationHistory.Same(initial,overlay.Configuration))throw new Exception("Preview selector cannot change saved settings");SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-our-target-colors-"+kind+".png"));}
         targetPalettePicker.SelectedIndex=PaletteIndex(1);var before=overlay.Configuration;SetColor("MediumColor","#ED5533");SetColor("EnemyNameColor","#F3AA66");Changed();var after=overlay.Configuration;if(after.EnemyHealth.Colors(1).Medium!="#ED5533"||after.EnemyHealth.Colors(1).Name!="#F3AA66"||after.EnemyHealth.Bar.MediumColor!=before.EnemyHealth.Bar.MediumColor||after.EnemyHealth.Bounds!=before.EnemyHealth.Bounds||after.EnemyHealth.Name.FontSize!=before.EnemyHealth.Name.FontSize)throw new Exception("Editing player colors must preserve shared layout and NPC colors");overlay.UndoConfiguration();if(!ConfigurationHistory.Same(before,overlay.Configuration))throw new Exception("Palette undo restores exact configuration");
         targetPalettePicker.SelectedIndex=PaletteIndex(3);before=overlay.Configuration;SetColor("MediumColor","#7799CC");Changed();after=overlay.Configuration;if(after.EnemyHealth.Colors(3).Medium!="#7799CC"||after.EnemyHealth.Bar.MediumColor!=before.EnemyHealth.Bar.MediumColor||after.EnemyHealth.Colors(1).Medium!=before.EnemyHealth.Colors(1).Medium||after.EnemyHealth.Bounds!=before.EnemyHealth.Bounds)throw new Exception("Fourth palette must edit only neutral NPC colors");overlay.UndoConfiguration();if(!ConfigurationHistory.Same(before,overlay.Configuration))throw new Exception("Neutral NPC palette undo restores exact settings");
         targetPalettePicker.SelectedIndex=PaletteIndex(2);before=overlay.Configuration;numbers["X"].Value=before.EnemyHealth.Bounds.X+37;Changed();after=overlay.Configuration;for(int kind=0;kind<4;kind++)if(after.EnemyHealth.ForPalette(kind).Bounds.X!=after.EnemyHealth.Bounds.X)throw new Exception("Movement stays shared across every palette");overlay.ApplyConfiguration(original);targetPalette=0;Reload();}
-    internal void VerifyEnemyHealth(string root){VerifyTargetColorEditor(root);var original=overlay.Configuration;SelectProgress(2);if(!ConfigurationHistory.Same(ReadConfiguration(),original))throw new Exception("Enemy tab must retain all other settings");numbers["TextSize"].Value=19;Changed();if(overlay.Configuration.EnemyHealth.Bar.TextSize!=19||!StaggerOptions.Same(overlay.Configuration.Stagger,original.Stagger)||!ProgressBarText.Same(overlay.Configuration.Options,original.Options))throw new Exception("Enemy appearance must be independent");overlay.UndoConfiguration();if(!ConfigurationHistory.Same(overlay.Configuration,original))throw new Exception("Enemy undo restores exact configuration");numbers["EnemyNameSize"].Value=13;numbers["EnemyNameOffsetX"].Value=25;numbers["EnemyNameOffsetY"].Value=80;positions["EnemyNamePosition"].SelectedIndex=5;Changed();var named=overlay.Configuration;if(SelectedEnemy(named).Name.FontSize!=13||SelectedEnemy(named).Name.OffsetX!=25||SelectedEnemy(named).Name.OffsetY!=80||SelectedEnemy(named).Name.Position!=5||SelectedEnemy(named).Bar.TextSize!=SelectedEnemy(original).Bar.TextSize||SelectedEnemy(named).Bounds!=SelectedEnemy(original).Bounds)throw new Exception("Independent enemy name size/position");overlay.ApplyConfiguration(original);var cfg=original.Copy();cfg.Language="es";overlay.ApplyConfiguration(cfg);SelectTab(1);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-enemy-health-es.png"));SelectProgress(false);overlay.ApplyConfiguration(original);}
+    internal void VerifyEnemyHealth(string root){VerifyTargetColorEditor(root);VerifyEnemyOutlineColors();var original=overlay.Configuration;SelectProgress(2);if(!ConfigurationHistory.Same(ReadConfiguration(),original))throw new Exception("Enemy tab must retain all other settings");numbers["TextSize"].Value=19;Changed();if(overlay.Configuration.EnemyHealth.Bar.TextSize!=19||!StaggerOptions.Same(overlay.Configuration.Stagger,original.Stagger)||!ProgressBarText.Same(overlay.Configuration.Options,original.Options))throw new Exception("Enemy appearance must be independent");overlay.UndoConfiguration();if(!ConfigurationHistory.Same(overlay.Configuration,original))throw new Exception("Enemy undo restores exact configuration");numbers["EnemyNameSize"].Value=13;numbers["EnemyNameOffsetX"].Value=25;numbers["EnemyNameOffsetY"].Value=80;positions["EnemyNamePosition"].SelectedIndex=5;Changed();var named=overlay.Configuration;if(SelectedEnemy(named).Name.FontSize!=13||SelectedEnemy(named).Name.OffsetX!=25||SelectedEnemy(named).Name.OffsetY!=80||SelectedEnemy(named).Name.Position!=5||SelectedEnemy(named).Bar.TextSize!=SelectedEnemy(original).Bar.TextSize||SelectedEnemy(named).Bounds!=SelectedEnemy(original).Bounds)throw new Exception("Independent enemy name size/position");overlay.ApplyConfiguration(original);var cfg=original.Copy();cfg.Language="es";overlay.ApplyConfiguration(cfg);SelectTab(1);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-enemy-health-es.png"));SelectProgress(false);overlay.ApplyConfiguration(original);}
     internal void VerifyStaggerEffect(string root){
         var original=overlay.Configuration;var cfg=original.Copy();cfg.Language="en";cfg.Stagger.Bar.Enabled=true;overlay.ApplyConfiguration(cfg);SelectProgress(true);SelectTab(1);
         if(staggerScreenPage.Visibility!=Visibility.Visible||!ConfigurationHistory.Same(ReadConfiguration(),cfg))throw new Exception("Effect settings retain every other progress option");
@@ -569,8 +894,41 @@ internal sealed class HelperSettings : Window {
         SelectProgress(false);if(staggerScreenPage.Visibility!=Visibility.Collapsed||!ConfigurationHistory.Same(ReadConfiguration(),overlay.Configuration))throw new Exception("Energy page preserves hidden stagger effect settings");overlay.ApplyConfiguration(original);
     }
     internal void VerifyProgress(string root){
+        ShowProgressOverview();
+        progressOverview.Verify();
+        var stylesBaseline=overlay.Configuration;
+        foreach(int kind in new[]{0,1,2,3,4,5,6,7}){
+            SelectProgress(kind);
+            var expected=stylesBaseline.Copy();
+            ProgressWidgetScale.Bar(expected,kind).Style=ProgressBarStyle.Crystal;
+            progressStyle.SelectedIndex=1;
+            if(!ConfigurationHistory.Same(expected,overlay.Configuration))throw new Exception("Each bar's detail style must be independent");
+            if(kind<4||kind==7){
+                numbers["Width"].Value+=5;
+                Changed();
+                if(ProgressWidgetScale.Bar(overlay.Configuration,kind).Style!=ProgressBarStyle.Crystal)
+                    throw new Exception("Changing geometry must preserve the selected style");
+            }
+            overlay.ApplyConfiguration(stylesBaseline);
+        }
         var original=overlay.Configuration;var cfg=original.Copy();cfg.Language="en";cfg.Stagger.Bar.Enabled=true;cfg.Options.CurrentText=true;cfg.Options.MaximumText=true;cfg.Options.PercentageText=true;overlay.ApplyConfiguration(cfg);SelectProgress(true);SelectTab(1);
         if(!ConfigurationHistory.Same(ReadConfiguration(),overlay.Configuration))throw new Exception("Stagger tab must preserve other widgets");
+        if(valueOutlinePage.Visibility!=Visibility.Visible)throw new Exception("Stagger values must expose outline controls");
+        switches["BarBorder"].IsChecked=true;
+        numbers["BarBorderWidth"].Value=3;
+        numbers["BarBorderOpacity"].Value=68;
+        SetColor("BarBorderColor","#AABBCC");
+        switches["ValueOutline"].IsChecked=true;
+        numbers["ValueOutlineWidth"].Value=2;
+        switches["CountdownOutline"].IsChecked=true;
+        numbers["CountdownOutlineWidth"].Value=4;
+        Changed();
+        var stagger=overlay.Configuration.Stagger;
+        if(!stagger.Bar.HasBorder||stagger.Bar.BorderWidth!=3||stagger.Bar.EdgeOpacity!=68||stagger.Bar.EdgeColor!="#AABBCC"
+            ||!stagger.Bar.TextOutline.Enabled||stagger.Bar.TextOutline.Width!=2||!stagger.Countdown.Outline.Enabled||stagger.Countdown.Outline.Width!=4
+            ||overlay.Configuration.Options.HasBorder)throw new Exception("Stagger frame, values and countdown outlines must be independent");
+        overlay.UndoConfiguration();
+        if(!ConfigurationHistory.Same(cfg,overlay.Configuration))throw new Exception("Stagger border and outlines undo");
         numbers["CurrentOffsetY"].Value=9;numbers["MaximumOffsetY"].Value=-3;numbers["PercentageOffsetY"].Value=5;numbers["CountdownOffsetY"].Value=11;Changed();if(overlay.Configuration.Stagger.Bar.CurrentOffsetY!=9||overlay.Configuration.Stagger.Bar.MaximumOffsetY!=-3||overlay.Configuration.Stagger.Bar.PercentageOffsetY!=5||overlay.Configuration.Stagger.Countdown.OffsetY!=11)throw new Exception("Independent vertical offsets");numbers["TextSize"].Value=20;Changed();if(overlay.Configuration.Stagger.Bar.TextSize!=20||!ProgressBarText.Same(overlay.Configuration.Options,cfg.Options))throw new Exception("Stagger labels must not change energy");
         switches["CountdownEnabled"].IsChecked=false;Changed();if(numbers["CountdownSize"].IsEnabled||numbers["CountdownGlowPercent"].IsEnabled||positions["CountdownPosition"].IsEnabled)throw new Exception("Disabled countdown controls");overlay.UndoConfiguration();if(!overlay.Configuration.Stagger.Countdown.Enabled)throw new Exception("Countdown undo");
         var designs=Path.Combine(root,"designs");Directory.CreateDirectory(designs);SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-stagger-en.png"));cfg=overlay.Configuration;cfg.Language="es";overlay.ApplyConfiguration(cfg);SettingsVisual.RenderPreview(this,Path.Combine(designs,"settings-stagger-es.png"));if(sectionTitle.Text!="Barras de progreso")throw new Exception("Progress localization");
@@ -582,11 +940,11 @@ internal sealed class HelperSettings : Window {
     internal void ShowDpsHistory(){SelectModule(3);dpsPage.SelectHistory(true);}
     internal void VerifyDps(string root){SelectModule(3);dpsPage.Verify();var original=overlay.Configuration;var c=original.Copy();c.Language="en";c.Dps.Enabled=true;c.Dps.AutoHide=true;overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-en.png"));c.Language="es";overlay.ApplyConfiguration(c);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-es.png"));dpsPage.RenderSections(Path.Combine(root,"designs"));overlay.CombatHistory.Add(DpsVerification.HistorySample(DpsHistory.UtcNow(),Math.Max(60,overlay.Configuration.Dps.HistoryMinimumSeconds)));dpsPage.SelectHistory(true);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-dps-history-es.png"));dpsPage.RenderHistoryDetails(Path.Combine(root,"designs","settings-dps-history-players-es.png"));dpsPage.SelectHistory(false);overlay.CombatHistory.Clear();if(sectionTitle.Text!="Medidor de DPS")throw new Exception("DPS localization");overlay.ApplyConfiguration(original);}
     internal void VerifyFps(string root){SelectModule(2);fpsPage.Verify();pingPage.Verify();SelectPerformance(true);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-ping-en.png"));SelectPerformance(false);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-fps-en.png"));var cfg=overlay.Configuration;cfg.Language="es";overlay.ApplyConfiguration(cfg);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-fps-es.png"));SelectPerformance(true);SettingsVisual.RenderPreview(this,Path.Combine(root,"designs","settings-ping-es.png"));SelectPerformance(false);if(sectionTitle.Text!="FPS/Ping")throw new Exception("FPS section localization");}
-    internal void VerifyLayout(){SelectSection(false);if(switches.Count!=32||numbers.Count!=41||colors.Count!=13||positions.Count!=8)throw new Exception("Missing settings control");for(int n=0;n<3;n++){SelectTab(n);if(pages[n].Children.Count==0||pages[n].Visibility!=Visibility.Visible)throw new Exception("Empty settings tab");}VerifyModuleState(overlay.Configuration.Options.Enabled);}
+    internal void VerifyLayout(){SelectSection(false);if(switches.Count!=34||numbers.Count!=45||colors.Count!=20||positions.Count!=8)throw new Exception("Missing settings control");for(int n=0;n<3;n++){SelectTab(n);if(pages[n].Children.Count==0||pages[n].Visibility!=Visibility.Visible)throw new Exception("Empty settings tab");}VerifyModuleState(overlay.Configuration.Options.Enabled);}
     internal void RenderFantasyPages(string folder,string language){
         if(FlowDirection!=(language=="ar"?FlowDirection.RightToLeft:FlowDirection.LeftToRight))throw new Exception("Wrong text direction: "+language);
         for(int i=0;i<sections.Length;i++){
-            SelectModule(i);
+            if(i==1)ShowProgressOverview();else SelectModule(i);
             if(i==6)petsPage.Select(1);
             SettingsVisual.RenderPreview(this,Path.Combine(folder,"module-"+i.ToString("00")+"-"+language+".png"));
             if(i==6&&language=="es")petsPage.VerifyRegistryFades(folder);
@@ -595,7 +953,7 @@ internal sealed class HelperSettings : Window {
         }
         SelectModule(6);petsPage.Select(2);SettingsVisual.RenderPreview(this,Path.Combine(folder,"pets-atlas-tab-"+language+".png"));
         SelectModule(3);dpsPage.SelectHistory(true);SettingsVisual.RenderPreview(this,Path.Combine(folder,"dps-history-"+language+".png"));dpsPage.SelectHistory(false);
-        SelectModule(1);SelectProgress(2);SelectTab(1);
+        SelectProgress(2);SelectTab(1);
         SettingsVisual.RenderPreview(this,Path.Combine(folder,"target-appearance-"+language+".png"));
         var size=new Size(Width,Height);
         try{

@@ -209,7 +209,59 @@ internal static class BarDesign {
             using(var brush=new SolidBrush(Color.FromArgb(255,100,110,115))){g.FillRectangle(brush,0,0,1,height);g.FillRectangle(brush,width-1,0,1,height);}
         }
     }
-    internal static Bitmap RenderEmissive(int width,int height,double ratio,bool editing,bool fresh,float dpiScale,EnergyBarOptions options=null,GlowWorkspace workspace=null){
+    internal static float FaceRadius(RectangleF bounds,ProgressBarStyle style){
+        return style==ProgressBarStyle.Compact?Math.Min(2,bounds.Height/4):bounds.Height/2;
+    }
+    // Use the same edge finish for every family, including the HP/MP frame.
+    internal static Color CrystalEdge(Color tint,bool light){
+        var shade=Mix(tint,light?Color.White:Color.FromArgb(20,28,44),light?.28:.48);
+        return Color.FromArgb(tint.A,shade);
+    }
+    internal static void DrawBorder(Graphics g,RectangleF face,ProgressBarStyle style,Color tint,int thickness){
+        if(tint.A==0)return;
+        thickness=Math.Max(1,Math.Min(thickness,(int)Math.Min(face.Width,face.Height)/2));
+        var area=RectangleF.Inflate(face,-thickness/2f,-thickness/2f);
+        var state=g.Save();
+        g.SmoothingMode=SmoothingMode.AntiAlias;
+        using(var path=FpsDesign.Round(area.X,area.Y,area.Width,area.Height,FaceRadius(area,style))){
+            if(style==ProgressBarStyle.Crystal)
+                using(var brush=new LinearGradientBrush(face,CrystalEdge(tint,true),CrystalEdge(tint,false),LinearGradientMode.Vertical))
+                using(var pen=new Pen(brush,thickness))g.DrawPath(pen,path);
+            else using(var pen=new Pen(tint,thickness))g.DrawPath(pen,path);
+        }
+        g.Restore(state);
+    }
+    internal static void DrawClassicBorder(Graphics g,RectangleF core,EnergyBarOptions options){
+        var tint=options.EdgePaint;
+        if(tint.A==0)return;
+        // Wrap even a 3 px Classic bar without covering its fill or clamping the
+        // chosen border width. Existing surface padding accommodates all widths.
+        DrawBorder(g,RectangleF.Inflate(core,options.BorderWidth,options.BorderWidth),ProgressBarStyle.Classic,tint,options.BorderWidth);
+    }
+    internal static RectangleF DrawStyledFace(Graphics g,RectangleF face,double ratio,EnergyBarOptions options,bool fresh,Color border,int thickness){
+        bool crystal=options.Style==ProgressBarStyle.Crystal;
+        int inset=Math.Max(2,Math.Min((int)(face.Height-1)/2,thickness+1));
+        var inner=RectangleF.Inflate(face,-inset,-inset);
+        var color=EnergyColor(ratio,options);
+        var state=g.Save();
+        g.SmoothingMode=SmoothingMode.AntiAlias;
+        using(var outline=FpsDesign.Round(face.X,face.Y,face.Width,face.Height,FaceRadius(face,options.Style)))
+        using(var track=new SolidBrush(crystal?Color.FromArgb(options.TrackOpacity,35,49,70):Color.FromArgb(options.TrackOpacity,12,12,14)))g.FillPath(track,outline);
+        float filled=fresh?(float)(inner.Width*Math.Max(0,Math.Min(1,ratio))):0;
+        if(filled>0){
+            using(var clip=FpsDesign.Round(inner.X,inner.Y,inner.Width,inner.Height,FaceRadius(inner,options.Style)))
+            using(var fill=new LinearGradientBrush(inner,Color.FromArgb(crystal?225:255,Mix(color,Color.White,crystal?.38:.18)),Mix(color,Color.Black,crystal?.20:.30),LinearGradientMode.Vertical)){
+                g.SetClip(clip,CombineMode.Intersect);
+                g.FillRectangle(fill,inner.X,inner.Y,filled,inner.Height);
+                if(options.Emissive&&options.GlowPercent>0)using(var highlight=new SolidBrush(Color.FromArgb(Math.Min(190,options.GlowPercent),Color.White)))
+                    g.FillRectangle(highlight,inner.X,inner.Y,filled,Math.Max(1,inner.Height/4));
+            }
+        }
+        g.Restore(state);
+        DrawBorder(g,face,options.Style,border,thickness);
+        return inner;
+    }
+    internal static Bitmap RenderEmissive(int width,int height,double ratio,bool editing,bool fresh,float dpiScale,EnergyBarOptions options=null,GlowWorkspace workspace=null,bool classicBorder=true){
         int pad=GlowPadding,outerWidth=width+2*pad,outerHeight=height+2*pad;
         var bitmap=new Bitmap(outerWidth,outerHeight,PixelFormat.Format32bppPArgb);
         int filled=(int)Math.Round(width*Math.Max(0,Math.Min(1,ratio))),colorHeight=height-Math.Max(1,height/4);
@@ -230,6 +282,17 @@ internal static class BarDesign {
         }
         using(var g=Graphics.FromImage(bitmap)){
             if(editing)using(var brush=new SolidBrush(Color.FromArgb(1,0,0,0)))g.FillRectangle(brush,0,0,outerWidth,outerHeight);
+            if(options!=null&&options.Style!=ProgressBarStyle.Classic){
+                // Use the existing glow padding for thin bars. Anchors and hit targets stay in the configured core.
+                var border=options.EdgePaint;
+                int faceHeight=Math.Max(height,Math.Max(options.Style==ProgressBarStyle.Crystal?9:7,border.A==0?0:2*options.BorderWidth+3));
+                DrawStyledFace(g,new RectangleF(pad,pad+(height-faceHeight)/2f,width,faceHeight),ratio,options,fresh,border,border.A==0?0:options.BorderWidth);
+                if(editing)using(var guides=new SolidBrush(Color.FromArgb(255,100,110,115))){
+                    g.FillRectangle(guides,pad,pad,1,height);
+                    g.FillRectangle(guides,pad+width-1,pad,1,height);
+                }
+                return bitmap;
+            }
             // Keep the edit surface's original alpha compositing unchanged.
             if(editing){using(var core=Render(width,height,ratio,true,fresh,dpiScale,options))g.DrawImageUnscaled(core,pad,pad);}
             else{g.TranslateTransform(pad,pad);DrawCore(g,width,height,ratio,false,fresh,dpiScale,options);g.TranslateTransform(-pad,-pad);}
@@ -242,6 +305,7 @@ internal static class BarDesign {
                 using(var brush=new SolidBrush(Mix(light,Color.White,.8)))g.FillRectangle(brush,pad+(filled>2?1:0),filamentY,filled-(filled>2?2:0),filament);
                 if(editing)using(var brush=new SolidBrush(Color.FromArgb(255,100,110,115))){g.FillRectangle(brush,pad,pad,1,height);g.FillRectangle(brush,pad+width-1,pad,1,height);}
             }
+            if(classicBorder&&options!=null&&options.HasBorder)DrawClassicBorder(g,new RectangleF(pad,pad,width,height),options);
         }
         return bitmap;
     }
@@ -273,6 +337,32 @@ internal static class BarDesign {
         EnergyBarOptions.Verify();
         var custom=new EnergyBarOptions{Emissive=false,DynamicColors=false,MediumColor="#123456",TrackOpacity=80};
         using(var flat=RenderEmissive(320,4,.9,false,true,1,custom))if(flat.GetPixel(20,4).A!=0||flat.GetPixel(20,5).ToArgb()!=ColorTranslator.FromHtml("#123456").ToArgb()||flat.GetPixel(310,8).A!=80)throw new Exception("Settings must control emission, fixed color and dark track opacity without changing geometry");
+        foreach(var style in new[]{ProgressBarStyle.Crystal,ProgressBarStyle.Compact}){
+            custom.Style=style;
+            using(var bar=RenderEmissive(320,3,.5,false,true,1,custom))
+            using(var empty=RenderEmissive(320,3,0,false,true,1,custom)){
+                if(bar.Size!=new Size(330,13)||bar.GetPixel(40,6).ToArgb()==empty.GetPixel(40,6).ToArgb()
+                    ||bar.GetPixel(270,6).ToArgb()!=empty.GetPixel(270,6).ToArgb()||bar.GetPixel(0,0).A!=0)
+                    throw new Exception("Styled thin bars must preserve surface size, transparent padding and unfilled track");
+                bar.Save(Path.Combine(output,"progress-"+style+".png"),ImageFormat.Png);
+            }
+        }
+        custom.Style=ProgressBarStyle.Crystal;custom.BorderColor="#FF3000";custom.BorderEnabled=true;
+        using(var edged=RenderEmissive(320,3,.5,false,true,1,custom)){
+            custom.BorderEnabled=false;
+            using(var bare=RenderEmissive(320,3,.5,false,true,1,custom)){
+                var rim=edged.GetPixel(280,2);
+                if(rim.R<=rim.B||bare.GetPixel(280,2).ToArgb()==rim.ToArgb())throw new Exception("Crystal rim color and toggle must affect the painted edge");
+            }
+        }
+        custom.Style=ProgressBarStyle.Classic;custom.BorderEnabled=true;custom.BorderWidth=1;
+        using(var thin=RenderEmissive(320,3,.5,false,true,1,custom)){
+            custom.BorderWidth=4;
+            using(var thick=RenderEmissive(320,3,.5,false,true,1,custom)){
+                if(thick.GetPixel(280,2).A<=thin.GetPixel(280,2).A||thick.GetPixel(30,6)!=thin.GetPixel(30,6))
+                    throw new Exception("Classic frame thickness should not be capped by a three-pixel fill");
+            }
+        }
         File.WriteAllText(Path.Combine(root,"ui-test.txt"),"PASS: enabled/disabled bar persistence and migration; disabled bar stays hidden even unlocked or without data; configurable emission/colors/track; native minimum size; hold/fade reversal and frame-independent smoothing; adaptive timer preserves animation after idle; fade-only bitmap reuse, zero redraws when unchanged, no GDI handle growth after 2000 redraws.");
     }
 }

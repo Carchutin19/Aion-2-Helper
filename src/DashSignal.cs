@@ -29,7 +29,7 @@ internal sealed class DashSignal {
     long gapRecoveries,framingErrors,containerErrors;
     internal uint Maximum=113900; // Manual fallback; never inferred from partially full energy.
     readonly Dictionary<string,Dictionary<uint,uint>> energyMaxima=new Dictionary<string,Dictionary<uint,uint>>();string readingStream;
-    uint energyOwner;string energyOwnerStream;bool energyOwnerLoading;
+    uint energyOwner;string energyOwnerStream,energyOwnerName;int energyOwnerServer;bool energyOwnerLoading;
     readonly Dictionary<string,uint> maps=new Dictionary<string,uint>();
     internal Action<Reading> OnReading;
     internal Action<byte[],int,int,double,string> OnFrame;
@@ -39,10 +39,23 @@ internal sealed class DashSignal {
             if(!protocols.TryGetValue(path,out opcodes)){var json=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(File.ReadAllText(path));opcodes=new HashSet<int>(((System.Collections.IEnumerable)json["syncOpcodes"]).Cast<object>().Select(Convert.ToInt32));opcodes.Add(65535);protocols[path]=opcodes;}known=opcodes;
         }
     }
-    uint DetectedMaximum(){Dictionary<uint,uint> actors;uint value;return reading!=null&&readingStream!=null&&energyMaxima.TryGetValue(readingStream,out actors)&&actors.TryGetValue((uint)reading.Actor,out value)?value:0;}
+    uint MaximumFor(string stream,uint actor){
+        Dictionary<uint,uint> actors;uint value;
+        return stream!=null&&energyMaxima.TryGetValue(stream,out actors)&&actors.TryGetValue(actor,out value)?value:0;
+    }
+    uint DetectedMaximum(){return reading==null?0:MaximumFor(readingStream,(uint)reading.Actor);}
+    void RecordMaximum(string stream,uint actor,uint maximum){
+        Dictionary<uint,uint> actors;
+        if(!energyMaxima.TryGetValue(stream,out actors)){
+            if(energyMaxima.Count>=32)energyMaxima.Clear();
+            energyMaxima[stream]=actors=new Dictionary<uint,uint>();
+        }
+        if(actors.Count>=64&&!actors.ContainsKey(actor))actors.Clear();
+        actors[actor]=maximum;
+    }
     internal Snapshot ReadSnapshot(){lock(gate){return new Snapshot{Reading=reading,DetectedMaximum=DetectedMaximum(),LastTraffic=lastTraffic,Samples=samples,Errors=errors};}}
     internal object SupportState(){lock(gate){double now=DiagnosticClock==null?0:DiagnosticClock();return new{samples,errors,lastTraffic,gapRecoveries,framingErrors,containerErrors,gapRecoveryPolicy="existing pending-count/byte limits; no timeout",knownOpcodes=known.Count,flows=streams.Select(pair=>{var f=pair.Value;return new{id=SupportDiagnostics.FlowId(pair.Key),started=f.Started,synced=f.Synced,buffered=f.Count,pendingSegments=f.Pending.Count,pendingBytes=f.PendingBytes,peakPending=f.PeakPending,prefixRecovery=f.PrefixRecovery,gapAgeSeconds=f.GapWaiting&&DiagnosticClock!=null?(double?)Math.Max(0,now-f.GapSince):null,maxGapAgeSeconds=Math.Max(f.MaxGapAge,f.GapWaiting?Math.Max(0,now-f.GapSince):0),gapBytes=f.Pending.Count==0?0:Math.Max(0,unchecked((int)(f.FirstPending()-f.Next))),gapRecoveries=f.GapRecoveries,skippedBytes=f.SkippedBytes,lastRecovery=f.LastRecovery,segments=f.Segments,duplicateSegments=f.Duplicates,outOfOrderSegments=f.OutOfOrder,decodedFrames=f.Frames,lastCaptureTimestamp=f.LastTimestamp};}).ToArray()};}}
-    internal void Reset(){SupportDiagnostics.Event("decoder-reset",new{reason="Capture/transport reset"});lock(gate){streams.Clear();energyMaxima.Clear();maps.Clear();readingStream=energyOwnerStream=null;energyOwner=0;energyOwnerLoading=false;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
+    internal void Reset(){SupportDiagnostics.Event("decoder-reset",new{reason="Capture/transport reset"});lock(gate){streams.Clear();energyMaxima.Clear();maps.Clear();readingStream=energyOwnerStream=energyOwnerName=null;energyOwner=0;energyOwnerServer=0;energyOwnerLoading=false;reading=null;lastTraffic=0;if(OnReset!=null)OnReset();}}
     internal Reading Current {get{lock(gate){return reading;}}}
     internal double LastTraffic {get{lock(gate){return lastTraffic;}}}
     internal int Samples {get{lock(gate){return samples;}}}
@@ -151,17 +164,45 @@ internal sealed class DashSignal {
         if(stream!=null&&data[start]==0x21&&data[start+1]==0x36&&end-start==48&&BitConverter.ToUInt32(data,start+2)<=10000){
             uint map=BitConverter.ToUInt32(data,start+6),previous;
             if(map>0&&map<10000000){
-                if(maps.TryGetValue(stream,out previous)&&previous!=map&&readingStream==stream){reading=null;readingStream=null;energyMaxima.Remove(stream);}
+                if(maps.TryGetValue(stream,out previous)&&previous!=map&&readingStream==stream){
+                    Dictionary<uint,uint> actors;
+                    // The transition invalidates current energy. The verified character's
+                    // stat can precede the map packet or be omitted on the new map.
+                    uint retainedMaximum;
+                    if(energyOwner!=0&&energyOwnerStream==stream&&energyMaxima.TryGetValue(stream,out actors)
+                        &&actors.TryGetValue(energyOwner,out retainedMaximum)){
+                        actors.Clear();
+                        actors[energyOwner]=retainedMaximum;
+                    }else energyMaxima.Remove(stream);
+                    reading=null;
+                    readingStream=null;
+                }
                 if(maps.Count>=32&&!maps.ContainsKey(stream))maps.Clear();maps[stream]=map;
             }
         }
         if(stream!=null){
-            uint login;string name;byte role;
+            uint login;string name;int server;byte role;
             if(LoginActor(data,start,end,out login)){
                 if(energyOwnerStream!=null)energyMaxima.Remove(energyOwnerStream);
-                energyOwner=login;energyOwnerStream=stream;energyOwnerLoading=true;reading=null;readingStream=null;
-            }else if(data[start]==0x33&&data[start+1]==0x36&&DpsSignal.PlayerIdentity(data,start,end,true,out login,out name,out role)
+                energyOwner=login;energyOwnerStream=stream;energyOwnerName=null;energyOwnerServer=0;energyOwnerLoading=true;reading=null;readingStream=null;
+            }else if(data[start]==0x33&&data[start+1]==0x36
+                &&(PetSignal.Identity(data,start,end,out name,out server,out login)||DpsSignal.PlayerIdentity(data,start,end,true,out login,out name,out role))
                 &&(!energyOwnerLoading||energyOwner==login&&energyOwnerStream==stream)){
+                bool sameActor=energyOwner==login&&energyOwnerStream==stream;
+                bool sameCharacter=server!=0&&energyOwnerServer==server&&string.Equals(energyOwnerName,name,StringComparison.Ordinal);
+                if(sameActor&&energyOwnerServer!=0&&server!=0&&!sameCharacter){
+                    Dictionary<uint,uint> actors;
+                    if(energyMaxima.TryGetValue(stream,out actors))actors.Remove(login);
+                    reading=null;readingStream=null;
+                }
+                if(energyOwnerStream!=stream&&sameCharacter&&MaximumFor(stream,login)==0){
+                    uint carried=MaximumFor(energyOwnerStream,energyOwner);
+                    if(carried>0)RecordMaximum(stream,login,carried);
+                }
+                if(server!=0||!sameActor||!string.Equals(energyOwnerName,name,StringComparison.Ordinal)){
+                    energyOwnerName=server==0?null:name;
+                    energyOwnerServer=server;
+                }
                 energyOwner=login;energyOwnerStream=stream;energyOwnerLoading=false;
                 if(reading!=null&&(reading.Actor!=(int)login||readingStream!=stream)){reading=null;readingStream=null;}
             }
@@ -177,7 +218,7 @@ internal sealed class DashSignal {
         // Global 008D u32 kind10 is the server's maximum energy, independent of
         // current kind3. It can precede the first dash or arrive by itself on a
         // level/stat change. Bind it to both TCP flow and actor, never nearby NPCs.
-        if(maximum.HasValue&&stream!=null){Dictionary<uint,uint> actors;if(!energyMaxima.TryGetValue(stream,out actors)){if(energyMaxima.Count>=32)energyMaxima.Clear();actors=new Dictionary<uint,uint>();energyMaxima[stream]=actors;}if(actors.Count>=64&&!actors.ContainsKey(actor))actors.Clear();actors[actor]=maximum.Value;}
+        if(maximum.HasValue&&stream!=null)RecordMaximum(stream,actor,maximum.Value);
         if(!candidate.HasValue){if(maximum.HasValue&&reading!=null&&reading.Actor==(int)actor&&readingStream==stream&&OnReading!=null)OnReading(reading);return;}
         if(energyOwner!=0&&(energyOwner!=actor||energyOwnerStream!=stream))return;
         readingStream=stream;reading=new Reading{Actor=(int)actor,Value=candidate.Value,Timestamp=ts};samples++;if(OnReading!=null)OnReading(reading);
@@ -294,6 +335,38 @@ internal sealed class DashSignal {
         if(decoder.Current.Actor!=2||decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("A new character cannot inherit a previously cached maximum");
         apply("008D0201010AA0860100","a",13.3);
         if(decoder.ReadSnapshot().DetectedMaximum!=100000)throw new Exception("New character maximum must match its own received value");
+        Buffer.BlockCopy(BitConverter.GetBytes(1003u),0,map,6,4);
+        decoder.Decode(map,0,map.Length,14,0,"a");
+        if(decoder.Current!=null||decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("Area transition still requires a fresh current sample");
+        apply("008D02010103404B0100","a",14.1);
+        if(decoder.ReadSnapshot().DetectedMaximum!=100000)throw new Exception("Same character can resume after an area transition without a repeated maximum");
+        apply("008D0201010A9CC10100","a",14.2);
+        if(decoder.ReadSnapshot().DetectedMaximum!=115100)throw new Exception("A new stat must replace the retained maximum");
+        login=LoginFixture(1);
+        decoder.Decode(login,0,login.Length,15,0,"a");
+        apply("008D01010103404B0100","a",15.1);
+        if(decoder.Current.Actor!=1||decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("A character login after a map transition must clear the retained maximum");
+        decoder.Reset();
+        const string name="SameCharacter";
+        var profile=EnemyTargetVerification.Player(18,name,100,200,true);
+        decoder.Decode(profile,0,profile.Length,20,0,"instance");
+        apply("008D1201010A70C00100","instance",20.1);
+        apply("008D12010103404B0100","instance",20.2);
+        profile=EnemyTargetVerification.Player(34,name,100,200,true);
+        decoder.Decode(profile,0,profile.Length,200,0,"world");
+        if(decoder.Current!=null)throw new Exception("An own profile alone does not provide a fresh current energy value");
+        apply("008D22010103404B0100","world",201);
+        if(decoder.ReadSnapshot().DetectedMaximum!=114800)throw new Exception("A verified same character can keep its received maximum on the dungeon exit flow");
+        apply("008D2401010AA0860100","new-max",202);
+        profile=EnemyTargetVerification.Player(36,name,100,200,true);
+        decoder.Decode(profile,0,profile.Length,203,0,"new-max");
+        apply("008D24010103404B0100","new-max",204);
+        if(decoder.ReadSnapshot().DetectedMaximum!=100000)throw new Exception("An explicit maximum on the new flow has priority");
+        profile=EnemyTargetVerification.Player(40,name,100,200,true);
+        profile[9+name.Length]=0x16;
+        decoder.Decode(profile,0,profile.Length,205,0,"other-server");
+        apply("008D28010103404B0100","other-server",206);
+        if(decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("An identically named character on another server cannot inherit energy");
     }
     internal static byte[] LoginFixture(byte actor){
         var login=new byte[381];login[0]=0x20;login[1]=0x36;login[4]=actor;login[9]=1;

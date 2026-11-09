@@ -44,6 +44,7 @@ internal sealed class CharacterProgressOptions {
         Power.Normalize();
         Experience.Normalize();
         Experience.DynamicColors = false;
+        Experience.MediumColor = Experience.HighColor;
         ExperienceBounds = new Rectangle(
             Math.Max(-100000, Math.Min(100000, ExperienceBounds.X)), Math.Max(-100000, Math.Min(100000, ExperienceBounds.Y)),
             Math.Max(120, Math.Min(2400, ExperienceBounds.Width)), Math.Max(3, Math.Min(60, ExperienceBounds.Height)));
