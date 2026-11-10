@@ -302,7 +302,7 @@ internal static class FpsDesign {
 
 internal sealed class FpsOverlay:Form,IWidgetSnapTarget {
     Rectangle IWidgetSnapTarget.SnapBounds {get{return Bounds;}}
-    readonly EnergyOverlay owner;readonly FpsMonitor monitor;readonly PingMonitor pingMonitor;readonly bool ping;readonly LayeredImage image=new LayeredImage();readonly FpsDesign.Workspace workspace=new FpsDesign.Workspace();readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();FpsOptions options=new FpsOptions();bool editing,rendering,closing,dragging,disposed;readonly bool previewMode;Rectangle dragStart;Point mouseStart;int hit;bool validImage;int imageWidth,imageHeight,imageX=int.MinValue,imageY;int? imageValue;bool imageEditing;long lastRaise;
+    readonly EnergyOverlay owner;readonly FpsMonitor monitor;readonly PingMonitor pingMonitor;readonly bool ping;readonly LayeredImage image=new LayeredImage();readonly FpsDesign.Workspace workspace=new FpsDesign.Workspace();readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer();FpsOptions options=new FpsOptions();bool editing,rendering,closing,dragging,disposed;readonly bool previewMode;Rectangle dragStart;Point mouseStart;int hit;bool validImage;int imageAlpha=-1,imageWidth,imageHeight,imageX=int.MinValue,imageY;int? imageValue;bool imageEditing;long lastRaise;
     internal FpsOverlay(EnergyOverlay helper,string root,bool preview,bool forPing=false){owner=helper;previewMode=preview;ping=forPing;if(ping){pingMonitor=new PingMonitor();options=FpsOptions.PingDefaults();}else monitor=new FpsMonitor(root);Text=ping?"Aion 2 Helper - Ping":"Aion 2 Helper - FPS";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;
         timer.Interval=250;timer.Tick+=delegate{UpdateWidget();};FormClosing+=delegate{closing=true;};}
     internal int? Value {get{return ping?pingMonitor.Value:monitor.Value;}}
@@ -343,7 +343,7 @@ internal sealed class FpsOverlay:Form,IWidgetSnapTarget {
         long now=Stopwatch.GetTimestamp();
         bool completed=now<benchmarkNoticeUntil;
         int? seconds=benchmarking?monitor.BenchmarkSeconds:null;
-        if((completed||seconds.HasValue)&&!owner.WidgetsSuppressed&&FloatingTextService.GameForeground()){
+        if((completed||seconds.HasValue)&&!owner.ForegroundWidgetsSuppressed&&FloatingTextService.GameForeground()){
             string text=UiLanguage.Text(completed?"You can return to the Helper":"Measuring FPS…",owner.Language);
             if(seconds.HasValue)text+="  ·  "+TimeSpan.FromSeconds(seconds.Value).ToString(@"mm\:ss",CultureInfo.InvariantCulture);
             var screen=Screen.FromHandle(FpsBenchmarkWorker.GetForegroundWindow()).WorkingArea;
@@ -381,7 +381,8 @@ internal sealed class FpsOverlay:Form,IWidgetSnapTarget {
     void DrawValue(int? value){if(owner.WidgetsSuppressed){if(Visible)Hide();return;}if(rendering)return;rendering=true;
         try{bool changed=!validImage||Width!=imageWidth||Height!=imageHeight||value!=imageValue||editing!=imageEditing;
             if(changed){string text=(value.HasValue?value.Value.ToString(CultureInfo.InvariantCulture):"\u2014")+(ping?" ms":" FPS");using(var bitmap=FpsDesign.Render(Width,Height,text,options,editing,workspace))image.Upload(bitmap);validImage=true;imageWidth=Width;imageHeight=Height;imageValue=value;imageEditing=editing;}
-            if(changed||Left!=imageX||Top!=imageY||(!previewMode&&!Visible)){image.Present(Handle,Left,Top,255);imageX=Left;imageY=Top;}
+            byte opacity=owner.HudOpacity();
+            if(changed||opacity!=imageAlpha||Left!=imageX||Top!=imageY||(!previewMode&&!Visible)){image.Present(Handle,Left,Top,opacity);imageX=Left;imageY=Top;imageAlpha=opacity;}
             if(!previewMode&&!Visible)Show();long now=Stopwatch.GetTimestamp();if(!previewMode&&(now-lastRaise)/(double)Stopwatch.Frequency>=1){OverlayNative.RaiseWithoutFocus(Handle);lastRaise=now;}
         }finally{rendering=false;}
     }

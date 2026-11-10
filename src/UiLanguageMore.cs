@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 // Reviewed interface vocabulary. Unknown/technical strings retain their English
@@ -12,7 +12,36 @@ internal static class UiLanguageMore {
  internal static bool TryText(string text,string language,out string result){Dictionary<string,string> map;result=null;return maps.TryGetValue(language,out map)&&map.TryGetValue(text,out result);}
  internal static bool TryEnglish(string text,out string result){return reverse.TryGetValue(text,out result);}
  internal static int Count(string language){Dictionary<string,string> map;return maps.TryGetValue(language,out map)?map.Count:0;}
- const string Data=@"Opacity by combat state|Deckkraft je nach Kampfstatus|Opacité selon l’état de combat|العتامة حسب حالة القتال
+ const string Data=@"Coming soon|Bald verfügbar|Bientôt|قريبًا
+Odyle Energy|Odyle-Energie|Énergie d’Odyle|طاقة أودايل
+Recharge tracking by character|Aufladung pro Charakter verfolgen|Suivi de la recharge par personnage|متابعة الشحن حسب الشخصية
+OVERLAY|OVERLAY|SUPERPOSITION|الأداة العائمة
+CHARACTERS|CHARAKTERE|PERSONNAGES|الشخصيات
+ODYLE BALANCE|ODYLE-STAND|SOLDE D’ODYLE|رصيد أودايل
+Show current character's Odyle energy|Odyle-Energie des aktuellen Charakters anzeigen|Afficher l’énergie d’Odyle du personnage actuel|إظهار طاقة أودايل للشخصية الحالية
+Show Odyle maximum|Odyle-Maximum anzeigen|Afficher le maximum d’Odyle|إظهار الحد الأقصى لطاقة أودايل
+Enter the rechargeable balance shown in AION 2. The Helper estimates +15 every 3 hours, even while closed. Update the balance after spending or claiming energy.|Gib den in AION 2 angezeigten aufladbaren Stand ein. Der Helper berechnet geschätzt +15 alle 3 Stunden, auch wenn er geschlossen ist. Aktualisiere den Stand nach dem Ausgeben oder Abholen von Energie.|Saisissez le solde rechargeable affiché dans AION 2. Le Helper estime un gain de 15 toutes les 3 heures, même lorsqu’il est fermé. Actualisez le solde après avoir dépensé ou récupéré de l’énergie.|أدخل الرصيد القابل لإعادة الشحن الظاهر في AION 2. يقدّر المساعد زيادة 15 كل 3 ساعات حتى وهو مغلق. حدّث الرصيد بعد إنفاق الطاقة أو استلامها.
+Use current character|Aktuellen Charakter verwenden|Utiliser le personnage actuel|استخدام الشخصية الحالية
+Character name|Charaktername|Nom du personnage|اسم الشخصية
+Server ID|Server-ID|Identifiant du serveur|معرّف الخادم
+Rechargeable balance|Aufladbarer Stand|Solde rechargeable|الرصيد القابل للشحن
+Recharge limit|Aufladelimit|Limite de recharge|حد الشحن
+Minutes until next recharge|Minuten bis zur nächsten Aufladung|Minutes avant la prochaine recharge|الدقائق حتى الشحن التالي
+Use the in-game countdown if available. The default starts a new 3-hour interval.|Verwende den Countdown im Spiel, falls verfügbar. Die Voreinstellung startet ein neues 3-Stunden-Intervall.|Utilisez le compte à rebours du jeu s’il est disponible. Le réglage par défaut lance un nouvel intervalle de 3 heures.|استخدم العد التنازلي داخل اللعبة إن توفر. يبدأ الإعداد الافتراضي فترة جديدة مدتها 3 ساعات.
+Save balance|Stand speichern|Enregistrer le solde|حفظ الرصيد
+Odyle balance saved.|Odyle-Stand gespeichert.|Solde d’Odyle enregistré.|تم حفظ رصيد أودايل.
+Check the name, server ID and balance.|Überprüfe Name, Server-ID und Stand.|Vérifiez le nom, l’identifiant du serveur et le solde.|تحقّق من الاسم ومعرّف الخادم والرصيد.
+Enter a character to detect it automatically.|Melde dich mit einem Charakter an, um ihn automatisch zu erkennen.|Connectez-vous avec un personnage pour le détecter automatiquement.|ادخل اللعبة بشخصية للتعرّف عليها تلقائيًا.
+Current character · {0} · Server {1}|Aktueller Charakter · {0} · Server {1}|Personnage actuel · {0} · Serveur {1}|الشخصية الحالية · {0} · الخادم {1}
+{0} · Server {1}|{0} · Server {1}|{0} · Serveur {1}|{0} · الخادم {1}
+Edit balance|Stand bearbeiten|Modifier le solde|تعديل الرصيد
+Remove the saved Odyle balance for {0}?|Gespeicherten Odyle-Stand für {0} entfernen?|Supprimer le solde d’Odyle enregistré pour {0} ?|هل تريد إزالة رصيد أودايل المحفوظ للشخصية {0}؟
+Enter a balance to start tracking.|Gib einen Stand ein, um die Verfolgung zu starten.|Saisissez un solde pour commencer le suivi.|أدخل رصيدًا لبدء المتابعة.
+Estimated full · {0}|Voraussichtlich voll · {0}|Plein estimé à {0}|الامتلاء المقدّر · {0}
+At maximum|Am Maximum|Au maximum|بلغ الحد الأقصى
+Could not load saved Odyle energy.|Gespeicherte Odyle-Energie konnte nicht geladen werden.|Impossible de charger l’énergie d’Odyle enregistrée.|تعذّر تحميل طاقة أودايل المحفوظة.
+Could not save Odyle energy.|Odyle-Energie konnte nicht gespeichert werden.|Impossible d’enregistrer l’énergie d’Odyle.|تعذّر حفظ طاقة أودايل.
+Opacity by combat state|Deckkraft je nach Kampfstatus|Opacité selon l’état de combat|العتامة حسب حالة القتال
 Applies to HP, MP and Hotbar. Fades to full opacity in combat.|Gilt für LP, MP und die Hotbar. Im Kampf steigt die Deckkraft sanft auf 100 %.|S’applique aux PV, aux PM et à la barre de raccourcis. L’opacité monte progressivement à 100 % en combat.|ينطبق على الصحة والمانا وشريط المهارات. ترتفع العتامة تدريجيًا إلى 100٪ أثناء القتال.
 Out-of-combat opacity|Deckkraft außerhalb des Kampfes|Opacité hors combat|العتامة خارج القتال
 Waiting for an attack or target selection|Warte auf einen Angriff oder die Zielauswahl|En attente d’une attaque ou de la sélection d’une cible|بانتظار هجوم أو تحديد هدف

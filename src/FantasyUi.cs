@@ -34,7 +34,8 @@ internal static class FantasyUi {
         Icon("M3,18 L8,5 13,18 M5,13 H11 M14,18 L17.5,9 21,18 M15.5,15 H19.5"),
         Icon("M13,2 L4,14 H11 L10,22 20,10 H13 Z"),
         Icon("M5,3 H15 L19,7 V21 H5 Z M15,3 V7 H19 M8,10 H16 M8,14 H16 M8,18 H14"),
-        Icon("M12,2 L21,7 V17 L12,22 3,17 V7 Z M3,7 L12,12 21,7 M12,12 V22")
+        Icon("M12,2 L21,7 V17 L12,22 3,17 V7 Z M3,7 L12,12 21,7 M12,12 V22"),
+        Icon("M12,2 L21,8 17,18 12,22 7,18 3,8 Z M3,8 H21 M12,2 L8,8 12,22 16,8 Z")
     };
 
     static ImageSource Icon(string data,bool solid=false){
@@ -63,7 +64,7 @@ internal static class FantasyUi {
     }
     internal static Brush RailSurface(){return Rail;}
     internal static void Select(Button button,bool selected,bool nav=false){
-        button.SetResourceReference(FrameworkElement.StyleProperty,nav?(selected?"SelectedNavButton":"NavButton"):(selected?"SelectedButton":"TabButton"));
+        button.SetResourceReference(FrameworkElement.StyleProperty,nav?(!button.IsEnabled?"ComingSoonNavButton":selected?"SelectedNavButton":"NavButton"):(selected?"SelectedButton":"TabButton"));
     }
     internal static Border Shell(UIElement content){
         var art=new ImageBrush(Wallpaper){Stretch=Stretch.UniformToFill,AlignmentX=AlignmentX.Center,AlignmentY=AlignmentY.Top};

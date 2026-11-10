@@ -1,4 +1,4 @@
-# Skill slots: sources and limits
+﻿# Skill slots: sources and limits
 
 The Helper's skill-slot receiver, layout editor and renderer are original code.
 Wire-format research: SkeeveAN/Aion-DPS-Meter, documentation at revision
@@ -14,13 +14,14 @@ MIT licence for game artwork. This is an unofficial fan project, not endorsed
 by NCSOFT. No game archives, encryption keys, extractor or upstream executable
 are included or executed. Icons are embedded locally; no runtime requests.
 
-The final ten bytes of each fixed-size42-byte skill entry are treated as
-opaque metadata. They must not be required to be zero: a community diagnostic
-from Edeln showed a0056 rejected solely because byte32 of its second skill
-entry was192. No meaning is assigned to those bytes. Record boundaries, slot
-range/uniqueness, the skill marker and the mirrored primary ID are still checked.
-A synthetic665-byte regression reproduces that exact reported rejection;
-it is not the user's original packet, and live confirmation remains separate.
+The fixed 42-byte record retains the original primary/mirrored-primary,
+second-row and third-row IDs. The next four bytes can hold a fourth row: only
+catalogue-recognized base-skill IDs are used, and other nonzero tail values do
+not reject an otherwise valid bar. The remaining six bytes stay opaque.
+The fourth row is preserved across empty intermediate rows, saved assignments
+and its own explicit combo transitions. This interpretation and M2 behavior
+are regression-covered; the final live comparison is pending after game
+maintenance. No universal meaning is assigned to other tail metadata.
 
 Supported: validated 0056 active-bar entries, 0556 partial changes, 4738 partial
 cooldown updates, explicit 1838/1938 chain windows. Items and empty entries are
@@ -123,3 +124,16 @@ upstream code or executable is copied or run. Readers and lossless text patchers
 are original implementations. Manually imported native Hide flags were confirmed
 locally; a community tester also confirmed the integrated export/import/save
 workflow in game. No private exports or community diagnostics are embedded.
+
+## Supported stacked skills (v1.29.0)
+
+Verified independent Assassin activations (Swift Contract, Illusive Clone,
+Savage Fang and Triniel's Dagger) can replace a cooling primary in their
+received order. Fang Strike is supported as a fourth-row fallback with its
+own explicit combo windows. This is skill metadata, not a character-name or
+manual-key binding rule. Other unclassified alternatives are not assumed to
+be usable solely because their cooldown is zero.
+
+Infiltrate additionally uses the own-character flight effect; folding wings
+revokes the flight condition without waiting for ground contact. Supported
+reactive skills retain their conditions when moved to another slot.

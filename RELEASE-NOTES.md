@@ -1,3 +1,44 @@
+﻿# v1.29.0 Alpha — Menu Fades & Hotbar Improvements
+
+## Added
+
+- Automatic gameplay-overlay hiding for supported native HUD-hidden menus and NPC dialogues, with fades when hiding and returning.
+- Reacquisition of supported potion-bar key labels after changing the in-game HUD preset.
+- An unavailable Odyle Energy sidebar entry with a localized Coming soon badge. Automatic tracking is not released yet.
+
+## Hotbar
+
+- Improved supported stacked-skill selection when independent skills share a slot.
+- Supported reactive Assassin skills follow their received conditions after being moved to another slot.
+- Added handling for recognized fourth-row skills, including gaps in preceding rows, saved assignments and their own combo transitions.
+- Fixed the supported Infiltrate flight condition: folding your wings closes the flight activation even before landing.
+- Improved character identification used by Hotbar presets during login changes.
+- Expanded optional Hotbar diagnostics with assignment and own-cast metadata.
+
+## HUD export
+
+- Supports non-empty exported HUDs that omit skill-bar entries. The generated copy adds the hide overrides while retaining the remaining exported layout.
+- Original exports remain untouched. Empty or unsupported exports are still rejected.
+
+## Behavior and performance
+
+- Notifications are exempt from native-menu hiding. Unlocked widgets remain available for positioning.
+- Native HUD sampling uses a single background worker, a bounded sampling rate and reused drawing surfaces. No screen images are saved or uploaded.
+- Updated English, Spanish, German, French and Arabic text for the new section.
+
+## Validation and known limitations
+
+- Menu hiding and the three-row M5 stack were checked in game. Regression checks cover the new selection, fades, HUD search and export behavior.
+- The latest fourth-row/M2 correction still needs its live comparison; maintenance prevented the final test.
+- Other classes, skill requirements, HUD scales and customized potion-key layouts may need further validation. Unrecognized HUDs do not trigger automatic hiding.
+- The recurring data-loss issue after some dungeon exits remains under investigation; this release does not claim to resolve it.
+
+## Updating
+
+Use the built-in updater, or close the Helper and extract the complete ZIP into your existing Helper folder. Keep your personal JSON files. Open the Helper before launching Aion.
+
+---
+
 # Aion 2 Helper v1.28.0 Alpha — Progress Bar Styles & Text Outlines
 
 ## Progress bars

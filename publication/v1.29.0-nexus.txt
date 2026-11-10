@@ -1,0 +1,21 @@
+Aion 2 Helper v1.29.0 — Menu Fades & Hotbar Improvements
+
+Gameplay overlays can now fade out alongside Aion’s native HUD when supported full-screen menus or NPC dialogues are open, and fade back in when you return to the game. Notifications remain available. Unlocked widgets stay visible so you can continue editing your layout.
+
+This update also improves the experimental Hotbar for supported stacked Assassin skills and macros. Reactive skills retain their conditions when moved to a different slot, independent skills can replace a cooling skill in the same slot, and recognized fourth-row skills can be displayed and follow their own combo transitions. Infiltrate now supports its flight activation and loses that activation when the wings are folded.
+
+Changing in-game HUD presets no longer relies solely on the potion bar remaining at its original position: the Helper can reacquire supported key-label patterns in the new layout. The HUD copier also supports non-empty exports that omit skill-bar entries, adding hide overrides to the new copy while preserving the remaining exported layout and the original export.
+
+Odyle Energy appears in the sidebar as Coming soon. The section and its overlay remain unavailable while automatic tracking is being developed.
+
+Native HUD detection uses a bounded background worker and does not save or upload screen images. Additional Hotbar metadata is available through the existing optional diagnostics.
+
+Important notes
+• Hotbar remains experimental. Menu behavior and the three-row M5 stack were checked in game; the latest fourth-row/M2 change passes regression checks but still needs its live comparison after game maintenance.
+• Further classes, conditional skills and HUD/key-label scales remain subject to validation.
+• The separate issue where some overlays lose data after a dungeon exit is still being investigated.
+
+Update with the built-in updater, or close the Helper and extract the complete ZIP into your existing folder. Keep your personal JSON files and start the Helper before launching Aion.
+
+Download: https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0
+Roadmap: https://github.com/Carchutin19/Aion-2-Helper/blob/main/ROADMAP.md

@@ -5,7 +5,8 @@ using System.Linq;
 using System.Text;
 
 // Standalone HUD exports, not DeviceSetting_V2. Format facts are credited in
-// assets/skill-slots/README.md. Only three Hide values change in the JSON text.
+// assets/skill-slots/README.md. Existing layout text is preserved; sparse exports
+// receive only Tag/Hide overrides for omitted skill bars, never guessed geometry.
 internal static class HudExportHotbar {
  internal const string Prefix="Helper_HiddenHotbar(";
  internal const string EmptyPreset="The exported HUD preset is empty. In AION 2, select the preset with your current layout, press Save and export it again. Then choose that exported file here.";
@@ -37,9 +38,10 @@ internal static class HudExportHotbar {
   catch(Exception ex){if(ex is FormatException||ex is ArgumentException||ex is InvalidOperationException)throw Unsupported();throw;}
  }
  static byte[] Encode(string text,bool nul){byte[] payload=Utf8.GetBytes(text+(nul?"\0":""));var clear=new byte[payload.Length+4];Buffer.BlockCopy(BitConverter.GetBytes(payload.Length),0,clear,0,4);Buffer.BlockCopy(payload,0,clear,4,payload.Length);return Encoding.ASCII.GetBytes(Convert.ToBase64String(Crypt(clear)));}
- internal static byte[] Build(byte[] original){var doc=Read(original);var edit=doc.Root.Properties["Edit"];if(edit.Properties.Count==0)throw new InvalidDataException(EmptyPreset);var expected=NativeHudFile.Json().Deserialize<Dictionary<string,object>>(doc.Text);var rows=expected["Edit"] as Dictionary<string,object>;if(rows==null)throw Unsupported();var spans=new List<Node>();
-  foreach(string tag in NativeHudFile.Tags){Node row,flag;if(!edit.Properties.TryGetValue(tag,out row)||row.Properties==null||!row.Properties.TryGetValue("Hide",out flag))throw Unsupported();object raw;var value=rows.ContainsKey(tag)?rows[tag] as Dictionary<string,object>:null;if(value==null||!value.TryGetValue("Tag",out raw)||!(raw is string)||(string)raw!=tag||!value.TryGetValue("Hide",out raw)||!(raw is bool))throw Unsupported();value["Hide"]=true;string token=doc.Text.Substring(flag.Start,flag.End-flag.Start);if(token!="true"&&token!="false")throw Unsupported();if(token=="false")spans.Add(flag);}
-  string text=doc.Text;foreach(var span in spans.OrderByDescending(s=>s.Start))text=text.Remove(span.Start,span.End-span.Start).Insert(span.Start,"true");if(NativeHudFile.Canonical(NativeHudFile.Json().DeserializeObject(text))!=NativeHudFile.Canonical(expected))throw Unsupported();
+ internal static byte[] Build(byte[] original){var doc=Read(original);var edit=doc.Root.Properties["Edit"];if(edit.Properties.Count==0)throw new InvalidDataException(EmptyPreset);var expected=NativeHudFile.Json().Deserialize<Dictionary<string,object>>(doc.Text);var rows=expected["Edit"] as Dictionary<string,object>;if(rows==null)throw Unsupported();var spans=new List<Node>();var missing=new List<string>();
+  foreach(var pair in rows){var value=pair.Value as Dictionary<string,object>;object raw;if(value!=null&&value.TryGetValue("Tag",out raw)&&raw is string&&NativeHudFile.Tags.Contains((string)raw)&&pair.Key!=(string)raw)throw Unsupported();}
+  foreach(string tag in NativeHudFile.Tags){Node row,flag;if(!edit.Properties.TryGetValue(tag,out row)){var added=new Dictionary<string,object>{{"Tag",tag},{"Hide",true}};rows.Add(tag,added);missing.Add(NativeHudFile.Json().Serialize(tag)+":"+NativeHudFile.Json().Serialize(added));continue;}if(row.Properties==null||!row.Properties.TryGetValue("Hide",out flag))throw Unsupported();object raw;var value=rows.ContainsKey(tag)?rows[tag] as Dictionary<string,object>:null;if(value==null||!value.TryGetValue("Tag",out raw)||!(raw is string)||(string)raw!=tag||!value.TryGetValue("Hide",out raw)||!(raw is bool))throw Unsupported();value["Hide"]=true;string token=doc.Text.Substring(flag.Start,flag.End-flag.Start);if(token!="true"&&token!="false")throw Unsupported();if(token=="false")spans.Add(flag);}
+  string text=doc.Text;if(missing.Count>0)text=text.Insert(edit.Properties.Values.Max(n=>n.End),","+string.Join(",",missing));foreach(var span in spans.OrderByDescending(s=>s.Start))text=text.Remove(span.Start,span.End-span.Start).Insert(span.Start,"true");if(NativeHudFile.Canonical(NativeHudFile.Json().DeserializeObject(text))!=NativeHudFile.Canonical(expected))throw Unsupported();
   var decoded=Crypt(Convert.FromBase64String(Utf8.GetString(original).TrimStart('\ufeff')));bool nul=decoded[decoded.Length-1]==0;var result=Encode(text,nul);if(NativeHudFile.Canonical(Read(result).Value)!=NativeHudFile.Canonical(expected))throw Unsupported();return result;
  }
  internal static Result Create(string source){

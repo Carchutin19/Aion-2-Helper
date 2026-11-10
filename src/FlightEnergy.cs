@@ -78,7 +78,7 @@ internal sealed class FlightEnergyOverlay:IDisposable {
         if(motion.Opacity==0&&!editing&&show)motion.SnapValue(ratio);
         motion.Step(now,editing,sample||reading.Known,ratio,current,maximum,bar,
             reading.Known?Math.Max(0,utc-reading.Time):-1,show);
-        byte alpha=(byte)Math.Round(motion.Opacity*255);
+        byte alpha=owner.HudOpacity((byte)Math.Round(motion.Opacity*255));
         if(!bar.Enabled||alpha==0||owner.WidgetsSuppressed||DpsDesign.ShellUiActive()){
             window.HideOverlay();text.Clear();
         }else{

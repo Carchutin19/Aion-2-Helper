@@ -1,6 +1,6 @@
-# 🧭 Aion 2 Helper — Roadmap
+﻿# 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated November 9, 2026.**
+**Built with the community. Updated November 10, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -17,6 +17,7 @@
 
 | Feature | What is included | First release |
 | :--- | :--- | :---: |
+| **Native-menu overlay fades** | Gameplay widgets fade with supported native HUD-hidden menus and NPC dialogues. Notifications remain available; unlocked widgets stay editable. Native quickbar matching can reacquire moved HUD layouts. | [v1.29.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0) |
 | **Progress bar styles and text outlines** | Filterable overview with quick controls for eight bars. Independent Classic, Glass and Compact styles, configurable frames and text outlines, and separate Stagger values and countdown styling. | [v1.28.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.28.0) |
 | **Desktop redesign** | Artwork and glass styling across the Settings sections, pet registry, offline Atlas and native Windows tray menu. Scroll-edge fades and refreshed icons. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
 | **Compact Hotbar and buff widget** | Compact style with a radial cooldown, optional ready flash, and a separately configurable widget for supported personal and party buffs. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
@@ -73,6 +74,9 @@ is described separately from cases that still need more testing.
 | 🟡 Correction shipped; live comparison pending | **Hotbar hidden by capture-clock drift:** local receipt time avoids rejecting a valid bar when capture timestamps lead the UI clock. Duration, true stale and reset regression checks pass. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
 | 🟡 Correction shipped; feedback welcome | **Floating Text absent until instance entry / jerky motion:** identity can be retained/recovered on late enable; stable trajectories, cached cropped drawing and active-only pacing replace repeated positioning and drawing. Earlier numbers appeared in game; final animation revision awaits live comparison. | [v1.21.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.21.0) |
 | ✅ Confirmed | **Floating Text references persist after locking:** edit guides now hide immediately, including independent criticals, without pressing Done. User confirmed in game. | [v1.22.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.22.0) |
+| ✅ Released · fourth-row live retest pending | **Assassin Hotbar stacks and flight activation:** moved supported reactive skills retain their conditions; verified independent skills can fill the slot while the primary cools down. M5 was confirmed live. Recognized fourth-row/M2 assignments and their combos are handled; maintenance blocked the last live comparison. Infiltrate now follows the own-character flight effect. | [v1.29.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0) |
+| ✅ Released | **Sparse HUD exports:** non-empty exports may omit original skill-bar entries. The copier adds hide overrides to its new copy and preserves the original and other exported values. Empty/unsupported exports remain rejected. | [v1.29.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0) |
+| 🟡 Investigating · reproduced again | **Hotbar, Energy and other overlays can stop updating after some dungeon exits.** A fresh reproduction was observed during the long-session study. The cause and complete recovery remain unresolved; the menu changes in v1.29.0 are separate. | Ongoing |
 | 🟡 Investigating | **HP/MP gaps during some map transitions:** recovery still depends on supported fresh profile data. | Ongoing |
 | 🟡 Investigating | **World-boss party damage stops updating / incomplete combat coverage:** DPS remains Beta; totals and rankings can be incomplete. | Ongoing |
 
@@ -99,7 +103,7 @@ Released community features and corrections are listed above.
 | Status | Request | Intended scope |
 | :--- | :--- | :--- |
 | ✅ Available | **Staggered screen effect** | Optional centered animation, text/glow colors and Test effect; introduced in [v1.20.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.20.0). Preview approved and automatic-transition tests pass; separate controlled live trigger comparison remains pending. |
-| ⬜ Planned / feasibility to check | **Hide Helper overlays while game menus are open** | Explore reliable detection of the map, shops, manufacturing stations and other menus, then restore overlays on close. In-game menu detection remains a separate investigation from the released foreground-only setting. |
+| ✅ Available · compatibility testing continues | **Hide Helper overlays while game menus are open** | [v1.29.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0) hides gameplay widgets with supported native HUD-hidden menus and NPC dialogue, using fades both ways. Notifications are exempt. Menus and mission dialogue were checked live; other HUD scales/key layouts and cinematics remain under validation. |
 | ⬜ Planned / feasibility to check | **Enemy status-effect visual removal** | Explore an option to hide visual effects associated with altered states/debuffs on enemies. Exact scope and compatibility need validation; this is separate from the existing selection-outline option. |
 | ✅ Available in v1.24.0 | **Real-time combat log** | Displays supported outgoing hits with configurable skill icons, names, damage and hit labels. New entries fade in and are briefly outlined. Includes configurable sizing, opacity, blur, inactivity timeout, entry order and scrollable recent history. Healing coverage remains planned. |
 | ✅ Available in v1.24.0 | **Estimated fight duration in the DPS Meter** | Shows an estimate beside elapsed time using recent HP loss. With multiple enemies, it prioritizes a single known boss or uses the locked target. Pauses or insufficient readings show a dash when there is a known subject. |
@@ -110,6 +114,13 @@ Released community features and corrections are listed above.
 | ⬜ Planned | **Controller support** | A system for integrating controller input with the Helper. |
 
 ## Personal roadmap
+
+### 💎 Coming soon
+
+| Feature | Status |
+| :--- | :--- |
+| **Odyle Energy** | Disabled sidebar entry in [v1.29.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0). Automatic per-character balance tracking is not released; the private manual prototype is unavailable through the public interface. |
+
 
 ### ✅ Released in [v1.26.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.26.0) · November 8, 2026
 

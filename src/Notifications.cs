@@ -284,7 +284,7 @@ internal sealed class NotificationOverlay:Form,IWidgetSnapTarget {
         if(!editing&&!motion.Active&&!signal.HasPending){if(Visible)Hide();return;}
         var invite=signal.TakeNotice();if(invite!=null){ShowNotice(invite.Name,true,false,false,false,invite.Dungeon);if(signal.HasPending)Wake();}
         double now=clock.Elapsed.TotalSeconds;bool active=motion.Step(now,options,editing);Schedule(active);
-        bool shell=owner.WidgetsSuppressed||!preview&&DpsDesign.ShellUiActive();byte alpha=shell?(byte)0:(byte)Math.Round(motion.Opacity*255);
+        bool shell=owner.ForegroundWidgetsSuppressed||!preview&&DpsDesign.ShellUiActive();byte alpha=shell?(byte)0:(byte)Math.Round(motion.Opacity*255);
         if(alpha==0){if(Visible)Hide();return;}
         if(!valid){var reference=DpsDesign.UsableBounds(options.Bounds);var area=Screen.FromRectangle(reference).WorkingArea;var layout=NotificationDesign.Measure(reference.Width,editing?reference.Height:area.Height,name,language,options,editing,workspace,isShugo,isRift?isRiftOpening:isShugoOpening,isDungeon,isRift,riftMinutes,isRiftClosing);Bounds=editing?reference:FittedBounds(layout.Size);using(var bitmap=NotificationDesign.Render(Width,Height,name,language,options,editing,workspace,isShugo,isRift?isRiftOpening:isShugoOpening,isDungeon,isRift,riftMinutes,isRiftClosing))image.Upload(bitmap);valid=true;shownAlpha=0;}
         if(alpha!=shownAlpha||shownLocation!=Location||!preview&&!Visible){image.Present(Handle,Left,Top,alpha);shownAlpha=alpha;shownLocation=Location;}

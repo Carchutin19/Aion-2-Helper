@@ -1,13 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 // Original passive decoder. Wire-layout research and artwork provenance are
 // documented in assets/skill-slots/README.md. No casts or keys are injected.
 internal sealed class SkillSlotsSignal {
- internal sealed class Slot {internal int Index;internal uint Skill,Alternative,Third;internal double CastAt;internal Slot Copy(){return (Slot)MemberwiseClone();}}
+ internal sealed class Slot {internal int Index;internal uint Skill,Alternative,Third,Fourth;internal double CastAt;internal Slot Copy(){return (Slot)MemberwiseClone();}}
  internal sealed class Cooldown {internal uint Raw,Peak;internal double At;internal bool FromCast;internal Cooldown Copy(){return (Cooldown)MemberwiseClone();}}
- internal sealed class View {internal uint Self,Map,ContextTarget;internal double FireMarkUntil,StunUntil,HeartGoreUntil,EvasionUntil,InfiltrateUntil;internal string Flow;internal long Revision;internal readonly List<Slot> Slots=new List<Slot>();internal readonly Dictionary<uint,Cooldown> Cooldowns=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
+ internal sealed class View {internal uint Self,Map,ContextTarget;internal double FireMarkUntil,StunUntil,HeartGoreUntil,EvasionUntil,InfiltrateUntil;internal bool Flying;internal string Flow;internal long Revision;internal readonly List<Slot> Slots=new List<Slot>();internal readonly Dictionary<uint,Cooldown> Cooldowns=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  internal sealed class BarFault {public string Field;public int Offset,Record,Kind,Slot;public int? Value;}
  sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf,LoginActor;internal int Server;internal string SelfName,AwaitingName;internal double Traffic,RawTraffic;internal double? FullWireTime;internal bool HasBar,FullWhileAwaiting;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<int,Slot> PendingPartials=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  sealed class BarTrace {
@@ -58,7 +58,7 @@ internal sealed class SkillSlotsSignal {
     }
     if(b[p+19]!=4)return Reject(out fault,"skill marker",p+19-s,i,kind,slot,b[p+19]);
     if(BitConverter.ToUInt32(b,p+20)!=id)return Reject(out fault,"skill ID mirror",p+20-s,i,kind,slot);
-    slots.Add(new Slot{Index=slot,Skill=id,Alternative=BitConverter.ToUInt32(b,p+24),Third=BitConverter.ToUInt32(b,p+28)});
+    slots.Add(new Slot{Index=slot,Skill=id,Alternative=BitConverter.ToUInt32(b,p+24),Third=BitConverter.ToUInt32(b,p+28),Fourth=FourthSkill(b,p)});
    }else{
     if(b[p+2]!=1)return Reject(out fault,"item marker",p+2-s,i,kind,slot,b[p+2]);
     for(int z=3;z<11;z++)if(b[p+z]!=0)return Reject(out fault,"item prefix",p+z-s,i,kind,slot,b[p+z]);
@@ -68,6 +68,10 @@ internal sealed class SkillSlotsSignal {
   }
   return p==e||Reject(out fault,"trailing bytes",p-s,value:e-p);
  }
+ // Row 3 follows rows 0..2 in the fixed-size skill record. Retain only
+ // catalogue-recognized base skills; unrelated nonzero tail metadata is ignored.
+ static uint FourthSkill(byte[] bytes,int at){uint id=BitConverter.ToUInt32(bytes,at+32);
+  return id>=11000000&&id<20000000&&Base(id)==id&&SkillCatalogue.Shared.HasExact(id)?id:0;}
  internal static bool Cooldowns(byte[] b,int s,int e,out Dictionary<uint,uint> values){values=new Dictionary<uint,uint>();if(e-s<3||b[s+2]>128)return false;int p=s+3;for(int i=0;i<b[s+2];i++){if(p+5>e)return false;uint id=BitConverter.ToUInt32(b,p);p+=4;uint raw;if(id==0||values.ContainsKey(id)||!DpsSignal.Var(b,ref p,e,out raw)||raw>864000000)return false;values[id]=raw;}return p==e;}
  // A complete 0238 cast has a source actor, optional cast flags, target/yaw,
  // optional position, two opaque fields and a cooldown interval in milliseconds.
@@ -102,9 +106,10 @@ internal sealed class SkillSlotsSignal {
   Slot found=null;
   foreach(var slot in flow.Slots.Values){
    uint chain;flow.Chains.TryGetValue(Base(slot.Skill),out chain);
-   if(skill!=slot.Skill&&skill!=slot.Alternative&&skill!=slot.Third&&skill!=chain
+   foreach(uint assigned in new[]{slot.Alternative,slot.Third,slot.Fourth}){uint following;if(flow.Chains.TryGetValue(Base(assigned),out following)&&Base(following)==key)chain=following;}
+   if(skill!=slot.Skill&&skill!=slot.Alternative&&skill!=slot.Third&&skill!=slot.Fourth&&skill!=chain
        &&(!family||key!=CooldownKey(slot.Skill)&&key!=CooldownKey(slot.Alternative)
-       &&key!=CooldownKey(slot.Third)&&key!=CooldownKey(chain)))continue;
+       &&key!=CooldownKey(slot.Third)&&key!=CooldownKey(slot.Fourth)&&key!=CooldownKey(chain)))continue;
    // A cast carries a skill ID but no bar position. Avoid flashing two slots
    // when the same skill is assigned more than once.
    if(found!=null)return false;
@@ -156,6 +161,8 @@ internal sealed class SkillSlotsSignal {
   if(full){trace.FullAccepted++;f.FullWireTime=rawTime;f.Slots.Clear();f.PendingPartials.Clear();f.HasBar=true;if(f.AwaitingSelf!=0)f.FullWhileAwaiting=true;}
   if(!f.HasBar){trace.PartialWithoutFull++;foreach(var slot in entries)f.PendingPartials[slot.Index]=slot;return;}
   if(!full)trace.PartialAccepted++;
+  if(SupportDiagnostics.Enabled)SupportDiagnostics.Event("hotbar-assignments",new{full,actor=f.Self,map=f.Map,
+      slots=entries.Select(slot=>new{slot.Index,slot.Skill,slot.Alternative,slot.Third,slot.Fourth}).ToArray()});
   ApplySlots(f,entries);
   f.Context.Enabled=f.Slots.Values.Any(HasContext);changed=true;
  }
@@ -163,44 +170,53 @@ internal sealed class SkillSlotsSignal {
  else if(f.Self!=0&&active==key&&op==0x0238){
   uint actor,skill,ms;bool charges;
   if(Cast(b,s,e,out actor,out skill,out ms,out charges)&&actor==f.Self){
+   if(SupportDiagnostics.Enabled)SupportDiagnostics.Event("hotbar-own-cast",new{actor,skill,ms,charges,map=f.Map});
    if(!charges){Interval(f,skill,ms,time,true);changed=true;}
    if(flashCasts&&MarkOwnCast(f,skill,time))changed=true;
   }
  }
  else if(f.Self!=0&&active==key&&op==0x4738){Dictionary<uint,uint> entries;if(!Cooldowns(b,s,e,out entries))return;foreach(var pair in entries)Interval(f,pair.Key,pair.Value,time,false);changed=true;}
- else if(f.Self!=0&&active==key&&op==0x1838&&e-s==11&&b[s+6]==1){uint first=BitConverter.ToUInt32(b,s+2),next=BitConverter.ToUInt32(b,s+7);if(first!=0&&next!=0){uint previous=Base(first);foreach(var root in f.Chains.Where(x=>Base(x.Value)==previous).Select(x=>x.Key).ToArray())f.Chains[root]=next;if(f.Chains.ContainsKey(previous)||f.Chains.Count<128)f.Chains[previous]=next;changed=true;}}
+ else if(f.Self!=0&&active==key&&op==0x1838&&e-s==11&&b[s+6]==1){uint first=BitConverter.ToUInt32(b,s+2),next=BitConverter.ToUInt32(b,s+7);if(first!=0&&next!=0){uint previous=Base(first);foreach(var root in f.Chains.Where(x=>Base(x.Value)==previous).Select(x=>x.Key).ToArray())f.Chains[root]=next;if(f.Chains.ContainsKey(previous)||f.Chains.Count<128)f.Chains[previous]=next;if(SupportDiagnostics.Enabled)SupportDiagnostics.Event("hotbar-chain-open",new{first,next,map=f.Map});changed=true;}}
  // An entry means the CURRENT available destination of that root. Opening
  // B->C advances A->B to A->C. Closing B must not erase the already-open C.
- else if(f.Self!=0&&active==key&&op==0x1938&&e-s==7&&b[s+2]==1){uint id=Base(BitConverter.ToUInt32(b,s+3));foreach(var root in f.Chains.Where(x=>Base(x.Value)==id).Select(x=>x.Key).ToArray())f.Chains.Remove(root);changed=true;}
+ else if(f.Self!=0&&active==key&&op==0x1938&&e-s==7&&b[s+2]==1){uint id=Base(BitConverter.ToUInt32(b,s+3));foreach(var root in f.Chains.Where(x=>Base(x.Value)==id).Select(x=>x.Key).ToArray())f.Chains.Remove(root);if(SupportDiagnostics.Enabled)SupportDiagnostics.Event("hotbar-chain-close",new{id,map=f.Map});changed=true;}
  if(changed){revision++;cached=null;}changed=changed&&enabled;}
  if(changed)Notify();}
- internal View Read(double now){lock(gate){Flow f;if(!enabled||active==null||!flows.TryGetValue(active,out f)||f.Self==0||!f.HasBar||now+.25<f.Traffic||now-f.Traffic>15)return null;if(cached!=null)return cached;var v=new View{Self=f.Self,Map=f.Map,Flow=active,Revision=revision,ContextTarget=f.Context.Target,FireMarkUntil=f.Context.Until,StunUntil=f.Context.UntilFor(f.Context.Target,SkillSlotContext.Stun),HeartGoreUntil=f.Context.UntilFor(f.Self,SkillSlotContext.HeartGore),EvasionUntil=f.Context.EvasionUntil(f.Self),InfiltrateUntil=f.Context.UntilFor(f.Self,SkillSlotContext.InfiltrateWindow)};foreach(var slot in f.Slots.Values.OrderBy(x=>x.Index))v.Slots.Add(slot.Copy());foreach(var p in f.Cds)v.Cooldowns[p.Key]=p.Value.Copy();foreach(var p in f.Chains)v.Chains[p.Key]=p.Value;return cached=v;}}
+ internal View Read(double now){lock(gate){Flow f;if(!enabled||active==null||!flows.TryGetValue(active,out f)||f.Self==0||!f.HasBar||now+.25<f.Traffic||now-f.Traffic>15)return null;if(cached!=null)return cached;var v=new View{Self=f.Self,Map=f.Map,Flow=active,Revision=revision,ContextTarget=f.Context.Target,FireMarkUntil=f.Context.Until,StunUntil=f.Context.UntilFor(f.Context.Target,SkillSlotContext.Stun),HeartGoreUntil=f.Context.UntilFor(f.Self,SkillSlotContext.HeartGore),EvasionUntil=f.Context.EvasionUntil(f.Self),InfiltrateUntil=f.Context.UntilFor(f.Self,SkillSlotContext.InfiltrateWindow),Flying=f.Context.UntilFor(f.Self,SkillSlotContext.Flight)>0};foreach(var slot in f.Slots.Values.OrderBy(x=>x.Index))v.Slots.Add(slot.Copy());foreach(var p in f.Cds)v.Cooldowns[p.Key]=p.Value.Copy();foreach(var p in f.Chains)v.Chains[p.Key]=p.Value;return cached=v;}}
  internal static Cooldown For(View v,uint id){Cooldown c;return v!=null&&(v.Cooldowns.TryGetValue(id,out c)||v.Cooldowns.TryGetValue(Base(id),out c))?c:null;}
  // Both intervals are milliseconds: own Hellfire 41600ms corresponds to the
  // user's native42s display; later corrections replace the same time anchor.
  internal static double Remaining(Cooldown cd,double now){return cd==null?0:Math.Max(0,cd.Raw/1000.0-Math.Max(0,now-cd.At));}
  // Bounded metadata only: no packet payloads, endpoints, keys or chat are retained.
- internal object Diagnostic(double now){lock(gate){Flow f=active!=null&&flows.ContainsKey(active)?flows[active]:null;return new{barDiagnosticsVersion=5,transportFlowId=SupportDiagnostics.FlowId(active),receptionClock=ReceiptClock!=null,enabled,flows=flows.Count,ownActor=f==null?(uint?)null:f.Self,map=f==null?(uint?)null:f.Map,activeBar=f!=null&&f.HasBar,secondsSincePacket=f==null?(double?)null:Math.Max(0,now-f.Traffic),packetClockLead=f==null?(double?)null:Math.Max(0,f.Traffic-now),captureClockLead=f==null?(double?)null:f.RawTraffic-now,resets,lastReset,bar=f==null?null:f.Bar,barFlows=flows.Select(p=>new{active=p.Key==active,ownActor=p.Value.Self,awaitingOwnActor=p.Value.AwaitingSelf,map=p.Value.Map,activeBar=p.Value.HasBar,slots=p.Value.Slots.Count,bar=p.Value.Bar}).ToArray()};}}
+ internal object Diagnostic(double now){lock(gate){Flow f=active!=null&&flows.ContainsKey(active)?flows[active]:null;return new{barDiagnosticsVersion=6,transportFlowId=SupportDiagnostics.FlowId(active),receptionClock=ReceiptClock!=null,enabled,flows=flows.Count,ownActor=f==null?(uint?)null:f.Self,map=f==null?(uint?)null:f.Map,activeBar=f!=null&&f.HasBar,secondsSincePacket=f==null?(double?)null:Math.Max(0,now-f.Traffic),packetClockLead=f==null?(double?)null:Math.Max(0,f.Traffic-now),captureClockLead=f==null?(double?)null:f.RawTraffic-now,resets,lastReset,bar=f==null?null:f.Bar,barFlows=flows.Select(p=>new{active=p.Key==active,ownActor=p.Value.Self,awaitingOwnActor=p.Value.AwaitingSelf,map=p.Value.Map,activeBar=p.Value.HasBar,slots=p.Value.Slots.Count,bar=p.Value.Bar}).ToArray()};}}
  internal static bool IsFireContext(Slot slot){return Base(slot.Skill)==15280000&&Base(slot.Alternative)==15050000&&slot.Third==0;}
  static bool IsShadowFallContext(Slot slot){return Base(slot.Skill)==13360000&&Base(slot.Alternative)==13220000;}
- static uint AssassinEVariant(Slot slot,uint skill){
-  if(Base(slot.Skill)!=13340000)return 0;
+ static uint AssignedVariant(Slot slot,uint skill){
   if(Base(slot.Alternative)==skill)return slot.Alternative;
-  return Base(slot.Third)==skill?slot.Third:0;
+  if(Base(slot.Third)==skill)return slot.Third;return Base(slot.Fourth)==skill?slot.Fourth:0;
  }
- static bool HasContext(Slot slot){return IsFireContext(slot)||IsShadowFallContext(slot)||Base(slot.Skill)==13340000||Base(slot.Skill)==13360000;}
+ static bool HasContext(Slot slot){return IsFireContext(slot)||IsShadowFallContext(slot)||
+  Base(slot.Skill)==13340000||Base(slot.Skill)==13360000||
+  AssignedVariant(slot,13210000)!=0||AssignedVariant(slot,13350000)!=0;}
+ // Verified independent activations. This is skill metadata, not a slot pair
+ // or character preset. An unclassified alternative may require an event.
+ static bool UsesCooldownOnly(uint skill){
+  uint id=Base(skill);
+  return id==13390000||id==13310000||id==13270000||id==13300000||id==13100000;
+ }
  internal static bool? Requirement(View view,Slot slot,uint skill,double now,StaggerSignal stagger){
   if(view==null)return null;
   uint current=Base(skill);
   // These two base skills are reactive even when no activation is open.
   if(current==13340000)return stagger!=null&&stagger.IsTargetStaggered(view.Flow,view.ContextTarget,now);
-  if(current==13360000)return now<view.InfiltrateUntil;
+  if(current==13360000)return view.Flying||now<view.InfiltrateUntil;
   if(IsFireContext(slot)&&current==15050000&&view.ContextTarget!=0&&now<view.FireMarkUntil&&Remaining(For(view,slot.Skill),now)>0)return true;
   if(IsShadowFallContext(slot)&&current==13220000&&view.ContextTarget!=0&&now<view.StunUntil)return true;
-  if(AssassinEVariant(slot,13210000)!=0&&current==13210000&&now<view.EvasionUntil)return true;
-  if(AssassinEVariant(slot,13350000)!=0&&current==13350000&&now<view.HeartGoreUntil)return true;
+  if(AssignedVariant(slot,13210000)!=0&&current==13210000&&now<view.EvasionUntil)return true;
+  if(AssignedVariant(slot,13350000)!=0&&current==13350000&&now<view.HeartGoreUntil)return true;
   return null;
  }
+ static uint Chained(View view,uint id){uint next;return view.Chains.TryGetValue(Base(id),out next)?next:id;}
  internal static uint DisplaySkill(View view,Slot slot){return DisplaySkill(view,slot,DpsHistory.UtcNow());}
  internal static uint DisplaySkill(View view,Slot slot,double now){uint next;if(view!=null&&view.Chains.TryGetValue(Base(slot.Skill),out next))return next;
  // This specific conditional pair is verified by assigned bar IDs, recorded Fire
@@ -209,16 +225,21 @@ internal sealed class SkillSlotsSignal {
  if(view!=null){
   if(IsFireContext(slot)&&view.ContextTarget!=0&&now<view.FireMarkUntil&&Remaining(For(view,slot.Skill),now)>0)return slot.Alternative;
   if(IsShadowFallContext(slot)&&view.ContextTarget!=0&&now<view.StunUntil&&Remaining(For(view,slot.Alternative),now)<=0)return slot.Alternative;
-  uint whirlwind=AssassinEVariant(slot,13210000);
+  uint whirlwind=AssignedVariant(slot,13210000);
   if(whirlwind!=0&&now<view.EvasionUntil&&Remaining(For(view,whirlwind),now)<=0)return whirlwind;
-  uint heart=AssassinEVariant(slot,13350000);
+  uint heart=AssignedVariant(slot,13350000);
   if(heart!=0&&now<view.HeartGoreUntil&&Remaining(For(view,heart),now)<=0)return heart;
+  if(Remaining(For(view,slot.Skill),now)>0){
+   if(UsesCooldownOnly(slot.Alternative)&&Remaining(For(view,slot.Alternative),now)<=0)return Chained(view,slot.Alternative);
+   if(UsesCooldownOnly(slot.Third)&&Remaining(For(view,slot.Third),now)<=0)return Chained(view,slot.Third);
+   if(UsesCooldownOnly(slot.Fourth)&&Remaining(For(view,slot.Fourth),now)<=0)return Chained(view,slot.Fourth);
+  }
  }
  return slot.Skill;}
 }
 
 internal sealed class SkillSlotContext {
- internal const uint FireMark=157100071,Stun=100000301,HeartGore=133500081,EvasionMarkerA=1006,EvasionMarkerB=1007,InfiltrateWindow=3015;
+ internal const uint FireMark=157100071,Stun=100000301,HeartGore=133500081,EvasionMarkerA=1006,EvasionMarkerB=1007,InfiltrateWindow=3015,Flight=100000002;
  sealed class Mark {internal uint Target,Effect;internal double Until;internal long ServerExpiry;}
  readonly Dictionary<ulong,Mark> marks=new Dictionary<ulong,Mark>();internal uint Target;internal bool Enabled;double clockOffset,clockAt;bool clockKnown;
  internal void Clear(){marks.Clear();Target=0;Enabled=false;clockKnown=false;clockOffset=clockAt=0;}
@@ -247,15 +268,23 @@ internal sealed class SkillSlotContext {
  if(op==0x3138){if(e-s<7||b[p++]!=0||b[p++]!=0||!DpsSignal.Var(b,ref p,e,out actor)||actor>10000000||e-p!=2||b[p]!=0||b[p+1]!=0)return false;bool changed=Target!=actor;Target=actor;return changed;}
  if(op==0x3438){if(!EnemyHealthSignal.Selection(b,s,e,out actor))return false;bool changed=Target!=actor;Target=actor;return changed;}
  if(op==0x2a38||op==0x2b38){List<PlayerShieldSignal.Status> statuses;if(!PlayerShieldSignal.ReadStatuses(b,s,e,out actor,out statuses))return false;bool changed=false;foreach(var status in statuses){ulong key=Key(actor,status.Instance);if(marks.Remove(key))changed=true;
+ // Opening wings adds a persistent own effect. Folding them explicitly removes
+ // its instance, before landing or the first flight-energy recharge tick.
+ if(!status.Removing&&status.Effect==Flight&&actor==self&&status.Source==self&&status.Skill==0&&status.Duration==-1){
+  Store(key,actor,status,double.PositiveInfinity,time);changed=true;continue;
+ }
  // Absolute server expiry keeps repeated snapshots from extending availability.
  bool evasion=actor==self&&status.Skill==0&&(status.Effect==EvasionMarkerA||status.Effect==EvasionMarkerB);
  bool supported=evasion||status.Effect==FireMark||status.Effect==Stun&&actor!=self||status.Effect==HeartGore&&actor==self&&status.Skill==13350008
      ||status.Effect==InfiltrateWindow&&actor==self&&status.Skill==13000100&&status.Source==self;
  if(status.Removing||!supported||status.Duration<=0||status.Duration>60000)continue;if(!clockKnown||time-clockAt>2)continue;double until=status.Expiry/1000.0+clockOffset;if(until<=time||until>time+status.Duration/1000.0+.25)continue;
- foreach(var expired in marks.Where(x=>x.Value.Until<=time).Select(x=>x.Key).ToArray())marks.Remove(expired);
- if(marks.Count>=512)marks.Remove(marks.OrderBy(x=>x.Value.Until).First().Key);
- marks[key]=new Mark{Target=actor,Effect=status.Effect,Until=until,ServerExpiry=status.Expiry};changed=true;}return changed;}
+ Store(key,actor,status,until,time);changed=true;}return changed;}
  if(op==0x2c38){uint count;if(!DpsSignal.Var(b,ref p,e,out actor)||!DpsSignal.Var(b,ref p,e,out count)||count>128)return false;var removed=new List<uint>();for(uint n=0;n<count;n++){if(p>=e)return false;int flags=b[p++];uint instance,unused;if(flags>7||!DpsSignal.Var(b,ref p,e,out instance)||p>=e)return false;p++;if((flags&1)!=0&&!DpsSignal.Var(b,ref p,e,out unused))return false;int skip=((flags&2)!=0?4:0)+((flags&4)!=0?4:0);if(e-p<skip)return false;p+=skip;removed.Add(instance);}if(p!=e)return false;bool changed=false;foreach(uint instance in removed)changed=marks.Remove(Key(actor,instance))||changed;return changed;}
  if(op==0x4236&&DpsSignal.Var(b,ref p,e,out actor)&&e-p==2&&b[p]==0){bool changed=false;foreach(var key in marks.Where(x=>x.Value.Target==actor).Select(x=>x.Key).ToArray()){marks.Remove(key);changed=true;}if(Target==actor){Target=0;changed=true;}return changed;}return false;
+ }
+ void Store(ulong key,uint actor,PlayerShieldSignal.Status status,double until,double time){
+  foreach(var expired in marks.Where(x=>x.Value.Until<=time).Select(x=>x.Key).ToArray())marks.Remove(expired);
+  if(marks.Count>=512)marks.Remove(marks.OrderBy(x=>x.Value.Until).First().Key);
+  marks[key]=new Mark{Target=actor,Effect=status.Effect,Until=until,ServerExpiry=status.Expiry};
  }
 }

@@ -270,7 +270,7 @@ internal sealed class CombatLogOverlay : IDisposable {
         bool editing=!locked;
         if(!o.Enabled||isolated){NextInterval=1000;nextMaintenance=0;window.HideOverlay();return;}
         double now=clock.Elapsed.TotalSeconds;
-        if(now<nextMaintenance&&ReferenceEquals(lastOptions,o)&&wasEditing==editing&&language==owner.Language)return;
+        if(!owner.HudOpacityChanged&&now<nextMaintenance&&ReferenceEquals(lastOptions,o)&&wasEditing==editing&&language==owner.Language)return;
         lastOptions=o;
         bool game=o.Enabled&&!isolated&&FloatingTextService.GameForeground();
         bool show=o.Enabled&&!isolated&&(game||editing)&&!owner.WidgetsSuppressed&&!DpsDesign.ShellUiActive();
@@ -303,7 +303,7 @@ internal sealed class CombatLogOverlay : IDisposable {
             displayed=o.Copy(); language=owner.Language; wasSample=sample; wasEditing=editing; visual++;
         }
         wasAnimating=animating;wasScrolling=scrolling;
-        window.Render(o.Bounds,255,editing,visual.ToString(CultureInfo.InvariantCulture),
+        window.Render(o.Bounds,owner.HudOpacity(),editing,visual.ToString(CultureInfo.InvariantCulture),
             size=>painter.Render(size,o,sample?CombatLogPainter.Sample:entries,language,sample,editing,now,offset,scrolling),o.Blur);
     }
 

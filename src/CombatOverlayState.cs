@@ -17,11 +17,16 @@ internal sealed class CombatOverlayState {
     Dictionary<ulong,uint> roster=new Dictionary<ulong,uint>();
     string flow,loadingFlow;
     uint self,loading,map;
+    uint selected,dialogueActor;
+    double dialogueTime;
     bool? combat;
     double lastBattle;
     volatile bool trackBuffs;
 
     internal bool? Combat {get{lock(gate)return combat;}}
+    internal bool DialogueOpen(double now) {
+        lock(gate)return dialogueActor!=0&&now>=dialogueTime&&now-dialogueTime<120;
+    }
     internal void Configure(bool buffs) {
         lock(gate) {
             trackBuffs=buffs;
@@ -30,6 +35,7 @@ internal sealed class CombatOverlayState {
     }
     void ClearWorld() {
         combat=null;lastBattle=0;
+        selected=dialogueActor=0;dialogueTime=0;
         effects.Clear();removed.Clear();roster.Clear();partyVitals.Clear();
     }
     internal void Reset(){lock(gate){flow=loadingFlow=null;self=loading=map=0;ClearWorld();}}
@@ -55,7 +61,8 @@ internal sealed class CombatOverlayState {
         int op=(b[s]<<8)|b[s+1];
         bool identity=op==0x2036||op==0x3336||op==0x2136;
         bool partyUpdate=op==0x0092||op==0x0d92||op==0x1192||op==0x1b92;
-        if(!identity&&!partyUpdate&&op!=0x218d&&(!trackBuffs||(op!=0x2a38&&op!=0x2b38&&op!=0x2c38)))return false;
+        bool interaction=op==0x3438||op==0x41e2||op==0x43e2;
+        if(!identity&&!partyUpdate&&!interaction&&op!=0x218d&&(!trackBuffs||(op!=0x2a38&&op!=0x2b38&&op!=0x2c38)))return false;
         lock(gate) {
             uint actor;string name;byte role;
             if(op==0x2036){
@@ -72,6 +79,7 @@ internal sealed class CombatOverlayState {
                 return changed;
             }
             if(self==0||key!=flow)return false;
+            if(interaction)return ReadInteraction(b,s,e,time,op);
             if(op==0x2136){
                 if(e-s!=48)return false;
                 uint next=BitConverter.ToUInt32(b,s+6);
@@ -159,6 +167,32 @@ internal sealed class CombatOverlayState {
         }
     }
 
+    bool ReadInteraction(byte[] b,int start,int end,double time,int opcode) {
+        if(time<dialogueTime)return false;
+        uint actor;
+        if(opcode==0x3438){
+            if(!EnemyHealthSignal.Selection(b,start,end,out actor))return false;
+            selected=actor;
+            if(dialogueActor==0||dialogueActor==selected)return false;
+            dialogueActor=0;
+        }else{
+            // The interaction frames identify the selected NPC as a fixed-width ID.
+            // The selection alone is also sent when the player simply targets an NPC.
+            if(end-start!=(opcode==0x41e2?16:8)||b[start+2]!=0||b[start+3]!=0)return false;
+            actor=BitConverter.ToUInt32(b,start+4);
+            if(actor==0)return false;
+            if(opcode==0x41e2){
+                if(actor!=selected)return false;
+                dialogueActor=actor;
+            }else{
+                if(actor!=dialogueActor)return false;
+                dialogueActor=0;
+            }
+        }
+        dialogueTime=time;
+        return true;
+    }
+
     bool Remove(uint instance,double time) {
         Effect entry;
         if(!effects.TryGetValue(instance,out entry)||time<entry.Updated)return false;
@@ -209,6 +243,32 @@ internal sealed class CombatOverlayState {
         if(state.ReadBuffs(9.1,true,false).Length!=1)throw new Exception("A verified attack buff expires on its own instance removal");
         feed(DashSignal.LoginFixture(12),10,"A");
         if(state.Combat.HasValue||state.ReadBuffs(10,true,false).Length!=0)throw new Exception("Character loading resets combat and buff identity");
+
+        var dialogue=new CombatOverlayState();
+        Action<byte[],double,string> npc=(b,t,f)=>dialogue.Consume(b,0,b.Length,t,f);
+        var select=new byte[]{0x34,0x38,0,0,0,0xa0,0x91,1};
+        var open=new byte[]{0x41,0xe2,0,0,0xa0,0x48,0,0,0x88,0xeb,0x17,0x74,0xa1,1,0,0};
+        var close=new byte[]{0x43,0xe2,0,0,0xa0,0x48,0,0};
+        npc(EnemyTargetVerification.Player(13238,"Own",100,100,true),20,"A");
+        npc(open,21,"A");
+        npc(select,22,"A");
+        npc(open,23,"B");
+        if(dialogue.DialogueOpen(23))throw new Exception("Only a matching interaction in the active world can open a dialogue");
+        npc(open,24,"A");
+        if(!dialogue.DialogueOpen(24))throw new Exception("Observed NPC interaction opens the dialogue");
+        npc(close,23,"A");
+        npc(close,25,"B");
+        if(!dialogue.DialogueOpen(25))throw new Exception("Foreign and older closes must be ignored");
+        npc(close,26,"A");
+        if(dialogue.DialogueOpen(26))throw new Exception("Matched close restores widgets");
+        npc(open,27,"A");
+        npc(new byte[]{0x34,0x38,0,0,0,0},28,"A");
+        if(dialogue.DialogueOpen(28))throw new Exception("Deselect restores widgets when the close is missed");
+        npc(select,29,"A");
+        npc(open,30,"A");
+        if(dialogue.DialogueOpen(151))throw new Exception("A missing close cannot hide the HUD indefinitely");
+        dialogue.Reset();
+        if(dialogue.DialogueOpen(31))throw new Exception("Transport reset clears the dialogue");
 
         var fade=new CombatOpacityMotion();
         fade.Step(0,true,false,null,30);

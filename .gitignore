@@ -63,9 +63,11 @@ __pycache__/
 
 # Private per-character hotbar layouts and labels
 /hotbar-profiles.json*
+/odyle-characters.json*
 
 # Opt-in private support reports
 /support-report*.zip*
 /support-log.jsonl
 /support-summary.json*
 /support-write-error.txt
+/native-hud-calibration.json

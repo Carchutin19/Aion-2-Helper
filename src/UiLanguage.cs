@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Automation;
@@ -9,6 +9,35 @@ internal static class UiLanguage {
     internal static string Normalize(string language){language=(language??"").ToLowerInvariant();return Array.IndexOf(UiLanguageMore.Codes,language)>=0?language:"en";}
     internal static string Read(Dictionary<string,object> settings){object value;return settings.TryGetValue("language",out value)?Normalize(Convert.ToString(value)):"en";}
     static readonly Dictionary<string,string> Spanish=new Dictionary<string,string>{
+        {"Coming soon","Próximamente"},
+        {"Odyle Energy","Energía de Odyle"},
+        {"Recharge tracking by character","Seguimiento de recarga por personaje"},
+        {"OVERLAY","OVERLAY"},
+        {"CHARACTERS","PERSONAJES"},
+        {"ODYLE BALANCE","SALDO DE ODYLE"},
+        {"Show current character's Odyle energy","Mostrar energía de Odyle del personaje actual"},
+        {"Show Odyle maximum","Mostrar máximo de Odyle"},
+        {"Enter the rechargeable balance shown in AION 2. The Helper estimates +15 every 3 hours, even while closed. Update the balance after spending or claiming energy.","Introduce el saldo recargable que muestra AION 2. El Helper estima +15 cada 3 horas, incluso mientras está cerrado. Actualiza el saldo después de gastar o reclamar energía."},
+        {"Use current character","Usar personaje actual"},
+        {"Character name","Nombre del personaje"},
+        {"Server ID","ID del servidor"},
+        {"Rechargeable balance","Saldo recargable"},
+        {"Recharge limit","Límite de recarga"},
+        {"Minutes until next recharge","Minutos hasta la próxima recarga"},
+        {"Use the in-game countdown if available. The default starts a new 3-hour interval.","Usa el contador del juego si está disponible. El valor predeterminado inicia un intervalo de 3 horas."},
+        {"Save balance","Guardar saldo"},
+        {"Odyle balance saved.","Saldo de Odyle guardado."},
+        {"Check the name, server ID and balance.","Comprueba el nombre, el ID del servidor y el saldo."},
+        {"Enter a character to detect it automatically.","Entra con un personaje para detectarlo automáticamente."},
+        {"Current character · {0} · Server {1}","Personaje actual · {0} · Servidor {1}"},
+        {"{0} · Server {1}","{0} · Servidor {1}"},
+        {"Edit balance","Editar saldo"},
+        {"Remove the saved Odyle balance for {0}?","¿Quitar el saldo de Odyle guardado de {0}?"},
+        {"Enter a balance to start tracking.","Introduce un saldo para empezar el seguimiento."},
+        {"Estimated full · {0}","Llenado estimado · {0}"},
+        {"At maximum","Al máximo"},
+        {"Could not load saved Odyle energy.","No se ha podido cargar la energía de Odyle guardada."},
+        {"Could not save Odyle energy.","No se ha podido guardar la energía de Odyle."},
         {"Finishing diagnostic report","Finalizando informe de diagnóstico"},
         {"WHAT'S NEW · v1.22.0 · Connection recovery & critical hits","NOVEDADES · v1.22.0 · Conexión y golpes críticos"},
         {"Connection recovery for verified alternate game ports, confirmed by the ExitLag community tester. General now includes optional local support reports. Outgoing critical hits can use separate colors, size and outlines, with a shared damage anchor or their own movable widget. German, French and Arabic interface previews include English fallback for untranslated advanced help; Arabic settings support right-to-left reading. Settings and character presets are preserved. Conquest and gathering/target-bar reports are queued for investigation.","Recuperación de conexiones con puertos alternativos, confirmada por el usuario con ExitLag. General incluye informes de soporte opcionales. Los críticos de nuestro daño pueden tener colores, tamaño y contorno propios, en la posición del daño normal o en un widget independiente. Alemán, francés y árabe son idiomas preliminares; algunas ayudas avanzadas siguen en inglés. La interfaz en árabe admite lectura de derecha a izquierda. La configuración y los perfiles se conservan. Los reportes de Conquista y de la barra de objetivo al recolectar están pendientes de investigar."},

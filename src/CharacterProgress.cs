@@ -616,7 +616,7 @@ internal sealed class CharacterProgressWidgets : IDisposable {
             StatusKey = "disabled";
             return;
         }
-        bool shell = (o.Power.Enabled || o.Experience.Enabled) && (owner.WidgetsSuppressed || DpsDesign.ShellUiActive());
+        bool shell = (o.Power.Enabled || o.Experience.Enabled) && (owner.ForegroundWidgetsSuppressed || DpsDesign.ShellUiActive());
         ulong? number = live == null ? null : o.AlternatePower ? live.Secondary : live.Primary;
         if (editing && !number.HasValue) number = o.AlternatePower ? 1248ul : 120ul;
         byte powerOpacity = o.Power.Enabled && !shell && (editing || live != null) ? (byte)255 : (byte)0;
@@ -624,7 +624,7 @@ internal sealed class CharacterProgressWidgets : IDisposable {
             powerOptions=o;powerNumber=number;powerKey=(++powerRevision).ToString(CultureInfo.InvariantCulture);
             paintPower=size=>CharacterProgressDesign.Power(size,powerNumber,powerOptions.AlternatePower,powerOptions.Power);
         }
-        power.Render(o.Power.Bounds,powerOpacity,editing,powerKey,paintPower);
+        power.Render(o.Power.Bounds,owner.HudOpacity(powerOpacity),editing,powerKey,paintPower);
 
         int level = editing ? 10 : live == null ? 0 : live.Level;
         ulong? current = editing ? 28208ul : live == null ? null : live.Xp;
@@ -650,7 +650,7 @@ internal sealed class CharacterProgressWidgets : IDisposable {
             xpOptions=o;xpLevel=level;xpNumber=current;xpLanguage=language;xpKey=(++xpRevision).ToString(CultureInfo.InvariantCulture);
             paintXp=size=>CharacterProgressDesign.Experience(size,xpLevel,xpNumber.GetValueOrDefault(),CharacterProgressSignal.Maximum(xpLevel),xpOptions.Experience,xpLanguage);
         }
-        xp.Render(o.ExperienceBounds,(byte)Math.Round(alpha*255),editing,xpKey,paintXp);
+        xp.Render(o.ExperienceBounds,owner.HudOpacity((byte)Math.Round(alpha*255)),editing,xpKey,paintXp);
         if(StatusKey=="disabled"||statusPowerKey!=powerKey||statusXpKey!=xpKey||statusPowerVisible!=power.Visible||statusXpVisible!=xp.Visible){
             statusPowerKey=powerKey;statusXpKey=xpKey;statusPowerVisible=power.Visible;statusXpVisible=xp.Visible;
             StatusKey=powerKey+"/"+statusPowerVisible+"/"+xpKey+"/"+statusXpVisible;

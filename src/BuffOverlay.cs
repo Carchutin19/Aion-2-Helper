@@ -74,7 +74,7 @@ internal sealed class BuffOverlay : IDisposable {
     internal void Maintain(BuffOverlayOptions o,bool editing,bool hidden,bool connected,double now,string language){
         if(disposed)return;
         if(!testing&&(!o.Enabled||hidden||!connected&&!editing)){NextInterval=1000;window.HideOverlay();wasHidden=true;return;}
-        if(o==previous&&!wasHidden&&editing==wasEditing&&connected==wasConnected&&language==previousLanguage&&now<nextFrame)return;
+        if(!window.SnapOwner.HudOpacityChanged&&o==previous&&!wasHidden&&editing==wasEditing&&connected==wasConnected&&language==previousLanguage&&now<nextFrame)return;
         previous=o;previousLanguage=language;wasHidden=false;wasEditing=editing;wasConnected=connected;nextFrame=now+.125;
         NextInterval=1000;
         var effects=connected?signal.ReadBuffs(now,o.Own,o.Party):new CombatOverlayState.Effect[0];
@@ -97,7 +97,7 @@ internal sealed class BuffOverlay : IDisposable {
             else if(o.WarnBeforeExpiry)key.Append('/').Append(Ending(left));
         }
         NextInterval=125;
-        window.Render(layout,(byte)Math.Round(o.Opacity*255/100.0),editing,key.ToString(),
+        window.Render(layout,window.SnapOwner.HudOpacity((byte)Math.Round(o.Opacity*255/100.0)),editing,key.ToString(),
             size=>Paint(size,o,effects,now,language,editing),o.Blur&&!o.Compact);
     }
 

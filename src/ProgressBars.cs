@@ -200,7 +200,7 @@ internal sealed class StaggerOverlay:Form,IWidgetSnapTarget {
     Rectangle IWidgetSnapTarget.SnapBounds {get{return Core;}}
     readonly EnergyOverlay owner;readonly StaggerSignal signal;readonly bool preview;readonly Timer timer=new Timer();readonly Stopwatch clock=Stopwatch.StartNew();readonly BarMotion motion=new BarMotion();readonly LayeredImage image=new LayeredImage();readonly BarDesign.GlowWorkspace glow=new BarDesign.GlowWorkspace();readonly ProgressTextOverlay texts=new ProgressTextOverlay();readonly StaggerScreenEffect screenEffect;
     StaggerOptions options=new StaggerOptions();bool editing,editingSample,disposed,dragging;int hit,wake;Point mouse;Rectangle original;string imageKey;byte alpha;Point location;double raise;
-    internal StaggerOverlay(EnergyOverlay parent,StaggerSignal source,bool previewMode){owner=parent;signal=source;preview=previewMode;screenEffect=new StaggerScreenEffect(signal.Read,preview);signal.Changed=Wake;Text="Aion 2 Helper - Stagger";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;timer.Interval=250;timer.Tick+=delegate{Pulse();};}
+    internal StaggerOverlay(EnergyOverlay parent,StaggerSignal source,bool previewMode){owner=parent;signal=source;preview=previewMode;screenEffect=new StaggerScreenEffect(signal.Read,preview,()=>owner.HudOpacity());signal.Changed=Wake;Text="Aion 2 Helper - Stagger";FormBorderStyle=FormBorderStyle.None;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;TopMost=true;ShowInTaskbar=false;timer.Interval=250;timer.Tick+=delegate{Pulse();};}
     internal long EffectRevision {get{return screenEffect.Revision;}}
     internal void TestScreenEffect(Rectangle area){if(!owner.WidgetsSuppressed)screenEffect.Test(area);}
     internal object ScreenEffectStatus {get{return screenEffect.Status;}}
@@ -210,7 +210,7 @@ internal sealed class StaggerOverlay:Form,IWidgetSnapTarget {
     internal void Configure(StaggerOptions next,bool locked,bool hotbar=false){options=next.Copy();options.Normalize();editing=!locked;signal.Configure(!preview&&(options.Bar.Enabled||hotbar));screenEffect.Configure(options.ScreenEffect,options.Bar.Enabled,signal.Read());Core=options.Bounds;int style=OverlayNative.GetWindowLong(Handle,-20);OverlayNative.SetWindowLong(Handle,-20,editing?style&~0x20:style|0x20);imageKey=null;if(options.Bar.Enabled)timer.Start();else{timer.Stop();if(Visible)Hide();texts.Clear();}Pulse();}
     void Wake(){if(disposed||!options.Bar.Enabled||!IsHandleCreated||Interlocked.CompareExchange(ref wake,1,0)!=0)return;try{BeginInvoke((Action)delegate{Interlocked.Exchange(ref wake,0);Pulse();});}catch(InvalidOperationException){Interlocked.Exchange(ref wake,0);}}
     internal void RefreshVisibility(){Pulse();}
-    void Pulse(){if(disposed||!options.Bar.Enabled)return;var s=signal.Read();double now=clock.Elapsed.TotalSeconds,utc=DpsHistory.UtcNow();bool known=StaggerSignal.Fresh(s,utc)&&StaggerSignal.Available(s);if(owner.WidgetsSuppressed)screenEffect.Stop();else screenEffect.Observe(s,utc);
+    void Pulse(){if(disposed||!options.Bar.Enabled)return;var s=signal.Read();double now=clock.Elapsed.TotalSeconds,utc=DpsHistory.UtcNow();bool known=StaggerSignal.Fresh(s,utc)&&StaggerSignal.Available(s);if(owner.WidgetsSuppressed)screenEffect.Stop();else if(owner.NativeMenu==null)screenEffect.Observe(s,utc);
         bool sample=!preview&&editing&&!StaggerSignal.DisplayAvailable(s,utc);uint current=preview||sample?65u:known?s.Current:0,maximum=preview||sample?100u:known?s.Maximum:0;bool fresh=preview||known||sample;double ratio=maximum==0?0:(double)current/maximum;
         if(sample!=editingSample){editingSample=sample;motion.SnapValue(ratio);}
         var progress=StaggerDisplayProgress.Read(s,utc,options.Countdown.ReferenceSeconds);
@@ -218,7 +218,7 @@ internal sealed class StaggerOverlay:Form,IWidgetSnapTarget {
         // A linear countdown must reach its endpoint without smoothing lag.
         // Keep the visual motion value in sync for a seamless actual refill.
         if(!preview&&!sample&&progress.Refilling)motion.SnapValue(progress.Ratio);
-        bool visible=(editing||preview||StaggerSignal.DisplayAvailable(s,utc))&&motion.Opacity>0&&!owner.WidgetsSuppressed&&!DpsDesign.ShellUiActive();byte opacity=visible?(byte)Math.Round(motion.Opacity*255):(byte)0;
+        bool visible=(editing||preview||StaggerSignal.DisplayAvailable(s,utc))&&motion.Opacity>0&&!owner.WidgetsSuppressed&&!DpsDesign.ShellUiActive();byte opacity=visible?owner.HudOpacity((byte)Math.Round(motion.Opacity*255)):(byte)0;
         if(opacity==0){if(Visible)Hide();texts.Clear();}else{string key=Core.Size+"/"+(int)Math.Round(motion.Value*Core.Width)+"/"+BarDesign.EnergyColor(motion.Value,options.Bar).ToArgb()+"/"+editing+"/"+fresh;if(imageKey!=key){imageKey=key;using(var bitmap=BarDesign.RenderEmissive(Core.Width,Core.Height,motion.Value,editing,fresh,1,options.Bar,glow))image.Upload(bitmap);alpha=0;}if(alpha!=opacity||location!=Location||!Visible){image.Present(Handle,Left,Top,opacity);alpha=opacity;location=Location;}if(!Visible)Show();if(now>=raise){raise=now+1;OverlayNative.RaiseWithoutFocus(Handle);}
             texts.Update(Core,options.Bar,fresh,current,maximum,opacity,options.Countdown,sample?4.0:progress.Remaining);
         }

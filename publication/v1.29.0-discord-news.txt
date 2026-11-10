@@ -1,0 +1,23 @@
+✨ Aion 2 Helper v1.29.0 — Menu Fades & Hotbar Improvements
+
+🪄 Your overlays now follow the game’s UI
+Gameplay widgets fade out when supported full-screen menus or NPC dialogues hide Aion’s HUD, then fade back in when you return. Notifications remain available, and unlocked widgets stay visible for editing.
+
+⚔️ Hotbar improvements
+Improved supported Assassin skill stacks and macros, including moved skills and fourth-row handling. Infiltrate now supports its flight activation and loses that activation when you fold your wings.
+
+🖼️ In-game HUD presets
+The Helper can reacquire the supported potion-bar key labels after you switch HUD layouts, instead of assuming the bar has stayed in the same place.
+
+🛠️ HUD copier improvements
+“Create HUD without hotbar” now supports non-empty exports with omitted skill-bar entries. Your original export and the rest of your exported layout are preserved.
+
+💎 Odyle Energy — Coming soon
+A new sidebar entry is visible, but it stays unavailable until automatic tracking is ready.
+
+📥 Download: https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0
+🧭 Roadmap: https://github.com/Carchutin19/Aion-2-Helper/blob/main/ROADMAP.md
+
+ℹ️ Hotbar remains experimental. The latest fourth-row/M2 correction passes regression checks; its final live retest is pending because of game maintenance. The separate data-loss issue after some dungeon exits is still under investigation.
+
+❤️ Thanks for the testing, reports and feedback!

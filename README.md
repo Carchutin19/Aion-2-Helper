@@ -1,4 +1,4 @@
-# Aion 2 Helper
+﻿# Aion 2 Helper
 
 **Customizable utility overlays for Aion 2.**
 
@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.28.0 release — Progress Bar Styles & Text Outlines](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.28.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.28.0/Aion-2-Helper-v1.28.0-windows-x64.zip).
+The [v1.29.0 release — Menu Fades & Hotbar Improvements](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.29.0/Aion-2-Helper-v1.29.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Experience, Combat Power, Energy, Flight Energy, Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
@@ -47,6 +47,14 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.29.0
+
+- **Menu visibility:** supported native HUD-hidden menus and NPC dialogues fade gameplay overlays out and back in. Notifications remain available; unlocked widgets stay editable.
+- **Hotbar:** improved supported Assassin stacks, flight activation for Infiltrate, and recognized fourth-row skills with combo transitions. The latest M2 correction awaits its live retest after maintenance.
+- **HUD presets:** reacquires supported potion-bar key labels after layout changes. The HUD copier also accepts non-empty exports with omitted skill-bar entries.
+- **Odyle Energy:** a disabled **Coming soon** entry while automatic tracking is in development.
+- **Known issue:** the recurring loss of some overlay data after dungeon exits remains under investigation.
 
 ## New in v1.28.0
 

@@ -133,6 +133,21 @@
     <Setter Property="BorderBrush" Value="{StaticResource LitEdge}"/>
     <Setter Property="Foreground" Value="White"/>
   </Style>
+  <Style x:Key="ComingSoonNavButton" TargetType="Button" BasedOn="{StaticResource NavButton}">
+    <Setter Property="Foreground" Value="#C8D6ED"/>
+    <Setter Property="ContentTemplate"><Setter.Value><DataTemplate>
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Image Source="{Binding Tag, RelativeSource={RelativeSource AncestorType=Button}}" Width="19" Height="19" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        <StackPanel Grid.Column="1" Margin="0,1,0,1">
+          <TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"/>
+          <Border Background="#324F6EAB" BorderBrush="#697EACD8" BorderThickness="1" CornerRadius="5" Padding="6,2" Margin="0,4,0,0" HorizontalAlignment="Left">
+            <TextBlock Text="{Binding ToolTip, RelativeSource={RelativeSource AncestorType=Button}}" Foreground="#C5DDFB" FontSize="10" TextWrapping="Wrap"/>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </DataTemplate></Setter.Value></Setter>
+  </Style>
   <Style TargetType="CheckBox">
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="VerticalAlignment" Value="Center"/>

@@ -37,7 +37,7 @@ internal sealed class RiftCounterOverlay:Form,IWidgetSnapTarget {
     static Rectangle Fit(Rectangle b){var area=Screen.FromRectangle(b).WorkingArea;b.Width=Math.Min(b.Width,area.Width);b.Height=Math.Min(b.Height,area.Height);b.X=Math.Max(area.Left,Math.Min(area.Right-b.Width,b.X));b.Y=Math.Max(area.Top,Math.Min(area.Bottom-b.Height,b.Y));return b;}
     internal void Update(string text,bool show){remaining=text??"00:00";available=show;Present();}
     internal void RefreshVisibility(){Present();}
-    void Present(){if(disposed)return;bool show=options.Enabled&&options.Opacity>0&&(editing||available)&&!owner.WidgetsSuppressed&&(!DpsDesign.ShellUiActive()||preview);if(!show){if(Visible)Hide();return;}string text=editing?"09:59":remaining,key=text+"/"+editing+"/"+Width+"/"+Height;
+    void Present(){if(disposed)return;bool show=options.Enabled&&options.Opacity>0&&(editing||available)&&!owner.ForegroundWidgetsSuppressed&&(!DpsDesign.ShellUiActive()||preview);if(!show){if(Visible)Hide();return;}string text=editing?"09:59":remaining,key=text+"/"+editing+"/"+Width+"/"+Height;
         if(key!=renderKey){using(var bitmap=paint.Render(options,language,text,editing))image.Upload(bitmap);renderKey=key;alpha=0;}
         byte next=(byte)Math.Round(options.Opacity*2.55);if(alpha!=next||presented!=Location||!preview&&!Visible){image.Present(Handle,Left,Top,next);alpha=next;presented=Location;}if(!Visible&&!preview)Show();
     }

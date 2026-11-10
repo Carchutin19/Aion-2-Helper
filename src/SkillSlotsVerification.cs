@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -246,6 +246,43 @@ internal static class SkillSlotsVerification {
   var full=ProgressVerification.Gauge(99,100,150);stagger.Consume(full,0,full.Length,10,"self");
   Check(SkillSlotsSignal.Requirement(view,e,e.Skill,10,stagger)==false,"A positive gauge on the selected enemy blocks Storm Rampage");
   Check(SkillSlotsSignal.Requirement(view,e,e.Third,10,stagger)==true,"The received Heart Gore window opens independently of the base skill's stagger requirement");
+  var moved=new SkillSlotsSignal.Slot{Index=1,Skill=13130000,Alternative=13350000};
+  Check(SkillSlotsSignal.DisplaySkill(view,moved,10)==moved.Alternative&&
+      SkillSlotsSignal.Requirement(view,moved,moved.Alternative,10,stagger)==true,
+      "A reactive skill follows its received condition after moving to a different base skill or slot");
+  Check(SkillSlotsSignal.DisplaySkill(view,moved,15)==moved.Skill,"An expired activation restores the new slot's base");
+  var stacked=new SkillSlotsSignal.Slot{Index=5,Skill=13390000,Alternative=13310000};
+  view.Cooldowns[stacked.Skill]=new SkillSlotsSignal.Cooldown{At=10,Raw=57900};
+  Check(SkillSlotsSignal.DisplaySkill(view,stacked,11)==stacked.Alternative,"An independent second-row skill replaces a cooling first-row skill");
+  stacked.Index=12;
+  Check(SkillSlotsSignal.DisplaySkill(view,stacked,11)==stacked.Alternative,"Moving the stack preserves independent cooldown selection");
+  view.Cooldowns[stacked.Alternative]=new SkillSlotsSignal.Cooldown{At=11,Raw=60000};
+  Check(SkillSlotsSignal.DisplaySkill(view,stacked,12)==stacked.Skill,"If both skills are cooling, display the first slot");
+  view.Cooldowns.Remove(stacked.Alternative);
+  Check(SkillSlotsSignal.DisplaySkill(view,stacked,68)==stacked.Skill,"The first row regains priority as its cooldown expires");
+  var conditional=new SkillSlotsSignal.Slot{Index=5,Skill=stacked.Skill,Alternative=13220000};
+  Check(SkillSlotsSignal.DisplaySkill(view,conditional,12)==conditional.Skill,"A cooldown alone cannot open an unconfirmed reactive skill");
+  var triple=new SkillSlotsSignal.Slot{Index=2,Skill=13070000,Alternative=13270000,Third=13300000};
+  view.Cooldowns[triple.Skill]=new SkillSlotsSignal.Cooldown{At=20,Raw=19300};
+  Check(SkillSlotsSignal.DisplaySkill(view,triple,21)==triple.Alternative,"The first ready assigned fallback wins in a three-row slot");
+  view.Cooldowns[triple.Alternative]=new SkillSlotsSignal.Cooldown{At=21,Raw=57900};
+  Check(SkillSlotsSignal.DisplaySkill(view,triple,22)==triple.Third,"A cooling second row exposes the ready third row");
+  view.Cooldowns[triple.Third]=new SkillSlotsSignal.Cooldown{At=22,Raw=43400};
+  Check(SkillSlotsSignal.DisplaySkill(view,triple,23)==triple.Skill&&SkillSlotsSignal.DisplaySkill(view,triple,40)==triple.Skill,
+      "A three-row slot returns to the first row when none are ready or the first recovers");
+  var four=Bar();
+  Buffer.BlockCopy(BitConverter.GetBytes(13130000u),0,four,18,4);Buffer.BlockCopy(BitConverter.GetBytes(13130000u),0,four,23,4);
+  Buffer.BlockCopy(BitConverter.GetBytes(13350000u),0,four,27,4);Buffer.BlockCopy(BitConverter.GetBytes(13100000u),0,four,35,4);
+  List<SkillSlotsSignal.Slot> parsed;
+  Check(SkillSlotsSignal.Bar(four,0,four.Length,out parsed)&&parsed[0].Fourth==13100000&&parsed[0].Third==0,"A fourth row survives an empty third row");
+  view.Cooldowns[13130000]=new SkillSlotsSignal.Cooldown{At=30,Raw=9650};view.HeartGoreUntil=0;
+  Check(SkillSlotsSignal.DisplaySkill(view,parsed[0],31)==13100000,"A cooling Insignia Explosion exposes assigned Fang Strike in row 3");
+  view.Chains[13100000]=13110047;
+  Check(SkillSlotsSignal.DisplaySkill(view,parsed[0],31)==13110047,"The fourth-row skill's own combo advances in the same slot");
+  view.Chains.Remove(13100000);
+  Check(SkillSlotsSignal.DisplaySkill(view,parsed[0],40)==13130000,"The primary returns once its received cooldown expires");
+  var remembered=new SkillSlotsOptions();remembered.Remember(parsed);
+  Check(remembered.EditableSlots(null)[0].Fourth==13100000,"The fourth row is preserved in per-character saved assignments");
   var zero=ProgressVerification.Gauge(99,0,150,true);stagger.Consume(zero,0,zero.Length,11,"self");
   Check(SkillSlotsSignal.Requirement(view,e,e.Skill,12,stagger)==true,"Confirmed groggy opens Storm Rampage");
   Check(SkillSlotsSignal.Requirement(view,e,e.Skill,16,stagger)==false&&SkillSlotsSignal.Requirement(view,e,e.Third,16,stagger)==null,"Expired evidence cannot leave a green highlight");
@@ -264,6 +301,22 @@ internal static class SkillSlotsVerification {
   view=signal.Read(now);var q=view.Slots[0];
   Check(SkillSlotsSignal.Requirement(view,q,q.Skill,now+1,null)==true,"Own received Emergency Evasion effect opens the Infiltrate window");
   Check(SkillSlotsSignal.Requirement(view,q,q.Skill,now+4,null)==false,"The grounded Infiltrate window dims again when the received dodge expires");
+  var flight=new List<byte>{0x2a,0x38,12,1,1,39};
+  flight.AddRange(BitConverter.GetBytes(SkillSlotContext.Flight));
+  flight.AddRange(BitConverter.GetBytes(-1L));
+  flight.AddRange(BitConverter.GetBytes(4102412400000L));
+  flight.AddRange(new byte[]{12,1,0});
+  var neighbor=flight.ToArray();neighbor[2]=13;neighbor[26]=13;
+  Feed(signal,neighbor,now+5);
+  Check(SkillSlotsSignal.Requirement(signal.Read(now+5),q,q.Skill,now+5,null)==false,"A neighbor opening wings does not enable Infiltration");
+  Feed(signal,flight.ToArray(),now+6,"other");
+  Check(SkillSlotsSignal.Requirement(signal.Read(now+6),q,q.Skill,now+6,null)==false,"A different flow cannot open the current character's wings");
+  Feed(signal,flight.ToArray(),now+7);
+  Check(SkillSlotsSignal.Requirement(signal.Read(now+7),q,q.Skill,now+7,null)==true,"The own persistent flight state opens Infiltration without a dash or a recent clock");
+  Feed(signal,new byte[]{0x2c,0x38,12,1,0,38,16},now+8);
+  Check(SkillSlotsSignal.Requirement(signal.Read(now+8),q,q.Skill,now+8,null)==true,"Only removal of the active flight instance closes flight readiness");
+  Feed(signal,new byte[]{0x2c,0x38,12,1,0,39,16},now+9);
+  Check(SkillSlotsSignal.Requirement(signal.Read(now+9),q,q.Skill,now+9,null)==false,"Folding wings closes flight readiness without waiting for landing or energy");
  }
  internal static void Run(string root){VerifyIconSlide();VerifyRequirements();OpaqueTailRegression();BarDiagnostics();HotbarProfiles.Verify(root);Check(SkillSlotsOverlay.LoopSeconds(0)==12&&SkillSlotsOverlay.LoopSeconds(11)==1&&SkillSlotsOverlay.LoopSeconds(12.5)==0&&SkillSlotsOverlay.LoopSeconds(13)==12&&SkillSlotsOverlay.LoopSeconds(26.5)==11.5&&SkillSlotsOverlay.LoopSeconds(1300)==12,"Simulated cooldown counts down, reaches ready and repeats without a time limit");var labels=new SkillSlotsOptions();var assigned=new List<SkillSlotsSignal.Slot>{new SkillSlotsSignal.Slot{Index=0,Skill=15210000},new SkillSlotsSignal.Slot{Index=23,Skill=15010000}};labels.Remember(assigned);Check(labels.EditableSlots(null).Count==2,"Saved editor has only actual detected assignments, not48 protocol positions");var second=labels.Ensure(23,1);Check(SkillSlotsOptions.Label(second,1)=="2","Empty manual label defaults to consecutive detected ordinal, not internal24");second.Key="T";Check(SkillSlotsOptions.Label(second,1)=="T","Custom key label is preserved");second.Visible=false;Check(labels.EditableSlots(null).Count==2,"Hiding does not discard the editor choice");var labelJson=new JavaScriptSerializer();var persisted=SkillSlotsOptions.Read(labelJson.Deserialize<Dictionary<string,object>>(labelJson.Serialize(new{skillSlots=labels})));Check(!persisted.Placements.First(p=>p.Slot==23).Visible&&persisted.Placements.First(p=>p.Slot==23).Key=="T","Hidden state and custom label survive restart");labels.Ensure(12,2).Key="F";var auto=labels.Copy();auto.AutoLabels(assigned.Select(s=>s.Index));Check(auto.Placements.First(p=>p.Slot==23).Key==""&&!auto.Placements.First(p=>p.Slot==23).Visible&&auto.Placements.First(p=>p.Slot==12).Key=="F","Automatic numbering changes only detected labels and preserves visibility/inactive configuration");var independent=labels.Copy();independent.KnownSlots[0].Skill=15060000;Check(labels.KnownSlots[0].Skill==15210000,"Saved assignment cache uses independent snapshots");var slots=Bar();List<SkillSlotsSignal.Slot> parsed;Check(SkillSlotsSignal.Bar(slots,0,slots.Length,out parsed)&&parsed.Count==3&&parsed[1].Index==7&&parsed[2].Skill==0,"Bar retains skill slot IDs and marks omitted items");for(int i=0;i<slots.Length;i++)Check(!SkillSlotsSignal.Bar(slots,0,i,out parsed),"Partial bar must not replace active assignments");var invalid=(byte[])slots.Clone();invalid[22]=3;Check(!SkillSlotsSignal.Bar(invalid,0,invalid.Length,out parsed),"Unknown skill-record marker rejected");
  var buffered=new SkillSlotsSignal();double bufferedAt=DpsHistory.UtcNow();Feed(buffered,Profile(),bufferedAt);Feed(buffered,slots,bufferedAt);Check(buffered.Read(bufferedAt)==null,"A disabled profile never displays buffered skill data");buffered.Configure(true);Check(buffered.Read(bufferedAt)!=null,"A profile enabled after its login messages must retain the received bar");buffered.Configure(false);int hiddenUpdates=0;buffered.Changed=delegate{hiddenUpdates++;};var delta=(byte[])slots.Clone();delta[0]=5;Buffer.BlockCopy(BitConverter.GetBytes(15110000u),0,delta,18,4);Buffer.BlockCopy(BitConverter.GetBytes(15110000u),0,delta,23,4);Feed(buffered,delta,bufferedAt+1);Feed(buffered,Cd(15110000,12000),bufferedAt+2);Check(buffered.Read(bufferedAt+2)==null&&hiddenUpdates==0,"Hidden hotbar tracks updates without waking the overlay");buffered.Configure(true);var retained=buffered.Read(bufferedAt+2);Check(retained!=null&&retained.Slots[0].Skill==15110000&&SkillSlotsSignal.For(retained,15110000).Raw==12000,"Re-enabling restores live assignments and cooldowns without another full bar");buffered.Configure(false);buffered.Reset();buffered.Configure(true);Check(buffered.Read(bufferedAt+2)==null,"Transport reset invalidates a hidden hotbar");var signal=new SkillSlotsSignal();signal.Configure(true);double now=DpsHistory.UtcNow();Feed(signal,slots,now);Check(signal.Read(now)==null,"Assignments alone cannot bind local identity");Feed(signal,Profile(),now+.1);var v=signal.Read(now+.1);Check(v!=null&&v.Slots.Count==2&&v.Self==12,"Only confirmed self profile activates own bar without items");uint id=v.Slots[0].Skill;Feed(signal,Cd(id,24000),now+.2);v=signal.Read(now+.2);Check(SkillSlotsSignal.For(v,id).Raw==24000,"Server cooldown accepted");Feed(signal,Cd(id,4800),now+.3);v=signal.Read(now+.3);Check(SkillSlotsSignal.For(v,id).Raw==4800&&Math.Abs(SkillSlotsSignal.Remaining(SkillSlotsSignal.For(v,id),now+.3)-4.8)<.001,"External correction rebases immediately");Check(SkillSlotsSignal.For(v,id).Raw>0&&SkillSlotsSignal.Remaining(SkillSlotsSignal.For(v,id),now+10)==0,"Stored server interval expires without mutating the recorded raw value");Feed(signal,Cd(id,0),now+.4,"other");Check(SkillSlotsSignal.For(signal.Read(now+.4),id).Raw==4800,"Foreign flow cannot reset cooldown");Feed(signal,Cd(id,0),now+.5);Check(SkillSlotsSignal.For(signal.Read(now+.5),id).Raw==0,"Explicit zero confirms ready");
