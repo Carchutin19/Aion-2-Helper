@@ -32,6 +32,8 @@
 
 ## Updating
 
+**November 12 package correction:** the v1.30.0 ZIP was repackaged for compatibility with already installed updaters. The application binary and version are unchanged. Effect data remains embedded; full additional licenses and source notices are bundled in THIRD-PARTY.md. If an earlier attempt reported "Unexpected or unsafe update file", close and reopen the Helper before checking for updates again. No settings reset or reinstall is needed.
+
 Close the Helper and update through its updater or extract the complete ZIP over your existing folder. Keep your personal JSON settings. Open the Helper before launching Aion. Game news cache/read state is separate from overlay settings in your Windows user profile.
 
 ---

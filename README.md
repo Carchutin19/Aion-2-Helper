@@ -25,6 +25,8 @@ files into one folder and run **Aion2Helper.exe**. Npcap must be installed separ
 for player HP/MP, Experience, Combat Power, Energy, Flight Energy, Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
 the game must be running with your character in the world to receive energy updates.
 
+**v1.30.0 update package corrected on November 12:** if an earlier attempt showed "Unexpected or unsafe update file", close and reopen the Helper, then check for updates again. The version and application binary are unchanged, and your existing settings are preserved.
+
 **Recommended startup order: always open Aion 2 Helper before launching Aion 2.**
 This helps the Helper receive your character's initial HP/MP, Flight Energy and
 maximum stamina when you enter the world. Opening it after character entry can miss that stat
