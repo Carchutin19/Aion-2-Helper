@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -323,8 +323,14 @@ internal static class Entry {
         File.WriteAllText(Path.Combine(root,"selftest.txt"),"PASS: TCP IPv4/IPv6 and reusable buffer bounds; out-of-order/retransmitted/wrapped TCP; zero-copy frame decoding; LZ4 literals/overlap/bounds; Npcap game-only BPF and event-driven capture.\r\nAdapters: "+devices+"; opened: "+opened+"; native events: "+events,Encoding.UTF8);
     }
     [STAThread] static int Main(string[] args) {
+        AionNewsAssembly.Register();
         var english=System.Globalization.CultureInfo.GetCultureInfo("en-US");Thread.CurrentThread.CurrentCulture=english;Thread.CurrentThread.CurrentUICulture=english;
         string root=AppDomain.CurrentDomain.BaseDirectory;
+        if(args.Length==1&&args[0]=="--native-hud-speed-test"){try{NativeHudVisibility.Benchmark(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"native-hud-speed-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--news-test"){try{AionNewsVerification.Run(root,false);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"news-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--news-live-test"){try{AionNewsVerification.Run(root,true);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"news-live-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==2&&args[0]=="--effects-replay-test"){try{EffectOverlayVerification.Replay(root,args[1]);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"effects-replay-test.txt"),"FAIL: "+ex);return 1;}}
+        if(args.Length==1&&args[0]=="--effects-test"){try{EffectOverlayVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"effects-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==1&&args[0]=="--capture-recovery-test"){try{CaptureRecoveryVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"capture-recovery-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==1&&args[0]=="--transport-diagnostics-test"){try{TransportDiagnosticsVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"transport-diagnostics-test.txt"),"FAIL: "+ex);return 1;}}
         if(args.Length==1&&args[0]=="--game-socket-test"){try{GameSocketVerification.Run(root);return 0;}catch(Exception ex){File.WriteAllText(Path.Combine(root,"game-socket-test.txt"),"FAIL: "+ex);return 1;}}

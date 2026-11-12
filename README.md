@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.29.0 release — Menu Fades & Hotbar Improvements](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.29.0/Aion-2-Helper-v1.29.0-windows-x64.zip).
+The [v1.30.0 release — Game News & Buffs / Debuffs](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.30.0/Aion-2-Helper-v1.30.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Experience, Combat Power, Energy, Flight Energy, Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
@@ -47,6 +47,14 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.30.0
+
+- **Game news:** a section below General with separate Global / Korea sources, News / Patch Notes / Events, images, an internal article reader and an unread indicator. Cached content remains available when a source is unavailable.
+- **Buffs & debuffs:** recognized personal effects in Hotbar and a separate target-effects widget linked to Our target. Includes thin blue/red category outlines, amber expiry pulses, xN stacks, optional names/timers, Glass/Compact styles and configurable combined or split arrangements.
+- **General:** an optional exception keeps Helper overlays visible when using the same hide-interface shortcut bound in Aion.
+- **Menu responsiveness:** earlier native-HUD absence checks and faster full-screen matching reduce detection delay while preserving the existing fade and HUD-preset relocation protection.
+- **Known issue:** intermittent dungeon-exit data loss remains under investigation. The latest detection timing still needs its in-game comparison.
 
 ## New in v1.29.0
 

@@ -1,4 +1,42 @@
-﻿# v1.29.0 Alpha — Menu Fades & Hotbar Improvements
+﻿# v1.30.0 Alpha — Game News & Buffs / Debuffs
+
+## Game news
+
+- New **News** section directly below General, with separate **Global** and **Korea** sources and tabs for News, Patch Notes and Events.
+- Official titles, publication dates, summaries and images, with an internal reader for supported article text, images, lists and tables. Events include their banner, dates and a link to the official rules and rewards.
+- A **New** indicator identifies unread articles. Opening an article marks its current revision as read; a regional Mark all as read action is also available.
+- Background loading and bounded local caching retain saved content if a source is unavailable. News does not require the game to be open and does not use game capture.
+- News controls follow English, Spanish, German, French and Arabic. Global articles use an available matching source language; Arabic uses the English Global source. Korean articles retain their original Korean text.
+
+## Buffs and debuffs
+
+- The personal Hotbar effects widget now supports recognized debuffs alongside beneficial personal and party effects.
+- Separate target buffs/debuffs widget follows the same target as **Our target**, including supported unlocked combat targets, and hides with its health bar. Its controls have a dedicated **Buffs & debuffs** tab.
+- Optional thin blue buff / red debuff outlines distinguish the two categories. A separate amber expiry pulse warns about effects ending in the last four seconds.
+- Independent Glass and Compact effects styles, optional names and timers inside icons, **xN** stack labels, combined buff-first/debuff-first sorting, split arrangements and independent growth directions.
+- Expanded the native effect ID/name/icon catalogue and corrected filtering of supported temporary passive activations. Permanent passive definitions and the verified internal dash marker no longer fill the personal effects row.
+- Reads the confirmed native NPC immunity status in supported profiles. Unknown effects are not assigned invented names or classifications.
+
+## Visibility
+
+- General can keep Helper overlays visible when the game's own hide-interface shortcut is used. Configure the **same key bound in Aion**; this does not change the game's binding. The option is off by default.
+- Native-menu detection starts its relocation check earlier and avoids extra waiting samples. Full-screen glyph matching reuses calculated brightness values. **The existing fade timing is unchanged.**
+- HUD preset relocation checks remain in place so moving the native item bar alone does not hide Helper widgets.
+
+## Validation and limitations
+
+- Regression checks cover effects ownership, snapshots, layouts, stacking, persistence, the HUD shortcut and settings preservation. Live official news feeds and article/image reading were checked for Global and Korea.
+- Very large or interactive announcements can require the original official page. Source availability and changes to NCSOFT's public endpoints are outside the Helper's control.
+- Native-menu detection timing still needs a visual comparison in game with the latest sampling revision. Other HUD scales and customized item-key layouts can require validation.
+- **Intermittent data loss after some dungeon exits remains under investigation.** This update does not claim to resolve it.
+
+## Updating
+
+Close the Helper and update through its updater or extract the complete ZIP over your existing folder. Keep your personal JSON settings. Open the Helper before launching Aion. Game news cache/read state is separate from overlay settings in your Windows user profile.
+
+---
+
+# v1.29.0 Alpha — Menu Fades & Hotbar Improvements
 
 ## Added
 

@@ -1,0 +1,18 @@
+{
+  "effectMetadata": "taengu/A2Tools-DPS-Meter",
+  "revision": "e79550d878bc98759f70b63e7ba1549b1504f0db",
+  "gameTable": "Game data, Steam build 25767555: SkillAbnormal table. icon: AbnormalIcon's file name; stacks: AbnormalOverlapCount, where above 1",
+  "typeMetadata": "SkeeveAN/Aion-DPS-Meter Client/assets/aion2/skills/skill_abnormal_types.json",
+  "typeResolution": "Only explicit variants[effectId / 10]; no broad rank fallback; absent and ambiguous types stay unknown. P remains native passive category.",
+  "localOverride": "152500471 is the previously controlled own Pyroclasm status; positive classification retained.",
+  "icons": "NCSOFT game content from official assets.playnccdn.com resources; cached at build time and downsampled to max96px to match the maximum widget icon size. No runtime HTTP.",
+  "typeRevision": "39d64a78aded616d7168f4898f83afc78dd728a8",
+  "typeSourceSha256": "f9c3a9f678103e430a364d53cc8152e8b028f1d843e857ad31f2f28265078e4f",
+  "missingIconCount": 14,
+  "displayTypeOverrides": {
+    "10000001": "Incapacitated Immunity: beneficial immunity, independently recognized by its native icon and recorded initial NPC statuses; the coarse variant-derived type must not present it as a harmful debuff. Applies to all recipients, not an actor/class whitelist."
+  },
+  "displayVisibilityOverrides": {
+    "200": "Dodge / Evasion urgente: short self-recipient dash action status confirmed in live-status during controlled dash on 2026-11-11, with native HUD absence reported by user. Hide only from effect widget; keep movement/hotbar signals unchanged."
+  }
+}

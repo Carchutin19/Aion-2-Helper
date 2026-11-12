@@ -147,3 +147,15 @@ revision `ed41d138275e31c46ee8a232a3719e593ddd4e1e` (`constants.py`, `codec.py`)
 https://github.com/victoriousian/AION2_HUD_Editor_V2 . No upstream code or binary
 is copied or executed. Further provenance and limits are retained in the embedded
 `assets/skill-slots/README.md`. AION 2 and its HUD remain NCSOFT content.
+
+## Buff and debuff metadata
+
+Effect names, icon references and hidden-effect IDs use the game-data catalogue from taengu/A2Tools-DPS-Meter revision e79550d878bc98759f70b63e7ba1549b1504f0db. The metadata notice and GPL-3.0 licence are retained in assets/effects; source and transformations are documented there. Native type attributes additionally use the existing MIT SkeeveAN game metadata. Icons and game text remain NCSOFT content. Effect decoding, recipient state and widget presentation are independently implemented in this project.
+
+## Game news
+
+The news readers use the public NCSOFT community and promotion endpoints. Articles, images and trademarks belong to NCSOFT and their respective owners. The Helper credits the official source and links every article to its original announcement. This is not an official NCSOFT news client.
+
+Endpoint discovery and feed normalization were informed by [aion2_api](https://github.com/axsddlr/aion2_api), Copyright (c) 2026 Andre Saddler, MIT; see `assets/licenses/Aion2Api-MIT.txt`. The Helper contains its own C# client; no Python service is required.
+
+HTML parsing uses [Html Agility Pack](https://github.com/zzzprojects/html-agility-pack), version 1.13.1, MIT; see `assets/licenses/HtmlAgilityPack-MIT.txt`. The parser is embedded in the executable and is used only to build native text, image and table elements. Remote scripts, frames and forms are never executed.

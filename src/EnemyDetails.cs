@@ -26,17 +26,35 @@ internal static class EnemyDetailReader {
         internal bool Skip(int n){if(n<0||Position>end-n)return false;Position+=n;return true;}
         internal bool Byte(out int n){n=0;if(Position>=end)return false;n=data[Position++];return true;}
         internal bool Var(out uint n){return DpsSignal.Var(data,ref Position,end,out n);}
-        internal bool Bit(){if(bit==8){if(!Byte(out bitByte))return false;bit=0;}bit++;return true;}
+        internal bool Bit(){bool value;return Bit(out value);}
+        internal bool Bit(out bool value){value=false;if(bit==8){if(!Byte(out bitByte))return false;bit=0;}value=(bitByte&(1<<bit++))!=0;return true;}
+        internal bool I64(out long value){value=0;if(Position>end-8)return false;value=BitConverter.ToInt64(data,Position);Position+=8;return true;}
         internal bool U32(out uint n){n=0;if(Position>end-4)return false;n=BitConverter.ToUInt32(data,Position);Position+=4;return true;}
     }
     static bool TailCount(ref Tail t,int maximum,out int count){uint n;count=0;if(!t.Var(out n)||n>maximum)return false;count=(int)n;return true;}
-    static bool TailStatus(ref Tail t){int flags;uint n;if(!t.Byte(out flags)||flags>31||!t.Var(out n)||!t.Skip(20)||((flags&1)!=0&&!t.Var(out n))||!t.Skip(1)||((flags&2)!=0&&!t.Skip(4))||!t.Bit()||((flags&4)!=0&&!t.Var(out n))||((flags&8)!=0&&!t.Skip(4))||((flags&16)!=0&&!t.Skip(12)))return false;return true;}
+    static bool TailStatus(ref Tail t,List<PlayerShieldSignal.Status> effects){
+        int flags,level;uint instance,id,source=0,skill=0,unused;long duration,expiry;bool removing;
+        if(!t.Byte(out flags)||flags>31||!t.Var(out instance)||!t.U32(out id)||!t.I64(out duration)||!t.I64(out expiry)||
+           ((flags&1)!=0&&!t.Var(out source))||!t.Byte(out level)||((flags&2)!=0&&!t.U32(out skill))||!t.Bit(out removing)||
+           ((flags&4)!=0&&!t.Var(out unused))||((flags&8)!=0&&!t.Skip(4))||((flags&16)!=0&&!t.Skip(12)))return false;
+        if(effects!=null)effects.Add(new PlayerShieldSignal.Status{Instance=instance,Effect=id,Source=source,Skill=skill,Duration=duration,Expiry=expiry,Removing=removing});
+        return true;
+    }
+
     static bool TailDescription(ref Tail t){int flags,n;if(!t.Byte(out flags)||flags>31||((flags&1)!=0&&(!TailCount(ref t,160,out n)||!t.Skip(n)))||!t.Skip(4))return false;return ((flags&2)==0||t.Skip(1))&&((flags&4)==0||t.Skip(1))&&((flags&8)==0||t.Skip(5))&&((flags&16)==0||t.Skip(1));}
     // Only accept a level when the complete supported tail was consumed.
     // Unsupported owner blocks or flags leave metadata unknown, not HP invalid.
-    internal static int? BaseLevel(byte[] b,int p,int end,int outer,int state){
+    internal static int? BaseLevel(byte[] b,int p,int end,int outer,int state){return ReadTail(b,p,end,outer,state,null);}
+    internal static bool InitialEffects(byte[] b,int start,int end,out List<PlayerShieldSignal.Status> effects){
+        effects=null;EnemyHealthSignal.Sample npc;int p,outer,state;
+        if(!EnemyHealthSignal.SpawnPrefix(b,start,end,out npc,out p,out outer,out state))return false;
+        var parsed=new List<PlayerShieldSignal.Status>();
+        if(!ReadTail(b,p,end,outer,state,parsed).HasValue)return false;
+        effects=parsed;return true;
+    }
+    static int? ReadTail(byte[] b,int p,int end,int outer,int state,List<PlayerShieldSignal.Status> effects){
         for(int i=0;i<StateBits.Length;i++)if((state&StateBits[i])!=0){if(StateSizes[i]==0){uint n;if(!DpsSignal.Var(b,ref p,end,out n))return null;}else if(!Skip(ref p,end,StateSizes[i]))return null;}
-        var t=new Tail(b,p,end);int count;if(!TailCount(ref t,128,out count))return null;for(int i=0;i<count;i++)if(!TailStatus(ref t))return null;
+        var t=new Tail(b,p,end);int count;if(!TailCount(ref t,128,out count))return null;for(int i=0;i<count;i++)if(!TailStatus(ref t,effects))return null;
         for(int bit=1;bit<=4;bit*=2)if((outer&bit)!=0&&!t.Skip(1))return null;
         if((outer&8)!=0&&!t.Bit()||(outer&16)!=0&&!t.Skip(4)||(outer&32)!=0&&!TailDescription(ref t)||(outer&64)!=0)return null;
         uint level;if(!TailCount(ref t,128,out count)||!t.Skip(count*6)||!t.U32(out level)||level<1||level>200)return null;

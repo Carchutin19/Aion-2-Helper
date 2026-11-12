@@ -1,6 +1,6 @@
 ﻿# 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated November 10, 2026.**
+**Built with the community. Updated November 12, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -17,6 +17,9 @@
 
 | Feature | What is included | First release |
 | :--- | :--- | :---: |
+| **Game news** | Official Global / Korea feeds, News / Patch Notes / Events, images, native article reader, cached content and unread revision indicator. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
+| **Own and target buffs / debuffs** | Supported effect IDs, names and icons; independent personal and target widgets, blue/red outlines, amber expiry warning, xN stacks, combined ordering and independent split growth directions. Target effects follow Our target visibility. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
+| **Native HUD shortcut exception** | Optional setting to keep Helper widgets visible when pressing the same hide-interface key configured in Aion. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
 | **Native-menu overlay fades** | Gameplay widgets fade with supported native HUD-hidden menus and NPC dialogues. Notifications remain available; unlocked widgets stay editable. Native quickbar matching can reacquire moved HUD layouts. | [v1.29.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0) |
 | **Progress bar styles and text outlines** | Filterable overview with quick controls for eight bars. Independent Classic, Glass and Compact styles, configurable frames and text outlines, and separate Stagger values and countdown styling. | [v1.28.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.28.0) |
 | **Desktop redesign** | Artwork and glass styling across the Settings sections, pet registry, offline Atlas and native Windows tray menu. Scroll-edge fades and refreshed icons. | [v1.27.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.27.0) |
@@ -49,6 +52,8 @@ is described separately from cases that still need more testing.
 
 | Status | Report / correction | Update |
 | :--- | :--- | :---: |
+| 🟡 Regression and synthetic timing checks passed | **Native-menu detection delay:** verified absence checks start sooner and full-screen matching reuses brightness values. Fade duration and moved-HUD protection remain unchanged. Latest timing revision awaits in-game visual comparison. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
+| ✅ Reproduced cases corrected | **Permanent passives, duplicated-looking effect icons and missing target immunity:** personal permanent definitions and the confirmed internal dash marker are filtered; supported NPC snapshots include Immunity. Unknown classifications remain under validation. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
 | 🟡 Regression checks passed | **Ground Energy or Hotbar could disappear after a dungeon exit:** the last confirmed Energy maximum and skill assignments can resume after a matching own profile on the new connection. A live retest of the new connection case is pending. | [v1.28.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.28.0) |
 | ✅ Confirmed in tested cases | **Switching characters could leave the Hotbar empty or retain old Energy data.** The Helper resets the previous character's bar and values, restores the incoming Hotbar preset, and refreshes Energy, Combat Power and XP from the incoming character. | [v1.26.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.26.0) |
 | ✅ Released | **Target distance can be missing or intermittent.** Added support for another connection setup and an approximate fallback from recent confirmed server positions. Exact mode still depends on connection setup and fresh readings. | [v1.26.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.26.0) |
@@ -114,6 +119,13 @@ Released community features and corrections are listed above.
 | ⬜ Planned | **Controller support** | A system for integrating controller input with the Helper. |
 
 ## Personal roadmap
+
+### ✅ Released in [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) · November 12, 2026
+
+| Feature | What changed and what was checked |
+| :--- | :--- |
+| **Official game news** | Separate Global and Korean sources, images, dates, News/Patch Notes/Events, unread indicator and cached native article reading. Live feed and image checks passed; interactive promotions link to official event details. |
+| **Buffs & debuffs** | Personal/party effects and a target widget linked to the target health bar. Dedicated target tab, native icons, type outlines, amber expiry warnings, xN stacks, sorting, split layouts and separate growth directions. Permanent passive definitions and the verified internal dash marker are filtered. |
 
 ### 💎 Coming soon
 

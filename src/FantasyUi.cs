@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -35,7 +35,8 @@ internal static class FantasyUi {
         Icon("M13,2 L4,14 H11 L10,22 20,10 H13 Z"),
         Icon("M5,3 H15 L19,7 V21 H5 Z M15,3 V7 H19 M8,10 H16 M8,14 H16 M8,18 H14"),
         Icon("M12,2 L21,7 V17 L12,22 3,17 V7 Z M3,7 L12,12 21,7 M12,12 V22"),
-        Icon("M12,2 L21,8 17,18 12,22 7,18 3,8 Z M3,8 H21 M12,2 L8,8 12,22 16,8 Z")
+        Icon("M12,2 L21,8 17,18 12,22 7,18 3,8 Z M3,8 H21 M12,2 L8,8 12,22 16,8 Z"),
+        Icon("M3,3 H18 V21 H3 Z M18,7 H22 V19 Q22,21 20,21 H18 M6,6 H15 V10 H6 Z M6,13 H15 M6,16 H15 M6,19 H12")
     };
 
     static ImageSource Icon(string data,bool solid=false){

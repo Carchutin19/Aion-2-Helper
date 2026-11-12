@@ -1,0 +1,6 @@
+{
+  "GlobalApi": "https://api-global-community.plaync.com/aion2_global",
+  "KoreaApi": "https://api-community.plaync.com/aion2",
+  "PromotionApi": "https://promotion.plaync.com",
+  "OfficialWeb": "https://aion2.plaync.com"
+}

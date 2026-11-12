@@ -1,4 +1,4 @@
-﻿param([string]$Version = '1.29.0', [switch]$SkipBuild, [string]$ExecutablePath)
+﻿param([string]$Version = '1.30.0', [switch]$SkipBuild, [string]$ExecutablePath)
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release version.' }
 $projectRoot = $PSScriptRoot
@@ -16,11 +16,18 @@ New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets') -Force | Ou
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'protocol') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\sounds') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\skills') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\effects') -Force | Out-Null
+foreach($effectNotice in @('README.md','sources.json','LICENSE-GPL-3.0.txt','LICENSE-MIT.txt','catalogue.json')){
+    Copy-Item -LiteralPath (Join-Path $projectRoot ('assets\effects\'+$effectNotice)) -Destination (Join-Path $packageRoot ('assets\effects\'+$effectNotice))
+}
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\npcs') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\licenses') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $packageRoot 'assets\news') -Force | Out-Null
+foreach ($newsFile in @('sources.example.json','README.md')) { Copy-Item -LiteralPath (Join-Path $projectRoot ('assets\news\'+$newsFile)) -Destination (Join-Path $packageRoot ('assets\news\'+$newsFile)) }
 foreach ($name in @('LICENSE-MIT.txt','README.md')) {
     Copy-Item -LiteralPath (Join-Path $projectRoot ('assets\npcs\' + $name)) -Destination (Join-Path $packageRoot ('assets\npcs\' + $name))
 }
+foreach ($newsNotice in @('HtmlAgilityPack-MIT.txt','Aion2Api-MIT.txt')) { Copy-Item -LiteralPath (Join-Path $projectRoot ('assets\licenses\'+$newsNotice)) -Destination (Join-Path $packageRoot ('assets\licenses\'+$newsNotice)) }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\licenses\Aion2ProtocolResearch-MIT.txt') -Destination (Join-Path $packageRoot 'assets\licenses\Aion2ProtocolResearch-MIT.txt')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\skills\LICENSE-MIT.txt') -Destination (Join-Path $packageRoot 'assets\skills\LICENSE-MIT.txt')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\skills\README.md') -Destination (Join-Path $packageRoot 'assets\skills\README.md')

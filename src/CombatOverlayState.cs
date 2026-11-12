@@ -1,27 +1,31 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 internal sealed class CombatOverlayState {
     internal sealed class Effect {
-        internal uint Instance,Skill,Id;
+        internal uint Instance,Skill,Id,Actor,Source;
         internal long WireExpiry;
         internal double Ends,Updated;
-        internal bool Party;
+        internal bool Party,Harmful;
+        internal int Stacks=1;
     }
 
     readonly object gate=new object();
-    readonly Dictionary<uint,Effect> effects=new Dictionary<uint,Effect>();
-    readonly Dictionary<uint,double> removed=new Dictionary<uint,double>();
+    readonly Dictionary<ulong,Effect> effects=new Dictionary<ulong,Effect>();
+    readonly Dictionary<ulong,double> removed=new Dictionary<ulong,double>();
+    sealed class UnknownEffect {public uint id,skill;public int count;}
+    readonly Dictionary<uint,UnknownEffect> unknown=new Dictionary<uint,UnknownEffect>();
     readonly Dictionary<uint,double> partyVitals=new Dictionary<uint,double>();
     Dictionary<ulong,uint> roster=new Dictionary<ulong,uint>();
     string flow,loadingFlow;
     uint self,loading,map;
-    uint selected,dialogueActor;
+    uint selected,dialogueActor,watchedTarget;
     double dialogueTime;
     bool? combat;
     double lastBattle;
     volatile bool trackBuffs;
+    double serverOffset,clockTime;bool clockKnown;string clockFlow;
 
     internal bool? Combat {get{lock(gate)return combat;}}
     internal bool DialogueOpen(double now) {
@@ -35,10 +39,10 @@ internal sealed class CombatOverlayState {
     }
     void ClearWorld() {
         combat=null;lastBattle=0;
-        selected=dialogueActor=0;dialogueTime=0;
-        effects.Clear();removed.Clear();roster.Clear();partyVitals.Clear();
+        selected=dialogueActor=watchedTarget=0;dialogueTime=0;
+        effects.Clear();removed.Clear();unknown.Clear();roster.Clear();partyVitals.Clear();
     }
-    internal void Reset(){lock(gate){flow=loadingFlow=null;self=loading=map=0;ClearWorld();}}
+    internal void Reset(){lock(gate){flow=loadingFlow=null;self=loading=map=0;clockKnown=false;clockFlow=null;ClearWorld();}}
 
     internal static bool TryBattle(byte[] b,int s,int e,out uint actor,out bool active) {
         int p=s+2;uint unused,flag;
@@ -62,9 +66,14 @@ internal sealed class CombatOverlayState {
         bool identity=op==0x2036||op==0x3336||op==0x2136;
         bool partyUpdate=op==0x0092||op==0x0d92||op==0x1192||op==0x1b92;
         bool interaction=op==0x3438||op==0x41e2||op==0x43e2;
-        if(!identity&&!partyUpdate&&!interaction&&op!=0x218d&&(!trackBuffs||(op!=0x2a38&&op!=0x2b38&&op!=0x2c38)))return false;
+        if(!identity&&!partyUpdate&&!interaction&&op!=0x218d&&(!trackBuffs||(op!=0x0036&&op!=0x4136&&op!=0x4536&&op!=0x4236&&op!=0x2a38&&op!=0x2b38&&op!=0x2c38)))return false;
         lock(gate) {
             uint actor;string name;byte role;
+            if(op==0x0036){
+                if(e-s!=10||self!=0&&key!=flow)return false;long epoch=BitConverter.ToInt64(b,s+2);
+                if(epoch<946684800000L||epoch>4102444800000L||clockKnown&&key==clockFlow&&time<clockTime)return false;
+                serverOffset=time-epoch/1000.0;clockTime=time;clockFlow=key;clockKnown=true;return false;
+            }
             if(op==0x2036){
                 if(!DashSignal.LoginActor(b,s,e,out actor))return false;
                 ClearWorld();self=map=0;flow=null;loading=actor;loadingFlow=key;
@@ -76,6 +85,7 @@ internal sealed class CombatOverlayState {
                 bool changed=self!=actor||flow!=key;
                 if(changed){ClearWorld();self=actor;flow=key;map=0;}
                 loading=0;loadingFlow=null;
+                if(trackBuffs)ReadSnapshot(b,s,e,time,op,actor);
                 return changed;
             }
             if(self==0||key!=flow)return false;
@@ -121,50 +131,63 @@ internal sealed class CombatOverlayState {
                 return false;
             }
             if(!trackBuffs)return false;
+            if(op==0x4136||op==0x4536){int p=s+2;if(!DpsSignal.Var(b,ref p,e,out actor))return false;ReadSnapshot(b,s,e,time,op,actor);return false;}
             int at=s+2;
-            if(!DpsSignal.Var(b,ref at,e,out actor)||actor!=self)return false;
+            if(!DpsSignal.Var(b,ref at,e,out actor)||actor==0)return false;
+            if(op==0x4236){
+                if(e-at!=2||b[at]!=0)return false;
+                foreach(var pair in effects.Where(v=>v.Value.Actor==actor).Select(v=>v.Key).ToArray())effects.Remove(pair);
+                return actor==self;
+            }
             if(op==0x2c38){
-                List<uint> removals;
-                if(!PlayerShieldSignal.ReadRemovals(b,s,e,out actor,out removals))return false;
-                bool changed=false;
-                foreach(uint instance in removals)changed|=Remove(instance,time);
-                return changed;
+                List<uint> removals;if(!PlayerShieldSignal.ReadRemovals(b,s,e,out actor,out removals))return false;
+                bool changed=false;foreach(uint instance in removals)changed|=Remove(actor,instance,time);return changed&&actor==self;
             }
             List<PlayerShieldSignal.Status> statuses;
             if(!PlayerShieldSignal.ReadStatuses(b,s,e,out actor,out statuses))return false;
-            bool updated=false;
-            foreach(var status in statuses){
-                if(status.Removing){updated|=Remove(status.Instance,time);continue;}
-                if(status.Source==0||status.Skill==0||status.Effect==0||status.Instance==0||
-                    (status.Duration!=-1&&(status.Duration<=0||status.Duration>86400000)))continue;
-                bool party=status.Source!=self;
-                double partySeen;
-                if(party&&!roster.ContainsValue(status.Source)&&
-                    (roster.Count>0||!partyVitals.TryGetValue(status.Source,out partySeen)||time-partySeen>120||time<partySeen))continue;
-                uint displaySkill=party?0:OwnAttackBuffSkill(status.Skill,status.Effect);
-                if(displaySkill==0){
-                    if(SkillCatalogue.Shared.IsDamage(status.Skill))continue;
-                    displaySkill=status.Skill;
-                }
-                double gone;
-                if(removed.TryGetValue(status.Instance,out gone)&&time<=gone)continue;
-                Effect existing;
-                if(effects.TryGetValue(status.Instance,out existing)){
-                    if(time<existing.Updated)continue;
-                    if(existing.Id==status.Effect&&existing.WireExpiry==status.Expiry&&existing.Skill==displaySkill&&existing.Party==party){
-                        existing.Updated=time;
-                        continue;
-                    }
-                }else if(effects.Count>=64){
-                    uint oldest=effects.Aggregate((a,z)=>a.Value.Updated<=z.Value.Updated?a:z).Key;
-                    effects.Remove(oldest);
-                }
-                effects[status.Instance]=new Effect{Instance=status.Instance,Skill=displaySkill,Id=status.Effect,Party=party,
-                    WireExpiry=status.Expiry,Ends=status.Duration==-1?0:time+status.Duration/1000.0,Updated=time};
-                updated=true;
-            }
-            return updated;
+            bool updated=false;foreach(var status in statuses)updated|=Apply(actor,status,time);return updated&&actor==self;
         }
+    }
+    static ulong EffectKey(uint actor,uint instance){return ((ulong)actor<<32)|instance;}
+    bool ReadSnapshot(byte[] b,int start,int end,double time,int opcode,uint actor){
+        EffectSnapshotReader.Item[] list;int matches;
+        if(actor==0||!EffectSnapshotReader.TryRead(b,start,end,opcode,out list,out matches))return false;
+        bool changed=false;var present=new HashSet<uint>(list.Select(v=>v.instance));
+        foreach(var old in effects.Where(v=>v.Value.Actor==actor&&!present.Contains(v.Value.Instance)).Select(v=>v.Value.Instance).ToArray())changed|=Remove(actor,old,time);
+        foreach(var value in list)changed|=Apply(actor,new PlayerShieldSignal.Status{Instance=value.instance,Effect=value.effectId,Skill=value.skillId,Source=value.sourceActor,Duration=value.durationMs,Expiry=value.serverExpiryMs},time);
+        return changed;
+    }
+    bool Apply(uint actor,PlayerShieldSignal.Status status,double time){
+        if(status.Removing)return Remove(actor,status.Instance,time);
+        if(status.Effect!=0&&!EffectCatalogue.Visible(status.Effect)){
+            var meta=EffectCatalogue.Find(status.Effect);
+            if(meta==null||!meta.hidden&&meta.kind!="P"){UnknownEffect item;if(unknown.TryGetValue(status.Effect,out item)){if(item.count<1000000000)item.count++;}else if(unknown.Count<128)unknown[status.Effect]=new UnknownEffect{id=status.Effect,skill=status.Skill,count=1};}
+            return Remove(actor,status.Instance,time);
+        }
+        if(status.Effect==0||status.Instance==0||
+           (status.Duration!=-1&&(status.Duration<=0||status.Duration>34560000000L)))return false;
+        ulong key=EffectKey(actor,status.Instance);double gone;
+        if(removed.TryGetValue(key,out gone)&&time<=gone)return false;
+        Effect existing;effects.TryGetValue(key,out existing);
+        if(existing!=null&&time<existing.Updated)return false;
+        double until=status.Duration==-1?0:time+status.Duration/1000.0;
+        if(status.Duration!=-1&&clockKnown&&clockFlow==flow&&time>=clockTime&&time-clockTime<30){
+            double aligned=status.Expiry/1000.0+serverOffset;
+            if(aligned>time+status.Duration/1000.0+1)return false;
+            until=aligned;
+        }else if(existing!=null&&existing.Id==status.Effect&&existing.WireExpiry==status.Expiry)until=existing.Ends;
+        if(until!=0&&until<=time){return Remove(actor,status.Instance,time);}
+        if(existing==null&&effects.Count>=2048){
+            foreach(var expired in effects.Where(v=>v.Value.Ends!=0&&v.Value.Ends<=time).Select(v=>v.Key).ToArray())effects.Remove(expired);
+            if(effects.Count>=2048){
+                var expendable=effects.Where(v=>v.Value.Actor!=self&&v.Value.Actor!=watchedTarget).ToArray();
+                effects.Remove((expendable.Length>0?expendable:effects.ToArray()).Aggregate((a,z)=>a.Value.Updated<=z.Value.Updated?a:z).Key);
+            }
+        }
+        uint displaySkill=OwnAttackBuffSkill(status.Skill,status.Effect);if(displaySkill==0)displaySkill=status.Skill;
+        bool party=status.Source!=self&&(roster.ContainsValue(status.Source)||partyVitals.ContainsKey(status.Source)&&time-partyVitals[status.Source]>=0&&time-partyVitals[status.Source]<120);
+        effects[key]=new Effect{Actor=actor,Source=status.Source,Instance=status.Instance,Skill=displaySkill,Id=status.Effect,Party=party,Harmful=EffectCatalogue.Harmful(status.Effect),WireExpiry=status.Expiry,Ends=until,Updated=time};
+        return true;
     }
 
     bool ReadInteraction(byte[] b,int start,int end,double time,int opcode) {
@@ -193,20 +216,29 @@ internal sealed class CombatOverlayState {
         return true;
     }
 
-    bool Remove(uint instance,double time) {
-        Effect entry;
-        if(!effects.TryGetValue(instance,out entry)||time<entry.Updated)return false;
-        effects.Remove(instance);
-        if(removed.Count>=128)removed.Clear();
-        removed[instance]=time;
-        return true;
+    bool Remove(uint actor,uint instance,double time){
+        ulong key=EffectKey(actor,instance);Effect entry;bool exists=effects.TryGetValue(key,out entry);
+        if(exists&&time<entry.Updated)return false;double old;if(removed.TryGetValue(key,out old)&&time<old)return false;
+        effects.Remove(key);if(removed.Count>=512)removed.Clear();removed[key]=time;return exists;
+    }
+    internal void WatchTarget(uint actor,string key){lock(gate)watchedTarget=key==flow?actor:0;}
+    internal Effect[] ReadBuffs(double now,bool own,bool party){return ReadEffects(0,null,now,own,party,true,true,32);}
+    internal Effect[] ReadEffects(uint actor,string key,double now,bool own,bool party,bool buffs,bool debuffs,int maximum){
+        lock(gate){
+            if(self==0||key!=null&&key!=flow)return new Effect[0];uint recipient=actor==0?self:actor;
+            return effects.Values.Where(e=>e.Actor==recipient&&(e.Harmful?debuffs:buffs)&&(e.Ends==0||e.Ends>now)&&
+                (actor!=0||e.Harmful||(e.Source==self?own:e.Party?party:own)))
+                .GroupBy(e=>e.Id).OrderBy(g=>g.Key).Take(Math.Max(1,Math.Min(64,maximum))).Select(g=>{
+                    var e=g.OrderBy(v=>v.Ends==0?double.MaxValue:v.Ends).First();var meta=EffectCatalogue.Find(e.Id);
+                    return new Effect{Actor=e.Actor,Source=e.Source,Instance=e.Instance,Skill=e.Skill,Id=e.Id,Party=e.Party,Harmful=e.Harmful,Ends=e.Ends,Stacks=Math.Min(meta==null?1:Math.Max(1,meta.stacks),g.Count())};
+                }).ToArray();
+        }
     }
 
-    internal Effect[] ReadBuffs(double now,bool own,bool party) {
-        lock(gate) {
-            return effects.Values.Where(e=>(e.Party?party:own)&&(e.Ends==0||e.Ends>now))
-                .OrderBy(e=>e.Instance).Take(12).Select(e=>new Effect{Instance=e.Instance,Skill=e.Skill,Id=e.Id,Party=e.Party,Ends=e.Ends}).ToArray();
-        }
+    internal object Support(uint target,double now){
+        lock(gate)return new{ownActor=self,targetActor=target,storedInstances=effects.Count,
+            active=effects.Values.Where(e=>(e.Actor==self||target!=0&&e.Actor==target)&&(e.Ends==0||e.Ends>now)).Take(128).Select(e=>new{actor=e.Actor,source=e.Source,effect=e.Id,skill=e.Skill,instance=e.Instance,harmful=e.Harmful,party=e.Party,remaining=e.Ends==0?-1:Math.Max(0,e.Ends-now)}).ToArray(),
+            unclassified=unknown.Values.Select(e=>new{id=e.id,skill=e.skill,count=e.count}).ToArray()};
     }
 
     internal static void Verify(){
@@ -236,11 +268,10 @@ internal sealed class CombatOverlayState {
         feed(PlayerShieldVerification.Status(13238,674,150900001,15110037),9,"A");
         feed(PlayerShieldVerification.Status(13239,675,151100301,15110037),9,"A");
         var attackBuffs=state.ReadBuffs(9,true,false);
-        if(attackBuffs.Length!=2||attackBuffs[0].Skill!=15110000||attackBuffs[1].Skill!=15250000||
-           SkillCatalogue.Shared.Name(attackBuffs[1].Skill,"es")!="Ignición")
+        if(!attackBuffs.Any(v=>v.Id==151100301&&v.Skill==15110000)||!attackBuffs.Any(v=>v.Id==152500471&&v.Skill==15250000))
             throw new Exception("Only the verified own Winter's Shackles and Pyroclasm pairs use localized base skills");
         feed(PlayerShieldVerification.Remove(13238,672),9.1,"A");
-        if(state.ReadBuffs(9.1,true,false).Length!=1)throw new Exception("A verified attack buff expires on its own instance removal");
+        if(state.ReadBuffs(9.1,true,false).Any(v=>v.Id==151100301))throw new Exception("A verified attack buff expires on its own instance removal");
         feed(DashSignal.LoginFixture(12),10,"A");
         if(state.Combat.HasValue||state.ReadBuffs(10,true,false).Length!=0)throw new Exception("Character loading resets combat and buff identity");
 

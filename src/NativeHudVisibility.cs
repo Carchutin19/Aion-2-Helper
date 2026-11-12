@@ -32,6 +32,8 @@ internal sealed class NativeHudVisibility : IDisposable {
     IntPtr memory, bitmap, original, bits;
     IntPtr scanMemory,scanBitmap,scanOriginal,scanBits;
     byte[] scanPixels;
+    byte[] scanLuma;
+    bool locating;
     int left,right,top,scanWidth,scanHeight;
     readonly int[] bright=new int[8],dark=new int[8];
     double nextSample,nextSearch;
@@ -101,9 +103,11 @@ internal sealed class NativeHudVisibility : IDisposable {
                 pending=null;
             }
             if(!busy&&!disposed&&window!=IntPtr.Zero&&now>=nextSample){
-                bool search=missingSamples>=2&&now>=nextSearch;
+                // Start relocation/absence verification on the first lost sample,
+                // rather than spending two extra polling intervals waiting for it.
+                bool search=missingSamples>=1&&now>=nextSearch;
                 if(search)nextSearch=now+(hidden?2:.75);
-                nextSample=now+.25;
+                nextSample=now+(hidden?.20:.10);
                 busy=true;
                 int epoch=generation;
                 ThreadPool.QueueUserWorkItem(delegate{ReadWindow(target,search,epoch);});
@@ -121,7 +125,7 @@ internal sealed class NativeHudVisibility : IDisposable {
         if(Matches.HasValue&&Matches<4){
             if(missingSamples<3)missingSamples++;
             searching|=value.SearchComplete;
-            hidden=Matches<=1&&armed&&searching&&missingSamples>=3;
+            hidden=Matches<=1&&armed&&searching&&missingSamples>=2;
         }else{
             missingSamples=0;
             searching=hidden=false;
@@ -228,6 +232,7 @@ internal sealed class NativeHudVisibility : IDisposable {
     }
 
     double GlyphScore(byte[] data,int start,int stride,int index,out int light) {
+        if(locating)return LumaScore(start/4,stride/4,index,out light);
         double dot=0,sum=0,squares=0;
         var glyph=templates[index];
         for(int row=0;row<GlyphHeight;row++)for(int column=0;column<GlyphWidth;column++){
@@ -241,7 +246,24 @@ internal sealed class NativeHudVisibility : IDisposable {
         return spread>=8?dot/spread:0;
     }
 
+    double LumaScore(int start,int stride,int index,out int light){
+        double dot=0,sum=0,squares=0;var glyph=templates[index];
+        for(int row=0;row<GlyphHeight;row++)for(int column=0;column<GlyphWidth;column++){
+            int value=scanLuma[start+row*stride+column];sum+=value;squares+=value*value;dot+=glyph[row*GlyphWidth+column]*value;
+        }
+        light=(int)sum;double spread=Math.Sqrt(squares-sum*sum/GlyphSize);return spread>=8?dot/spread:0;
+    }
+
     bool Locate(byte[] data,int width,int height,int startY,out int x,out int secondX,out int y,out int count) {
+        // Convert once per relocation check, rather than recalculating RGB luma
+        // for every overlapping glyph candidate. The cheap contrast rejection and
+        // exact correlation thresholds remain unchanged.
+        int area=width*height;if(scanLuma==null||scanLuma.Length!=area)scanLuma=new byte[area];
+        for(int i=0,p=0;i<area;i++,p+=4)scanLuma[i]=(byte)((29*data[p]+150*data[p+1]+77*data[p+2])>>8);
+        locating=true;try{return LocatePrepared(data,width,height,startY,out x,out secondX,out y,out count);}finally{locating=false;}
+    }
+
+    bool LocatePrepared(byte[] data,int width,int height,int startY,out int x,out int secondX,out int y,out int count) {
         x=secondX=y=count=0;
         int stride=width*4;
         int[] brightBytes=new int[8],darkBytes=new int[8];
@@ -310,7 +332,7 @@ internal sealed class NativeHudVisibility : IDisposable {
     void ReleaseSurfaces(){
         ReleaseSurface(ref memory,ref bitmap,ref original,ref bits);
         ReleaseSurface(ref scanMemory,ref scanBitmap,ref scanOriginal,ref scanBits);
-        scanPixels=null;
+        scanPixels=scanLuma=null;
     }
     public void Dispose(){lock(gate){disposed=true;if(!busy)ReleaseSurfaces();}}
 
@@ -347,8 +369,30 @@ internal sealed class NativeHudVisibility : IDisposable {
                 if(!detector.hidden)throw new Exception("Confirmed quickbar absence must hide gameplay widgets");
                 detector.ApplyReading(new Reading{Matches=count,SearchComplete=true});
                 if(detector.hidden)throw new Exception("Rediscovered quickbar must restore the widgets");
+                detector.ApplyReading(new Reading{Matches=0});
+                if(detector.hidden)throw new Exception("One missing sample cannot hide the UI");
+                detector.ApplyReading(new Reading{Matches=0,SearchComplete=true});
+                if(!detector.hidden)throw new Exception("A second missing sample with relocation ruled out starts the fade without extra polling delays");
             }
         }finally{File.Delete(file);Directory.Delete(folder);}
+    }
+
+    internal static void Benchmark(string root){
+        using(var detector=new NativeHudVisibility(root,false)){
+            if(!detector.Calibrated)throw new Exception("No native HUD calibration");
+            const int width=1920,height=1080;
+            var scene=new byte[width*height*4];var random=new Random(61);random.NextBytes(scene);
+            int x,second,y,count;var clock=System.Diagnostics.Stopwatch.StartNew();
+            bool absent=detector.Locate(scene,width,height,900,out x,out second,out y,out count);double missing=clock.Elapsed.TotalMilliseconds;
+            if(absent)throw new Exception("Noise must not be a native quickbar");
+            int atX=700,atY=430;
+            for(int i=0;i<8;i++)for(int row=0;row<GlyphHeight;row++)for(int col=0;col<GlyphWidth;col++){
+                int p=((atY+row)*width+atX+detector.layout.Offsets[i]+col)*4;scene[p]=scene[p+1]=scene[p+2]=detector.layout.Glyphs[i][row*GlyphWidth+col];
+            }
+            clock.Restart();bool found=detector.Locate(scene,width,height,900,out x,out second,out y,out count);double moved=clock.Elapsed.TotalMilliseconds;
+            if(!found||Math.Abs(x-atX)>Padding||y!=atY)throw new Exception("Moved preset must be found in a busy full-HD frame");
+            File.WriteAllText(Path.Combine(root,"native-hud-speed-test.txt"),new JavaScriptSerializer().Serialize(new{noiseAbsenceMs=missing,movedHudMs=moved,matches=count,width,height}));
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)] struct Rect {internal int Left,Top,Right,Bottom;}
@@ -403,4 +447,57 @@ internal sealed class NativeHudFade {
         fade.Step(3,false,false);
         if(fade.Alpha!=255||fade.Animating)throw new Exception("Edit mode or focus loss cancels the menu fade");
     }
+}
+
+// Optional native-HUD shortcut exception. Observe only the configured key, never
+// consume or synthesize it. A key held down toggles once; desktop input is ignored.
+internal sealed class NativeHudShortcut : IDisposable {
+    delegate IntPtr HookProc(int code,IntPtr message,IntPtr data);
+    readonly HookProc callback;
+    IntPtr hook;
+    int key=123;bool down,enabled;double restoredUntil,lastToggle,nextHookRetry;
+    internal bool Active {get;private set;}
+    internal bool Listening {get{return hook!=IntPtr.Zero;}}
+    internal NativeHudShortcut(){callback=Keyboard;}
+    internal static int ValidKey(int value){return value>=8&&value<=254?value:123;}
+    internal bool Update(bool option,int selectedKey,bool watching,double now,int? matches){
+        selectedKey=ValidKey(selectedKey);
+        bool listen=option&&watching;
+        if(enabled!=listen||key!=selectedKey){enabled=listen;key=selectedKey;Reset();}
+        if(enabled&&hook==IntPtr.Zero&&now>=nextHookRetry){hook=SetWindowsHookEx(13,callback,GetModuleHandle(null),0);nextHookRetry=now+5;}
+        if(!enabled&&hook!=IntPtr.Zero){UnhookWindowsHookEx(hook);hook=IntPtr.Zero;}
+        // Resynchronize if the native HUD has returned by another game action.
+        if(Active&&matches>=4&&now-lastToggle>2)Active=false;
+        return enabled&&(Active||now<restoredUntil);
+    }
+    void Reset(){Active=false;down=false;restoredUntil=lastToggle=nextHookRetry=0;}
+    IntPtr Keyboard(int code,IntPtr message,IntPtr data){
+        if(code>=0&&enabled&&Marshal.ReadInt32(data)==key){
+            int kind=message.ToInt32();
+            if(kind==0x101||kind==0x105)Observe(false,false,0);
+            else if(kind==0x100||kind==0x104)Observe(true,FloatingTextService.GameForeground(),DpsHistory.UtcNow());
+        }
+        return CallNextHookEx(hook,code,message,data);
+    }
+    internal void Observe(bool pressed,bool gameForeground,double now){
+        if(!pressed){down=false;return;}
+        if(down)return;down=true;
+        if(!gameForeground)return;
+        Active=!Active;lastToggle=now;restoredUntil=Active?0:now+1;
+    }
+    internal static void Verify(){
+        using(var state=new NativeHudShortcut()){
+            state.Observe(true,false,1);if(state.Active)throw new Exception("Desktop HUD shortcut must be ignored");
+            state.Observe(false,false,1);state.Observe(true,true,2);
+            if(!state.Active)throw new Exception("Native HUD shortcut enables its visibility exception");
+            state.Observe(true,true,3);if(!state.Active)throw new Exception("Held shortcut cannot repeat toggle");
+            state.Observe(false,true,3);state.Observe(true,true,4);if(state.Active)throw new Exception("Second shortcut restores automatic visibility");
+            state.Reset();if(state.Active||state.Listening)throw new Exception("Shortcut state is session-local");
+        }
+    }
+    public void Dispose(){if(hook!=IntPtr.Zero){UnhookWindowsHookEx(hook);hook=IntPtr.Zero;}enabled=false;Reset();}
+    [DllImport("user32.dll",SetLastError=true)]static extern IntPtr SetWindowsHookEx(int id,HookProc proc,IntPtr module,uint thread);
+    [DllImport("user32.dll")]static extern bool UnhookWindowsHookEx(IntPtr hook);
+    [DllImport("user32.dll")]static extern IntPtr CallNextHookEx(IntPtr hook,int code,IntPtr message,IntPtr data);
+    [DllImport("kernel32.dll",CharSet=CharSet.Auto)]static extern IntPtr GetModuleHandle(string module);
 }

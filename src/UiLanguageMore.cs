@@ -12,7 +12,66 @@ internal static class UiLanguageMore {
  internal static bool TryText(string text,string language,out string result){Dictionary<string,string> map;result=null;return maps.TryGetValue(language,out map)&&map.TryGetValue(text,out result);}
  internal static bool TryEnglish(string text,out string result){return reverse.TryGetValue(text,out result);}
  internal static int Count(string language){Dictionary<string,string> map;return maps.TryGetValue(language,out map)?map.Count:0;}
- const string Data=@"Coming soon|Bald verfügbar|Bientôt|قريبًا
+ const string Data=@"
+This article is very long. Read the remaining content in the official announcement.|Dieser Artikel ist sehr lang. Lies den restlichen Inhalt in der offiziellen Ankündigung.|Cet article est très long. Consultez la suite dans l’annonce officielle.|هذا المقال طويل جدًا. اقرأ بقية المحتوى في الإعلان الرسمي.
+Image unavailable · open the original article|Bild nicht verfügbar · Originalartikel öffnen|Image indisponible · ouvrir l’article original|الصورة غير متاحة · افتح المقال الأصلي
+
+News & Updates|Neuigkeiten|Actualités|الأخبار والتحديثات
+Official announcements, patches and events|Offizielle Ankündigungen, Patches und Events|Annonces officielles, correctifs et événements|الإعلانات الرسمية والتحديثات والفعاليات
+News|Neuigkeiten|Actualités|الأخبار
+Patch Notes|Patchnotes|Notes de mise à jour|ملاحظات التحديث
+Events|Events|Événements|الفعاليات
+Global|Global|Global|العالمي
+Korea|Korea|Corée|كوريا
+Refresh news|Aktualisieren|Actualiser|تحديث الأخبار
+Mark all as read|Alle als gelesen markieren|Tout marquer comme lu|تحديد الكل كمقروء
+Loading news…|Nachrichten werden geladen…|Chargement des actualités…|جارٍ تحميل الأخبار…
+Loading article…|Artikel wird geladen…|Chargement de l’article…|جارٍ تحميل المقال…
+Official source: NCSOFT|Offizielle Quelle: NCSOFT|Source officielle : NCSOFT|المصدر الرسمي: NCSOFT
+Korea · Original Korean articles|Korea · Koreanische Originalartikel|Corée · Articles originaux en coréen|كوريا · المقالات الأصلية بالكورية
+Dates shown in your local time|Datumsangaben in Ortszeit|Dates affichées en heure locale|التواريخ بتوقيتك المحلي
+Date unavailable|Datum nicht verfügbar|Date indisponible|التاريخ غير متاح
+Source unavailable. Showing saved news.|Quelle nicht erreichbar. Gespeicherte Nachrichten werden angezeigt.|Source indisponible. Affichage des actualités enregistrées.|المصدر غير متاح. تُعرض الأخبار المحفوظة.
+News could not be loaded. Try again later.|Nachrichten konnten nicht geladen werden. Versuche es später erneut.|Impossible de charger les actualités. Réessayez plus tard.|تعذر تحميل الأخبار. حاول لاحقًا.
+No articles available.|Keine Artikel verfügbar.|Aucun article disponible.|لا توجد مقالات متاحة.
+Updated|Aktualisiert|Mis à jour|تم التحديث
+← Back to news|← Zurück zu den Nachrichten|← Retour aux actualités|← العودة إلى الأخبار
+Open official article|Offiziellen Artikel öffnen|Ouvrir l’article officiel|فتح المقال الرسمي
+Open the official article for event rules, rewards and interactive content.|Öffne den offiziellen Artikel für Eventregeln, Belohnungen und interaktive Inhalte.|Ouvrez l’article officiel pour les règles, récompenses et contenus interactifs de l’événement.|افتح المقال الرسمي للاطلاع على قواعد الفعالية والمكافآت والمحتوى التفاعلي.
+Article unavailable. You can still open the official announcement.|Artikel nicht verfügbar. Die offizielle Ankündigung lässt sich weiterhin öffnen.|Article indisponible. Vous pouvez ouvrir l’annonce officielle.|المقال غير متاح. يمكنك فتح الإعلان الرسمي.
+News refresh at most once every 15 minutes. Manual refresh is limited to once every 30 seconds.|Nachrichten werden höchstens alle 15 Minuten aktualisiert. Manuelle Aktualisierung ist alle 30 Sekunden möglich.|Les actualités sont actualisées au plus toutes les 15 minutes. L’actualisation manuelle est limitée à une fois toutes les 30 secondes.|تُحدّث الأخبار كل 15 دقيقة كحد أقصى. يُسمح بالتحديث اليدوي مرة كل 30 ثانية.
+New|Neu|Nouveau|جديد
+Amber pulse in the last 4 seconds|Bernsteinfarbenes Pulsieren in den letzten 4 Sekunden|Pulsation ambrée pendant les 4 dernières secondes|وميض كهرماني في آخر 4 ثوانٍ
+Right|Rechts|Droite|يمين
+Left|Links|Gauche|يسار
+OWN BUFFS & DEBUFFS|EIGENE BUFFS UND DEBUFFS|BUFFS ET DEBUFFS PERSONNELS|التعزيزات والتأثيرات السلبية الخاصة بك
+Keep overlays when hiding Aion UI|Overlays beim Ausblenden der Aion-UI behalten|Garder les overlays en masquant l’interface d’Aion|إبقاء أدوات المساعد عند إخفاء واجهة أيون
+Aion's hide UI key|Taste zum Ausblenden der Aion-UI|Touche pour masquer l’interface d’Aion|مفتاح إخفاء واجهة أيون
+Press a key...|Taste drücken...|Appuyez sur une touche...|اضغط مفتاحًا...
+Assign the same key you configured in Aion to hide its interface. This does not change the game's binding. Press it inside Aion to keep Helper overlays visible; press it again to return to automatic visibility.|Wähle dieselbe Taste, die du in Aion zum Ausblenden der Oberfläche eingestellt hast. Die Belegung im Spiel wird nicht geändert. Drücke sie in Aion, um die Helper-Overlays sichtbar zu lassen; drücke sie erneut für die automatische Sichtbarkeit.|Choisissez la même touche que celle configurée dans Aion pour masquer son interface. Le raccourci du jeu reste inchangé. Appuyez dessus dans Aion pour garder les overlays visibles, puis à nouveau pour revenir à la visibilité automatique.|عيّن نفس المفتاح الذي ضبطته داخل أيون لإخفاء واجهتها. لن يتغير اختصار اللعبة. اضغطه داخل أيون لإبقاء أدوات المساعد ظاهرة، ثم اضغطه مجددًا للعودة إلى الظهور التلقائي.
+Buffs & debuffs|Buffs und Debuffs|Buffs et débuffs|التعزيزات والتأثيرات السلبية
+Combined effect order|Reihenfolge gemeinsamer Effekte|Ordre des effets regroupés|ترتيب التأثيرات المجمّعة
+Buffs first|Buffs zuerst|Buffs en premier|التعزيزات أولًا
+Debuffs first|Debuffs zuerst|Débuffs en premier|التأثيرات السلبية أولًا
+Debuff growth direction|Wachstumsrichtung der Debuffs|Sens d’ajout des débuffs|اتجاه إضافة التأثيرات السلبية
+TARGET BUFFS & DEBUFFS|BUFFS UND DEBUFFS DES ZIELS|BUFFS ET DEBUFFS DE LA CIBLE|تعزيزات الهدف وتأثيراته السلبية
+Show target effects|Zieleffekte anzeigen|Afficher les effets de la cible|إظهار تأثيرات الهدف
+Show buffs|Buffs anzeigen|Afficher les buffs|إظهار التعزيزات
+Show debuffs|Debuffs anzeigen|Afficher les debuffs|إظهار التأثيرات السلبية
+Blue buff / red debuff borders|Blaue Buff- und rote Debuff-Ränder|Bordures bleues des buffs et rouges des debuffs|حدود زرقاء للتعزيزات وحمراء للتأثيرات السلبية
+Effect arrangement|Anordnung der Effekte|Disposition des effets|ترتيب التأثيرات
+Effect style|Effektstil|Style des effets|نمط التأثيرات
+Together|Zusammen|Ensemble|معًا
+Buffs right, debuffs left|Buffs rechts · Debuffs links|Buffs à droite · Débuffs à gauche|التعزيزات يمينًا والتأثيرات السلبية يسارًا
+Buffs left, debuffs right|Buffs links · Debuffs rechts|Buffs à gauche · Débuffs à droite|التعزيزات يسارًا والتأثيرات السلبية يمينًا
+Buffs above, debuffs below|Buffs oben, Debuffs unten|Buffs en haut, debuffs en bas|التعزيزات أعلى والتأثيرات السلبية أسفل
+Debuffs above, buffs below|Debuffs oben, Buffs unten|Debuffs en haut, buffs en bas|التأثيرات السلبية أعلى والتعزيزات أسفل
+Maximum visible effects|Maximal sichtbare Effekte|Nombre maximal d’effets visibles|الحد الأقصى للتأثيرات الظاهرة
+Target bar horizontal offset|Horizontaler Abstand zur Zielleiste|Décalage horizontal depuis la barre|الإزاحة الأفقية عن شريط الهدف
+Target bar vertical offset|Vertikaler Abstand zur Zielleiste|Décalage vertical depuis la barre|الإزاحة العمودية عن شريط الهدف
+Follows the same locked or unlocked target as its health bar. Hidden when that bar is hidden. Unlock widgets in General to move this group; its offsets stay relative to the target bar.|Folgt dem Ziel der Lebensleiste, mit oder ohne Zielbindung. Wird mit dieser Leiste ausgeblendet. Entsperre die Widgets unter Allgemein, um die Gruppe relativ zur Zielleiste zu verschieben.|Suit la cible de la barre de vie, verrouillée ou non. Masqué avec cette barre. Déverrouillez les widgets dans Général pour déplacer le groupe ; sa position reste relative à la barre de la cible.|يتبع هدف شريط الصحة نفسه سواء كان مقفلاً أم لا، ويختفي معه. افتح قفل الأدوات في عام لتحريك المجموعة؛ يُحفظ موضعها بالنسبة لشريط الهدف.
+Buffs and debuffs on your character. Own and party filters apply to buffs; received debuffs are independent. Unlock widgets in General to move this group.|Buffs und Debuffs deines Charakters. Eigene und Gruppenfilter gelten für Buffs; empfangene Debuffs sind unabhängig. Entsperre Widgets unter Allgemein, um die Gruppe zu verschieben.|Buffs et debuffs de votre personnage. Les filtres personnels et de groupe concernent les buffs ; les debuffs reçus sont indépendants. Déverrouillez les widgets dans Général pour déplacer le groupe.|تعزيزات شخصيتك وتأثيراتها السلبية. مرشحاتك ومرشحات المجموعة تخص التعزيزات؛ التأثيرات السلبية المستلمة مستقلة. افتح قفل الأدوات في عام لتحريك المجموعة.
+Coming soon|Bald verfügbar|Bientôt|قريبًا
 Odyle Energy|Odyle-Energie|Énergie d’Odyle|طاقة أودايل
 Recharge tracking by character|Aufladung pro Charakter verfolgen|Suivi de la recharge par personnage|متابعة الشحن حسب الشخصية
 OVERLAY|OVERLAY|SUPERPOSITION|الأداة العائمة

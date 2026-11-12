@@ -1,0 +1,19 @@
+{
+  "available": 481,
+  "missing": [
+    "ICON_Abnormal_HOLD",
+    "ICON_Abnormal_Stumble",
+    "ICON_Abnormal_Templar005",
+    "ICON_Abnormal_Templar012",
+    "ICON_CH_EL_Passive_006",
+    "ICON_CH_SKILL_Passive_009",
+    "ICON_CL_SKILL_040_Buff",
+    "ICON_GT_SKILL_034",
+    "ICON_TE_TEMP_008",
+    "Icon_Item_Currency_Extension_inventory_old_001",
+    "Icon_Item_Currency_SpiritStone_Resurrect_other",
+    "Icon_Item_Usable_Scroll_Critical_A_005",
+    "Icon_Item_Usable_Scroll_Exp_Boost_001",
+    "Icon_Item_Usable_Scroll_Exp_Boost_002"
+  ]
+}
