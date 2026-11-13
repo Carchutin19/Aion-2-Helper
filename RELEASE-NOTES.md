@@ -1,3 +1,16 @@
+# v1.31.1 Alpha — Buff Corrections
+
+Small correction to v1.31.0, focused on matching supported buffs more closely to the native game UI.
+
+- Extended the renewal-counter correction to 36 known variants of **Light of Protection**, **Sprint Mantra** and **Undefeated Mantra**. Actual server refresh, expiry and removal still control their visibility; ordinary short buffs retain countdowns.
+- Corrected **Lightning Speed** to a beneficial buff.
+- Removed three additional identified internal statuses from the personal effects row, including the extra blue/green icons. Filtering is scoped to those exact own-recipient effects; legitimate buffs sharing the icon remain visible.
+- Corrected a Hotbar diagnostic label that could describe a native-HUD fade transition as waiting for data. Visibility behavior and fade/detection timings are unchanged.
+
+Validated against the completed four-hour gameplay recording and effect/Hotbar regressions. The release ZIP is checked with installed updater fixtures and preserves personal settings. Other unidentified effects and intermittent overlay data loss remain under investigation.
+
+---
+
 # v1.31.0 Alpha — News & Character Recovery
 
 ## News

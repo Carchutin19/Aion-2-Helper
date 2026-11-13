@@ -231,7 +231,7 @@ internal sealed class SkillSlotsOverlay:IDisposable {
   bool show=(Options.Enabled||test)&&(view!=null||sample)&&!shell&&!owner.WidgetsSuppressed&&(Editing||test||owner.CombatWidgetOpacity(Options.Opacity/100.0)>0);
   NextInterval=1000;
   if(!show){
-   hideReason=!Options.Enabled&&!test?"disabled":owner.ForegroundWidgetsSuppressed?"Aion is not in the foreground":owner.NativeMenu!=null?"Native HUD hidden":shell?"Windows shell":"waiting for own bar or stale transport";
+   hideReason=!Options.Enabled&&!test?"disabled":owner.ForegroundWidgetsSuppressed?"Aion is not in the foreground":owner.NativeMenu!=null?"Native HUD hidden":owner.WidgetsSuppressed?"Native HUD transition":shell?"Windows shell":"waiting for own bar or stale transport";
    SetPressPolling(false,false);
    foreach(var window in windows.Values)window.Conceal();
    StatusKey="hidden/"+hideReason;return;

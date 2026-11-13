@@ -16,11 +16,17 @@ internal static class EffectOverlayVerification {
     }
     static void VerifyRecordedEffects(){
         foreach(uint id in new uint[]{200,231,470,471})Check(!EffectCatalogue.Visible(id),"Controlled native-hidden marker stays out of both effect rows");
-        Check(!EffectCatalogue.Visible(10018,true)&&EffectCatalogue.Visible(10018,false),"Unnamed green marker exclusion is scoped to the observed own recipient");
+        foreach(uint id in new uint[]{10018,10002,10003,154100581})
+            Check(!EffectCatalogue.Visible(id,true)&&EffectCatalogue.Visible(id,false),"Internal marker exclusion is scoped to the observed own recipient");
+        Check(EffectCatalogue.Visible(100200001,true),"Named Tenacity sharing the internal marker icon stays visible");
+        Check(EffectCatalogue.Visible(19005001,true)&&!EffectCatalogue.Harmful(19005001),"Recorded Lightning Speed is a visible beneficial effect");
         Check(EffectCatalogue.Visible(9619)&&!EffectCatalogue.Harmful(9619)&&EffectCatalogue.Harmful(9646),"Abyss wing is beneficial while healing reduction remains harmful");
         var state=new CombatOverlayState();state.Configure(true);
         var profile=EnemyTargetVerification.Player(13238,"Own",100,100,true);state.Consume(profile,0,profile.Length,1,"A");
-        foreach(uint id in new uint[]{174100411,181600111,181900111}){
+        var sustained=new List<uint>();
+        foreach(uint family in new uint[]{174100000,181600000,181900000})
+            for(uint rank=0;rank<6;rank++)foreach(uint variant in new uint[]{1,11})sustained.Add(family+rank*100+variant);
+        foreach(uint id in sustained){
             var first=PlayerShieldVerification.Status(13238,id,id,0);
             state.Consume(first,0,first.Length,2,"A");
             var active=state.ReadBuffs(2,true,true).Single(e=>e.Id==id);
@@ -32,8 +38,13 @@ internal static class EffectOverlayVerification {
         }
         var normal=new CombatOverlayState.Effect{Id=133100101,Ends=3.25};
         Check(BuffOverlay.Seconds(normal,2)==2&&!EffectCatalogue.Sustained(normal.Id),"A normal short buff keeps its real countdown and expiry warning");
-        foreach(uint id in new uint[]{231,470,471,10018}){var status=PlayerShieldVerification.Status(13238,id,id,0);state.Consume(status,0,status.Length,20,"A");}
+        var regeneration=new CombatOverlayState.Effect{Id=170902301,Ends=3.25};
+        Check(EffectCatalogue.Find(regeneration.Id).es==EffectCatalogue.Find(174100111).es&&BuffOverlay.Seconds(regeneration,2)==2&&!EffectCatalogue.Sustained(regeneration.Id),"An unrelated heal sharing the Spanish aura label keeps its real timer");
+        foreach(uint id in new uint[]{231,470,471,10018,10002,10003,154100581}){var status=PlayerShieldVerification.Status(13238,id,id,0);state.Consume(status,0,status.Length,20,"A");}
         Check(state.ReadBuffs(20,true,true).Length==0,"Hidden metadata is applied before own effects reach the widget");
+        foreach(uint id in new uint[]{100200001,19005001}){var status=PlayerShieldVerification.Status(13238,id,id,0);state.Consume(status,0,status.Length,21,"A");}
+        var visible=state.ReadBuffs(21,true,true);
+        Check(visible.Length==2&&visible.All(e=>!e.Harmful),"Legitimate same-icon buff and Lightning Speed survive collection as beneficial statuses");
     }
     internal static void Run(string root){
         VerifyRecordedEffects();

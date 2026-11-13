@@ -22,6 +22,11 @@
     "470/471": "Recorded Bakarma generic DotHp markers omitted by native HUD;470 carries -1 or2147483647ms,471 -1. Exact gameplay function not assigned.",
     "10018": "Own unnamed green ICON_CO_SKILL_002 status omitted by native HUD; suppress only for own recipient. Exact gameplay function not assigned.",
     "9619": "Blue wing / Lower Abyss Reshanta confirmed beneficial.9646 Healing Reduction remains harmful.",
-    "174100411/181600111/181900111": "Recorded sustained party effects refreshed at1250/2400/2400ms. Hide presentation countdown/expiry pulse; preserve real deadlines and removal."
+    "174100411/181600111/181900111": "Recorded sustained party effects refreshed at1250/2400/2400ms. Hide presentation countdown/expiry pulse; preserve real deadlines and removal.",
+    "evidence20261113": "Completed four-hour controlled gameplay recording gameplay-review-4h-20261113-091537Z; user comparisons with native HUD; offline raw replay and regression checks. No changes to native lifetimes.",
+    "19005001": "Lightning Speed / Velocidad de la luz: user-confirmed beneficial status with exact name/icon and own-recipient samples; correct the coarse variant metadata from D to B.",
+    "10002/10003": "Unnamed own-recipient ICON_CO_SKILL_002 markers, skill0/source=self, observed at startup and concurrently during flight/dash, absent from native HUD in user comparisons. Own-display exclusion only; their gameplay role is not inferred. Named Tenacity100200001 sharing the icon remains visible.",
+    "154100581": "Remove Hibernation: own-recipient indefinite green status matches the extra icon reported absent from native HUD. Exact own-display exclusion; no blanket indefinite-effect filter.",
+    "sustainedAuraVariants": "Explicit 36 catalogue IDs: Light of Protection174100[0..5]{01,11}, Sprint Mantra181600[0..5]{01,11}, Undefeated Mantra181900[0..5]{01,11}. Recorded renewed variants174100111/181600011/181600111/181900211/181900311/181900411 extend the previous controlled variant fixes across these known ability families. Keep actual server refresh, expiry and removal; suppress renewal countdown and expiry pulse only. Light of Regeneration170902301 shares a Spanish label but remains an ordinary timed effect."
   }
 }
