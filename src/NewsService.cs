@@ -67,10 +67,10 @@ internal sealed class AionNewsService {
     internal bool IsUnread(AionNewsItem item){lock(gate){string revision;return !state.Seen.TryGetValue(item.Key,out revision)||revision!=item.Revision;}}
     internal bool HasUnread {get{lock(gate){foreach(var feed in feeds.Values)foreach(var item in feed.Items)if(IsUnread(item))return true;return false;}}}
     internal AionNewsFeed Snapshot(string region,string language,string kind){lock(gate){AionNewsFeed f;if(!feeds.TryGetValue(FeedKey(region,language,kind),out f))return new AionNewsFeed();return new AionNewsFeed{Items=new List<AionNewsItem>(f.Items),Loading=f.Loading,Failed=f.Failed,Checked=f.Checked,Language=f.Language,Error=f.Error};}}
-    static string FeedKey(string region,string language,string kind){return region+":"+(region=="kr"?"ko":AionNewsSource.Language(language))+":"+kind;}
+    static string FeedKey(string region,string language,string kind){return kind=="helper"?"helper:en:helper":region+":"+(region=="kr"?"ko":AionNewsSource.Language(language))+":"+kind;}
     internal void SelectRegion(string region){lock(gate)state.Region=region=="kr"?"kr":"global";SaveState();}
     internal void MarkRead(AionNewsItem item){lock(gate)state.Seen[item.Key]=item.Revision;SaveState();Notify();}
-    internal void MarkAll(string region,string language){lock(gate){foreach(string kind in new[]{"news","patch","events"}){AionNewsFeed feed;if(feeds.TryGetValue(FeedKey(region,language,kind),out feed))foreach(var item in feed.Items)state.Seen[item.Key]=item.Revision;}}SaveState();Notify();}
+    internal void MarkAll(string region,string language,string selectedKind=null){lock(gate){foreach(string kind in selectedKind=="helper"?new[]{"helper"}:new[]{"news","patch","events"}){AionNewsFeed feed;if(feeds.TryGetValue(FeedKey(region,language,kind),out feed))foreach(var item in feed.Items)state.Seen[item.Key]=item.Revision;}}SaveState();Notify();}
     void SaveState(){
         string json;int version;lock(gate){if(state.Seen.Count>2500){var trimmed=new Dictionary<string,string>();foreach(var feed in feeds.Values)foreach(var item in feed.Items){string revision;if(state.Seen.TryGetValue(item.Key,out revision))trimmed[item.Key]=revision;}state.Seen=trimmed;}json=new JavaScriptSerializer().Serialize(state);version=++stateVersion;}
         Task.Run(delegate{try{lock(diskGate){if(version!=stateVersion)return;Write("state.json",Encoding.UTF8.GetBytes(json));}}catch(Exception e){if(!Expected(e))throw;}});
@@ -80,6 +80,7 @@ internal sealed class AionNewsService {
     }
     internal async Task Refresh(string region,string language,bool force){
         await Initialize().ConfigureAwait(false);
+        await RefreshFeed(region,language,"helper",force).ConfigureAwait(false);
         foreach(string kind in new[]{"news","patch","events"})await RefreshFeed(region,language,kind,force).ConfigureAwait(false);
         await Task.Run(new Action(TrimCache)).ConfigureAwait(false);
     }
@@ -87,17 +88,19 @@ internal sealed class AionNewsService {
         string key=FeedKey(region,language,kind);AionNewsFeed feed;
         lock(gate){if(!feeds.TryGetValue(key,out feed)){feed=new AionNewsFeed();feeds[key]=feed;}if(feed.Loading||DateTime.UtcNow-feed.Attempted<TimeSpan.FromSeconds(30)||!force&&!feed.Failed&&DateTime.UtcNow-feed.Checked<TimeSpan.FromMinutes(15))return;feed.Loading=true;feed.Attempted=DateTime.UtcNow;}
         Notify();
-        string url=Sources.Feed(region,language,kind);
+        string url=kind=="helper"?UpdateManager.LatestUrl:Sources.Feed(region,language,kind);
         try{
             var saved=await Task.Run(delegate{return Read(url);}).ConfigureAwait(false);
-            if(saved!=null){bool corrupt=false;try{var cached=AionNewsJson.Feed(Encoding.UTF8.GetString(saved.Data),region,language,kind,Sources);lock(gate){feed.Items=cached;feed.Checked=saved.Checked;feed.Language=region=="kr"?"ko":AionNewsSource.Language(language);}Notify();}catch(Exception e){if(!Expected(e))throw;corrupt=true;}if(corrupt)await Invalidate(url).ConfigureAwait(false);}
+            if(saved!=null){bool corrupt=false;try{var cached=ParseFeed(saved.Data,region,language,kind);lock(gate){feed.Items=cached;feed.Checked=saved.Checked;feed.Language=kind=="helper"?"en":region=="kr"?"ko":AionNewsSource.Language(language);}Notify();}catch(Exception e){if(!Expected(e))throw;corrupt=true;}if(corrupt)await Invalidate(url).ConfigureAwait(false);}
             var entry=await Fetch(url,force?TimeSpan.Zero:TimeSpan.FromMinutes(15),2097152,false,CancellationToken.None).ConfigureAwait(false);
-            var items=await Task.Run(delegate{return AionNewsJson.Feed(Encoding.UTF8.GetString(entry.Data),region,language,kind,Sources);}).ConfigureAwait(false);
-            lock(gate){feed.Items=items;feed.Checked=entry.Checked;feed.Failed=false;feed.Language=region=="kr"?"ko":AionNewsSource.Language(language);}
+            var items=await Task.Run(delegate{return ParseFeed(entry.Data,region,language,kind);}).ConfigureAwait(false);
+            lock(gate){feed.Items=items;feed.Checked=entry.Checked;feed.Failed=false;feed.Language=kind=="helper"?"en":region=="kr"?"ko":AionNewsSource.Language(language);}
         }catch(Exception e){if(!Expected(e))throw;if(e is FormatException||e is ArgumentException)Forget(url);lock(gate){feed.Failed=true;feed.Error=e.GetType().Name+": "+e.Message;}}
         finally{lock(gate)feed.Loading=false;Notify();}
     }
+    List<AionNewsItem> ParseFeed(byte[] data,string region,string language,string kind){string json=Encoding.UTF8.GetString(data);return kind=="helper"?AionNewsJson.HelperRelease(json):AionNewsJson.Feed(json,region,language,kind,Sources);}
     internal async Task<string> Article(AionNewsItem item,CancellationToken cancellation){
+        if(item.Kind=="helper"){cancellation.ThrowIfCancellationRequested();return item.Html??"";}
         if(item.Kind=="events")return "";
         string url=Sources.Article(item);AionNewsCacheEntry entry=null;
         try{entry=await Fetch(url,TimeSpan.FromHours(24),2097152,false,cancellation).ConfigureAwait(false);}
@@ -108,6 +111,15 @@ internal sealed class AionNewsService {
     internal Task<BitmapSource> Image(string url,int width,CancellationToken cancellation){
         Uri address;if(String.IsNullOrEmpty(url)||!Uri.TryCreate(url,UriKind.Absolute,out address)||!AionNewsSource.Allowed(address,true))return Task.FromResult<BitmapSource>(null);
         string key=url+"@"+width;lock(gate){BitmapSource found;Task<BitmapSource> job;DateTime failed;CancellationToken prior;if(images.TryGetValue(key,out found))return Task.FromResult(found);if(imageFailures.TryGetValue(key,out failed)&&DateTime.UtcNow-failed<TimeSpan.FromMinutes(10))return Task.FromResult<BitmapSource>(null);if(imageJobs.TryGetValue(key,out job)&&imageTokens.TryGetValue(key,out prior)&&!prior.IsCancellationRequested)return job;job=LoadImage(key,url,width,cancellation);imageJobs[key]=job;imageTokens[key]=cancellation;return job;}
+    }
+    internal static bool CardImage(BitmapSource image){return image!=null&&image.PixelWidth>=48&&image.PixelHeight>=40&&(long)image.PixelWidth<=5L*image.PixelHeight&&(long)image.PixelHeight<=4L*image.PixelWidth;}
+    internal async Task<BitmapSource> Thumbnail(AionNewsItem item,int width,CancellationToken cancellation){
+        if(item.Kind=="events")return await Image(item.Image,width,cancellation).ConfigureAwait(false);
+        // Official feeds list article decorations before their actual illustrations.
+        // Check a bounded set of cached thumbnail candidates; never fetch full articles for cards.
+        var urls=item.Thumbnails!=null&&item.Thumbnails.Count>0?item.Thumbnails:new List<string>{item.Image};
+        for(int i=0;i<Math.Min(4,urls.Count);i++){cancellation.ThrowIfCancellationRequested();var picture=await Image(urls[i],width,cancellation).ConfigureAwait(false);if(CardImage(picture))return picture;}
+        return null;
     }
     async Task<BitmapSource> LoadImage(string key,string url,int width,CancellationToken cancellation){
         await Task.Delay(1).ConfigureAwait(false);BitmapSource source=null;bool acquired=false;
@@ -131,7 +143,7 @@ internal sealed class AionNewsService {
         return source;
     }
     internal async Task<AionNewsCacheEntry> Fetch(string url,TimeSpan age,int maximum,bool image,CancellationToken cancellation){
-        Uri uri=new Uri(url);if(!AionNewsSource.Allowed(uri,image))throw new InvalidOperationException("Unsupported news source");
+        Uri uri=new Uri(url);if(!AionNewsSource.TransportAllowed(uri,image))throw new InvalidOperationException("Unsupported news source");
         var cached=await Task.Run(delegate{return Read(url);},cancellation).ConfigureAwait(false);
         if(cached!=null&&DateTime.UtcNow-cached.Checked<age)return cached;
         var transport=image?imageTransport:requests;
@@ -156,7 +168,7 @@ internal sealed class AionNewsService {
                         using(response){
                             int status=(int)response.StatusCode;
                             if(status==304&&cached!=null){cached.Checked=DateTime.UtcNow;await Store(cached).ConfigureAwait(false);return cached;}
-                            if(status>=300&&status<400){Uri next;if(!Uri.TryCreate(uri,response.Headers["Location"],out next)||!AionNewsSource.Allowed(next,image))throw new WebException("Unsupported redirect");uri=next;continue;}
+                            if(status>=300&&status<400){Uri next;if(!Uri.TryCreate(uri,response.Headers["Location"],out next)||!AionNewsSource.TransportAllowed(next,image))throw new WebException("Unsupported redirect");uri=next;continue;}
                             string type=(response.ContentType??"").ToLowerInvariant();
                             if(response.ContentLength>maximum||image&&!type.StartsWith("image/")||!image&&!type.Contains("json"))throw new FormatException("Unsupported news response");
                             using(var input=response.GetResponseStream())using(var output=new MemoryStream()){

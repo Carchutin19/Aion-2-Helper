@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "baseline": "Portable paths verified with installed v1.13.0 and v1.29.0 updaters. New embedded resources must not add installation paths without explicit compatibility review.",
+  "files": [
+    "Aion-2-Helper.cmd", "Aion2Helper.exe", "README.md", "RELEASE-NOTES.md", "THIRD-PARTY.md",
+    "assets/aion-2-helper.ico", "assets/aion-2-helper.png",
+    "assets/licenses/Aion2ProtocolResearch-MIT.txt", "assets/npcs/LICENSE-MIT.txt", "assets/npcs/README.md",
+    "assets/skills/LICENSE-MIT.txt", "assets/skills/README.md", "assets/sounds/party-invite.mp3",
+    "protocol/LICENSE-MIT.txt", "protocol/sync-opcodes.json",
+    "tools/presentmon/LICENSE.txt", "tools/presentmon/PresentMon.exe", "tools/presentmon/README.md", "tools/presentmon/THIRD_PARTY.txt"
+  ]
+}

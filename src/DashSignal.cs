@@ -159,6 +159,7 @@ internal sealed class DashSignal {
                 while(position<expected){if(raw[position]==0){position++;continue;}int body,frameEnd;if(Frame(raw,position,expected,out body,out frameEnd)!=1)throw new InvalidDataException();Decode(raw,body,frameEnd,ts,depth+1,stream);position=frameEnd;}}
             catch(InvalidDataException){errors++;containerErrors++;}return;
         }
+        Reading profileReading=null;
         // A new area invalidates the previous local energy sample even while
         // ordinary traffic continues. Same-map boss teleports keep valid data.
         if(stream!=null&&data[start]==0x21&&data[start+1]==0x36&&end-start==48&&BitConverter.ToUInt32(data,start+2)<=10000){
@@ -205,10 +206,19 @@ internal sealed class DashSignal {
                 }
                 energyOwner=login;energyOwnerStream=stream;energyOwnerLoading=false;
                 if(reading!=null&&(reading.Actor!=(int)login||readingStream!=stream)){reading=null;readingStream=null;}
+                EnemyTargetSignal.Player profile;
+                if(server!=0&&login<=int.MaxValue&&EnemyTargetSignal.PlayerState(data,start,end,true,out profile)
+                    &&profile.Actor==login&&profile.Server==server&&profile.Name==name
+                    &&profile.Energy.HasValue&&profile.EnergyMaximum.HasValue){
+                    RecordMaximum(stream,login,profile.EnergyMaximum.Value);
+                    readingStream=stream;
+                    reading=profileReading=new Reading{Actor=(int)login,Value=profile.Energy.Value,Timestamp=ts};samples++;
+                }
             }
         }
         Flow transport;if(stream!=null&&streams.TryGetValue(stream,out transport))transport.Frames++;
         if(!ProbeOnly)SupportDiagnostics.Frame((data[start]<<8)|data[start+1],end-start);if(OnFrame!=null)OnFrame(data,start,end,ts,stream);
+        if(profileReading!=null&&OnReading!=null)OnReading(profileReading);
         if(data[start]!=0||data[start+1]!=0x8d)return;
         int cursor=start+2;uint actor;if(!ReadVar(data,ref cursor,end,out actor)||cursor>=end)return;int flags=data[cursor++];if((flags&~3)!=0)return;
         uint? candidate=null,maximum=null;
@@ -246,6 +256,7 @@ internal sealed class DashSignal {
         VerifyContainers(root);
         VerifyConnectionStart(root);
         VerifyEnergyMaximum(root);
+        VerifyEnergyProfiles(root);
         VerifyResynchronization(root);
         VerifyPrefixRecovery(root);
         byte[] frame=new byte[]{14,0,0x8d,1,1,1,3,100,0,0,0},data=new byte[44];for(int n=0;n<4;n++)System.Buffer.BlockCopy(frame,0,data,n*frame.Length,frame.Length);
@@ -367,6 +378,33 @@ internal sealed class DashSignal {
         decoder.Decode(profile,0,profile.Length,205,0,"other-server");
         apply("008D28010103404B0100","other-server",206);
         if(decoder.ReadSnapshot().DetectedMaximum!=0)throw new Exception("An identically named character on another server cannot inherit energy");
+    }
+    static void VerifyEnergyProfiles(string root){
+        var decoder=new DashSignal(root){ProbeOnly=true};int notifications=0;decoder.OnReading=delegate{notifications++;};
+        Action<byte[],double,string> feed=(b,t,key)=>decoder.Decode(b,0,b.Length,t,0,key);
+        var profile=EnemyTargetVerification.EnergyProfile(18,"SameCharacter",84000,119000);
+        feed(profile,1,"world");
+        if(decoder.Current==null||decoder.Current.Actor!=18||decoder.Current.Value!=84000||decoder.ReadSnapshot().DetectedMaximum!=119000||notifications!=1)
+            throw new Exception("Own entry profile must supply explicit partial energy/current maximum without a dash");
+        var map=new byte[48];map[0]=0x21;map[1]=0x36;Buffer.BlockCopy(BitConverter.GetBytes(1010u),0,map,6,4);feed(map,2,"world");Buffer.BlockCopy(BitConverter.GetBytes(152005u),0,map,6,4);feed(map,3,"world");
+        if(decoder.Current!=null)throw new Exception("Loading still revokes previous-zone current energy");
+        feed(EnemyTargetVerification.EnergyProfile(18,"SameCharacter",119000,119000),4,"world");
+        if(decoder.Current==null||decoder.Current.Value!=119000||decoder.Current.Timestamp!=4)throw new Exception("Full energy is recovered from the new actual profile, not an assumed maximum");
+        feed(LoginFixture(34),5,"world");
+        if(decoder.Current!=null)throw new Exception("Character login clears the old profile reading");
+        feed(profile,5.1,"world");if(decoder.Current!=null)throw new Exception("Late previous-character profile cannot restore energy during a confirmed new login");
+        feed(EnemyTargetVerification.EnergyProfile(34,"OtherCharacter",90000,141800),6,"world");
+        if(decoder.Current.Actor!=34||decoder.Current.Value!=90000||decoder.ReadSnapshot().DetectedMaximum!=141800)throw new Exception("New character uses its own actual current/max fields");
+        feed(EnemyTargetVerification.EnergyProfile(40,"OtherCharacter",0,100000),7,"new-flow");
+        if(decoder.Current.Actor!=40||decoder.Current.Value!=0||decoder.ReadSnapshot().DetectedMaximum!=100000)throw new Exception("New-flow zero energy is a valid actual sample and new explicit maximum wins");
+        var remote=EnemyTargetVerification.Player(80,"Remote",100,200,false);feed(remote,8,"new-flow");
+        if(decoder.Current.Actor!=40||decoder.Current.Value!=0)throw new Exception("A selected player's profile cannot alter own energy");
+        foreach(var invalid in new[]{EnemyTargetVerification.EnergyProfile(80,"Invalid",100001,100000),EnemyTargetVerification.EnergyProfile(80,"Invalid",0,0),EnemyTargetVerification.EnergyProfile(80,"Invalid",0,100000001)}){
+            decoder.Reset();feed(invalid,10,"invalid");if(decoder.Current!=null)throw new Exception("Invalid profile energy must not fabricate a current value");
+            EnemyTargetSignal.Player known;if(!EnemyTargetSignal.PlayerState(invalid,0,invalid.Length,true,out known)||known.Current!=100)throw new Exception("Invalid optional energy does not discard independently validated HP/MP");
+        }
+        var zero=EnemyTargetVerification.EnergyProfile(20,"Bounds",0,119000);
+        for(int n=0;n<zero.Length;n++){decoder.Reset();feed(zero.Take(n).ToArray(),11,"bounds");if(decoder.Current!=null)throw new Exception("Truncated own resource block cannot reveal energy");}
     }
     internal static byte[] LoginFixture(byte actor){
         var login=new byte[381];login[0]=0x20;login[1]=0x36;login[4]=actor;login[9]=1;

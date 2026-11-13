@@ -74,4 +74,7 @@ internal sealed class AionNewsArticle {
         try{await image.Dispatcher.InvokeAsync(new Action(delegate{if(cancel.IsCancellationRequested)return;if(picture!=null){image.Source=picture;image.Height=Math.Min(1600,image.Width*picture.PixelHeight/Math.Max(1,picture.PixelWidth));}else{image.Height=34;image.ToolTip=UiLanguage.Text("Image unavailable · open the original article",language);}})).Task.ConfigureAwait(false);}catch(OperationCanceledException){}
     }
     internal static void Open(Uri url){if(!AionNewsSource.Allowed(url,false))return;try{Process.Start(new ProcessStartInfo(url.AbsoluteUri){UseShellExecute=true});}catch(System.ComponentModel.Win32Exception){}catch(InvalidOperationException){}}
+    internal static void OpenAnnouncement(AionNewsItem item){Uri url;if(item==null||!Uri.TryCreate(item.Url,UriKind.Absolute,out url))return;if(item.Kind=="helper"){if(AionNewsSource.HelperPage(url))Launch(url);}else Open(url);}
+    internal static void OpenTranslation(AionNewsItem item,string language){var url=AionNewsSource.Translation(item,language);if(url!=null)Launch(url);}
+    static void Launch(Uri url){try{Process.Start(new ProcessStartInfo(url.AbsoluteUri){UseShellExecute=true});}catch(System.ComponentModel.Win32Exception){}catch(InvalidOperationException){}}
 }

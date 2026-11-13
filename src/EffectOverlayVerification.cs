@@ -14,7 +14,29 @@ internal static class EffectOverlayVerification {
         if(present){b.Add(17);variable(17);b.AddRange(BitConverter.GetBytes(10000001u));b.AddRange(BitConverter.GetBytes(-1L));b.AddRange(BitConverter.GetBytes(4102412400000L));variable(actor);b.Add(1);b.Add(0);foreach(float f in new[]{93400f,27000f,26000f})b.AddRange(BitConverter.GetBytes(f));}
         b.Add(1);variable(0);b.AddRange(BitConverter.GetBytes(10));b.AddRange(new byte[4]);variable(0);return b.ToArray();
     }
+    static void VerifyRecordedEffects(){
+        foreach(uint id in new uint[]{200,231,470,471})Check(!EffectCatalogue.Visible(id),"Controlled native-hidden marker stays out of both effect rows");
+        Check(!EffectCatalogue.Visible(10018,true)&&EffectCatalogue.Visible(10018,false),"Unnamed green marker exclusion is scoped to the observed own recipient");
+        Check(EffectCatalogue.Visible(9619)&&!EffectCatalogue.Harmful(9619)&&EffectCatalogue.Harmful(9646),"Abyss wing is beneficial while healing reduction remains harmful");
+        var state=new CombatOverlayState();state.Configure(true);
+        var profile=EnemyTargetVerification.Player(13238,"Own",100,100,true);state.Consume(profile,0,profile.Length,1,"A");
+        foreach(uint id in new uint[]{174100411,181600111,181900111}){
+            var first=PlayerShieldVerification.Status(13238,id,id,0);
+            state.Consume(first,0,first.Length,2,"A");
+            var active=state.ReadBuffs(2,true,true).Single(e=>e.Id==id);
+            Check(active.Ends==12&&BuffOverlay.Seconds(active,3)==-1,"Sustained effect hides its renewal counter without inventing an infinite deadline");
+            Check(!state.ReadBuffs(12.1,true,true).Any(e=>e.Id==id),"Sustained effect disappears when real refreshes stop");
+            state.Consume(first,0,first.Length,13,"A");
+            var remove=PlayerShieldVerification.Remove(13238,id);state.Consume(remove,0,remove.Length,14,"A");
+            Check(!state.ReadBuffs(14,true,true).Any(e=>e.Id==id),"Native removal still clears a sustained effect immediately");
+        }
+        var normal=new CombatOverlayState.Effect{Id=133100101,Ends=3.25};
+        Check(BuffOverlay.Seconds(normal,2)==2&&!EffectCatalogue.Sustained(normal.Id),"A normal short buff keeps its real countdown and expiry warning");
+        foreach(uint id in new uint[]{231,470,471,10018}){var status=PlayerShieldVerification.Status(13238,id,id,0);state.Consume(status,0,status.Length,20,"A");}
+        Check(state.ReadBuffs(20,true,true).Length==0,"Hidden metadata is applied before own effects reach the widget");
+    }
     internal static void Run(string root){
+        VerifyRecordedEffects();
         CombatOverlayState.Verify();EffectSnapshotReader.Verify();NativeHudShortcut.Verify();
         var state=new CombatOverlayState();state.Configure(true);
         Action<byte[],double,string> feed=(b,t,f)=>state.Consume(b,0,b.Length,t,f);

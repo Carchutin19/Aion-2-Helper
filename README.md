@@ -1,4 +1,4 @@
-﻿# Aion 2 Helper
+# Aion 2 Helper
 
 **Customizable utility overlays for Aion 2.**
 
@@ -18,8 +18,8 @@ notifications, with optional startup and visual settings.
 ## Download
 
 Download the Windows ZIP from [Releases](https://github.com/Carchutin19/Aion-2-Helper/releases).
-The [v1.30.0 release — Game News & Buffs / Debuffs](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0)
-includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.30.0/Aion-2-Helper-v1.30.0-windows-x64.zip).
+The [v1.31.0 release — News & Character Recovery](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.31.0)
+includes a [Windows ZIP download](https://github.com/Carchutin19/Aion-2-Helper/releases/download/v1.31.0/Aion-2-Helper-v1.31.0-windows-x64.zip).
 Extract all
 files into one folder and run **Aion2Helper.exe**. Npcap must be installed separately
 for player HP/MP, Experience, Combat Power, Energy, Flight Energy, Stagger and enemy bars, DPS Meter, pet collection, Crafting, Floating Text, Hotbar and invitation notifications;
@@ -49,6 +49,17 @@ or a friendly thank-you are always appreciated too.
 
 You can support the project through **Donations** on the
 [Aion 2 Helper Nexus page](https://www.nexusmods.com/aion2/mods/9).
+
+## New in v1.31.0
+
+- **News:** What's new in Helper shows the latest published Helper release. Game articles can open a browser translation in the selected Helper language; Korean originals remain separate from Global news.
+- **News images:** skips decorative strips and uses a built-in Aion 2 cover if no useful thumbnail is available. Article attribution appears once.
+- **Character switching:** retains a fresh complete Hotbar received just before its new character profile, without reusing the previous character's layout/cooldowns.
+- **Ground Energy:** restores explicit current/max from supported own-character profiles without requiring another dash.
+- **Effects:** corrected the confirmed Abyss wings classification, filtered verified internal markers, and suppressed restarting renewal counters for three identified auras. Actual expiry/removal remains active.
+- **Menu stability:** restored the earlier detection timing; fade unchanged.
+- **Updates:** real release ZIP checked against a fixed legacy-compatible file list and installed through older-updater fixtures before publication.
+- **Known issue:** intermittent dungeon-exit data loss remains under investigation; targeted recovery corrections do not claim to resolve every case.
 
 ## New in v1.30.0
 

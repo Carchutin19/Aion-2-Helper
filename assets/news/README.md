@@ -17,3 +17,27 @@ The reader supports text, headings, lists, inline images, links and tables. It d
 ## Attribution
 
 Editorial content and artwork: NCSOFT and respective rights holders. Protocol of the public endpoints was researched using axsddlr/aion2_api (MIT), with a separately written C# reader. HTML parsing uses the embedded Html Agility Pack 1.13.1 (MIT). See `THIRD-PARTY.md` and `assets/licenses`.
+
+
+## Helper releases and translation
+
+A fourth tab shows the latest normal published Helper release from GitHub, with cached content and unread note revisions, independently of game region. Release notes retain their published English text. Drafts/prereleases and foreign release links are rejected.
+
+Korean game articles remain Korean in the native reader. Translate in browser opens Google Translate for the original official URL and chosen Helper language. No API key or automatic translation request is used; availability depends on the provider/site.
+
+Cards inspect up to four allowlisted thumbnails, skipping decorative strips. Event banners and full article images retain their original handling. Missing/loading/failed card images use the embedded cover below.
+
+# Default news cover
+
+`fallback.jpg` is a format conversion of the Aion 2 illustration supplied by the
+project maintainer as `Aion_2_Ascension_Gauge_Guide_96c65346ba.webp` on
+November 13, 2026. The composition and source dimensions (860 × 484) are retained.
+Original SHA-256: `635f0eaf11db9cddb3b9d2d2af0dcb18431e0559392d4a42576e211bbe548bdc`.
+
+It is embedded in the executable and used only when a game-news card has no
+usable article image, while an image is loading, or when loading fails. The
+shared frozen drawing preserves the entire cover inside a themed frame. It
+requires no image download and allocates no separate bitmap per article.
+
+Aion 2 artwork, names and trademarks remain the property of NCSOFT and their
+respective owners. The Helper software licence does not relicense this artwork.

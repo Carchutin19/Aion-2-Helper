@@ -160,8 +160,10 @@ internal sealed class BuffOverlay : IDisposable {
     }
 
     static bool SameAnchor(TargetAnchor a,TargetAnchor b){return a==null?b==null:b!=null&&a.Actor==b.Actor&&a.Flow==b.Flow&&a.Bounds==b.Bounds&&a.Opacity==b.Opacity;}
-    static int Seconds(CombatOverlayState.Effect effect,double now){
-        return effect.Ends==0?-1:Math.Max(0,(int)Math.Ceiling(effect.Ends-now));
+    internal static int Seconds(CombatOverlayState.Effect effect,double now){
+        // Aura renewals still expire/remove in CombatOverlayState. Suppress only
+        // their repetitive countdown and expiry pulse, not their real lifetime.
+        return effect.Ends==0||EffectCatalogue.Sustained(effect.Id)?-1:Math.Max(0,(int)Math.Ceiling(effect.Ends-now));
     }
     static double ExpiryPulse(double now){return .5+.5*Math.Cos(now*Math.PI*2/1.2);}
     static bool Ending(int seconds){return seconds>=0&&seconds<=BuffOverlayOptions.WarningSeconds;}

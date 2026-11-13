@@ -47,6 +47,7 @@ internal static class SkillSlotsVerification {
  }
  static byte[] Map(uint id){var b=new byte[48];b[0]=0x21;b[1]=0x36;Buffer.BlockCopy(BitConverter.GetBytes(id),0,b,6,4);return b;}
  static void CharacterSwitchRegression(){
+  SplitEntryRegression();
   var signal=new SkillSlotsSignal();signal.Configure(true);
   Feed(signal,Map(1010),1);Feed(signal,Profile(),1);Feed(signal,Bar(),1);Feed(signal,Cd(15210000,42000),2);
   Feed(signal,DashSignal.LoginFixture(34),3);
@@ -67,6 +68,24 @@ internal static class SkillSlotsVerification {
   signal.Reset();Feed(signal,Profile(),10);Feed(signal,Bar(),10);Feed(signal,Cd(15210000,42000),11);
   Feed(signal,fresh,12);Feed(signal,profile,12);other=signal.Read(12);
   Check(other!=null&&other.Self==34&&other.Slots[0].Skill==13100000&&other.Cooldowns.Count==0,"A full bar from the same captured batch survives a new profile even if the login header was missed");
+ }
+ static void SplitEntryRegression(){
+  var next=EnemyTargetVerification.Player(34,"Other",100,200,true);
+  var fresh=Bar();Buffer.BlockCopy(BitConverter.GetBytes(13100000u),0,fresh,18,4);Buffer.BlockCopy(BitConverter.GetBytes(13100000u),0,fresh,23,4);
+  foreach(double delay in new[]{.000001,.1,5.0}){
+   var signal=new SkillSlotsSignal();signal.Configure(true);Feed(signal,Map(1010),1);Feed(signal,Profile(),1);Feed(signal,Bar(),1);Feed(signal,Cd(15210000,42000),2);
+   Feed(signal,Map(1010),3);Feed(signal,fresh,4);
+   Check(signal.Read(4)==null,"A staged entry bar is not displayed under the previous character preset");
+   Feed(signal,next,4+delay);var view=signal.Read(4+delay);
+   Check(view!=null&&view.Self==34&&view.Slots[0].Skill==13100000&&view.Cooldowns.Count==0,"Same-map entry preserves the NEW full bar across distinct packet timestamps");
+   Feed(signal,Profile(),10);
+   Check(signal.Read(10)==null,"An unrelated later identity cannot reuse the previously consumed entry bar");
+  }
+  foreach(bool partialOnly in new[]{false,true}){
+   var signal=new SkillSlotsSignal();signal.Configure(true);Feed(signal,Map(1010),1);Feed(signal,Profile(),1);Feed(signal,Bar(),1);Feed(signal,Map(1010),2);
+   if(partialOnly){var partial=(byte[])fresh.Clone();partial[0]=5;Feed(signal,partial,3);}else Feed(signal,fresh,3,"foreign");
+   Feed(signal,next,4);Check(signal.Read(4)==null,"Neither an early partial nor a full bar on another flow can transfer the old layout");
+  }
  }
  static byte[] PlainCast(byte actor,uint skill){
   var data=new byte[18];data[0]=2;data[1]=0x38;data[2]=actor;

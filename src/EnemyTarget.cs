@@ -5,7 +5,7 @@ using System.Text;
 // Target-of-target uses received focus announcements for NPCs or selected
 // remote players. It never treats our Tab selection or an attack as their focus.
 internal sealed class EnemyTargetSignal {
-    internal sealed class Player {internal uint Actor,Current,Maximum,Mana,ManaMaximum;internal uint? Flight,FlightMaximum;internal int StateOffset,RelationCandidate=-1,Faction,Server;internal uint ClassCode;internal string Name;internal double Time,Born;}
+    internal sealed class Player {internal uint Actor,Current,Maximum,Mana,ManaMaximum;internal uint? Flight,FlightMaximum,Energy,EnergyMaximum;internal int StateOffset,RelationCandidate=-1,Faction,Server;internal uint ClassCode;internal string Name;internal double Time,Born;}
     sealed class Focus {internal uint Target;internal double Time;}
     sealed class Flow {internal readonly Dictionary<uint,Player> Players=new Dictionary<uint,Player>();internal readonly Dictionary<uint,Focus> Targets=new Dictionary<uint,Focus>();internal uint Map,Self;internal double Traffic;}
     readonly object gate=new object();readonly Dictionary<string,Flow> flows=new Dictionary<string,Flow>();volatile bool enabled;
@@ -36,6 +36,11 @@ internal sealed class EnemyTargetSignal {
         // Relative to the validated resource block, including variable-length HP.
         // Own profiles carry partial and full flight values even without 008D.
         if(own){
+            // The four-hour own-profile recording contains partial and full
+            // stamina at +16/+20 in this same validated resource block. These
+            // are explicit current/max fields, not the last observed high value.
+            uint energy=BitConverter.ToUInt32(b,p+16),energyMax=BitConverter.ToUInt32(b,p+20);
+            if(energyMax>0&&energyMax<=100000000&&energy<=energyMax){player.Energy=energy;player.EnergyMaximum=energyMax;}
             uint flight=BitConverter.ToUInt32(b,p+44),flightMax=BitConverter.ToUInt32(b,p+48);
             if(flightMax>0&&flightMax<=100000000&&flight<=flightMax){player.Flight=flight;player.FlightMaximum=flightMax;}
         }

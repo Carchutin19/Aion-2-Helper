@@ -9,7 +9,7 @@ internal sealed class SkillSlotsSignal {
  internal sealed class Cooldown {internal uint Raw,Peak;internal double At;internal bool FromCast;internal Cooldown Copy(){return (Cooldown)MemberwiseClone();}}
  internal sealed class View {internal uint Self,Map,ContextTarget;internal double FireMarkUntil,StunUntil,HeartGoreUntil,EvasionUntil,InfiltrateUntil;internal bool Flying;internal string Flow;internal long Revision;internal readonly List<Slot> Slots=new List<Slot>();internal readonly Dictionary<uint,Cooldown> Cooldowns=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  internal sealed class BarFault {public string Field;public int Offset,Record,Kind,Slot;public int? Value;}
- sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf,LoginActor;internal int Server;internal string SelfName,AwaitingName;internal double Traffic,RawTraffic;internal double? FullWireTime;internal bool HasBar,FullWhileAwaiting;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<int,Slot> PendingPartials=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
+ sealed class Flow {internal readonly BarTrace Bar=new BarTrace();internal uint Self,Map,AwaitingSelf,LoginActor;internal int Server;internal string SelfName,AwaitingName;internal double Traffic,RawTraffic;internal double? FullWireTime;internal bool HasBar,FullWhileAwaiting,AwaitingProfile;internal readonly SkillSlotContext Context=new SkillSlotContext();internal readonly Dictionary<int,Slot> Slots=new Dictionary<int,Slot>();internal readonly Dictionary<int,Slot> PendingPartials=new Dictionary<int,Slot>();internal readonly Dictionary<uint,Cooldown> Cds=new Dictionary<uint,Cooldown>();internal readonly Dictionary<uint,uint> Chains=new Dictionary<uint,uint>();}
  sealed class BarTrace {
   public long FullReceived,FullAccepted,FullRejected,PartialReceived,PartialAccepted,PartialRejected,PartialWithoutFull,MapPauses,MapResumes,ConnectionResumes;
   public int LastLength,LastRejectedLength;public string LastOpcode,LastRejectedOpcode,LastClear;public double? LastAt,LastRejectedAt,ClearedAt,PausedAt,ResumedAt;public BarFault LastRejection;
@@ -129,14 +129,19 @@ internal sealed class SkillSlotsSignal {
   uint actor;if(!DashSignal.LoginActor(b,s,e,out actor))return;
   lastOwnProfile=null;
   foreach(var flow in flows.Values)flow.PendingPartials.Clear();
-  f.LoginActor=actor;
+  f.LoginActor=actor;f.AwaitingProfile=true;
   f.Self=f.AwaitingSelf=0;f.SelfName=f.AwaitingName=null;f.Server=0;
   f.Slots.Clear();f.HasBar=f.FullWhileAwaiting=false;f.FullWireTime=null;
   f.Cds.Clear();f.Chains.Clear();f.Context.Clear();
   f.Bar.LastClear="character login";f.Bar.ClearedAt=time;
   if(active==key)active=null;changed=true;
  }
- else if(op==0x2136&&e-s==48){uint map=BitConverter.ToUInt32(b,s+6);if(map==0||map>=10000000)return;if(f.Map!=0&&f.Map!=map){
+ else if(op==0x2136&&e-s==48){uint map=BitConverter.ToUInt32(b,s+6);if(map==0||map>=10000000)return;
+  // Even a same-map character switch has a validated entry marker. A new0056
+  // may precede3336 in a different TCP segment; stage it against this boundary,
+  // never against a timestamp tolerance or the previous character's layout.
+  f.AwaitingProfile=true;f.FullWhileAwaiting=false;
+  if(f.Map!=0&&f.Map!=map){
   // A map change does not necessarily resend0056 (recorded Pesadilla entry
   // and exit). Quarantine the received assignments/CD anchors until3336
   // confirms the same actor and name on this TCP flow; never publish while unconfirmed.
@@ -149,16 +154,16 @@ internal sealed class SkillSlotsSignal {
    f.PendingPartials.Clear();
    // A fresh full bar received during loading is authoritative for the new
    // profile. Partial updates alone must never transfer the previous layout.
-   if(!(resuming&&f.FullWhileAwaiting)&&f.FullWireTime!=rawTime){f.Slots.Clear();f.HasBar=false;}
+   if(!(f.FullWhileAwaiting&&(resuming||f.AwaitingProfile))&&f.FullWireTime!=rawTime){f.Slots.Clear();f.HasBar=false;}
   }else if(resuming&&f.HasBar){f.Bar.MapResumes++;f.Bar.ResumedAt=time;}
   else if(previous==0)ResumeAssignments(f,server,name);
-  f.AwaitingSelf=f.LoginActor=0;f.AwaitingName=null;f.FullWhileAwaiting=false;f.Self=actor;f.SelfName=name;f.Server=server;f.Context.Enabled=f.Slots.Values.Any(HasContext);active=key;lastOwnProfile=f;changed=true;}}
+  f.AwaitingSelf=f.LoginActor=0;f.AwaitingName=null;f.FullWhileAwaiting=f.AwaitingProfile=false;f.Self=actor;f.SelfName=name;f.Server=server;f.Context.Enabled=f.Slots.Values.Any(HasContext);active=key;lastOwnProfile=f;changed=true;}}
  else if(op==0x0056||op==0x0556){
   var trace=f.Bar;bool full=op==0x0056;if(full)trace.FullReceived++;else trace.PartialReceived++;
   trace.LastOpcode=full?"0056":"0556";trace.LastLength=e-s;trace.LastAt=time;
   List<Slot> entries;BarFault fault;
   if(!Bar(b,s,e,out entries,out fault)){if(full)trace.FullRejected++;else trace.PartialRejected++;trace.LastRejection=fault;trace.LastRejectedOpcode=trace.LastOpcode;trace.LastRejectedLength=e-s;trace.LastRejectedAt=time;return;}
-  if(full){trace.FullAccepted++;f.FullWireTime=rawTime;f.Slots.Clear();f.PendingPartials.Clear();f.HasBar=true;if(f.AwaitingSelf!=0)f.FullWhileAwaiting=true;}
+  if(full){trace.FullAccepted++;f.FullWireTime=rawTime;f.Slots.Clear();f.PendingPartials.Clear();f.HasBar=true;if(f.AwaitingSelf!=0||f.AwaitingProfile){f.FullWhileAwaiting=true;if(active==key)active=null;}}
   if(!f.HasBar){trace.PartialWithoutFull++;foreach(var slot in entries)f.PendingPartials[slot.Index]=slot;return;}
   if(!full)trace.PartialAccepted++;
   if(SupportDiagnostics.Enabled)SupportDiagnostics.Event("hotbar-assignments",new{full,actor=f.Self,map=f.Map,

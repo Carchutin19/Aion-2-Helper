@@ -159,9 +159,9 @@ internal sealed class CombatOverlayState {
     }
     bool Apply(uint actor,PlayerShieldSignal.Status status,double time){
         if(status.Removing)return Remove(actor,status.Instance,time);
-        if(status.Effect!=0&&!EffectCatalogue.Visible(status.Effect)){
+        if(status.Effect!=0&&!EffectCatalogue.Visible(status.Effect,actor==self)){
             var meta=EffectCatalogue.Find(status.Effect);
-            if(meta==null||!meta.hidden&&meta.kind!="P"){UnknownEffect item;if(unknown.TryGetValue(status.Effect,out item)){if(item.count<1000000000)item.count++;}else if(unknown.Count<128)unknown[status.Effect]=new UnknownEffect{id=status.Effect,skill=status.Skill,count=1};}
+            if(meta==null||!meta.hidden&&!(actor==self&&meta.hiddenSelf)&&meta.kind!="P"){UnknownEffect item;if(unknown.TryGetValue(status.Effect,out item)){if(item.count<1000000000)item.count++;}else if(unknown.Count<128)unknown[status.Effect]=new UnknownEffect{id=status.Effect,skill=status.Skill,count=1};}
             return Remove(actor,status.Instance,time);
         }
         if(status.Effect==0||status.Instance==0||

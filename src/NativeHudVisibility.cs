@@ -103,11 +103,10 @@ internal sealed class NativeHudVisibility : IDisposable {
                 pending=null;
             }
             if(!busy&&!disposed&&window!=IntPtr.Zero&&now>=nextSample){
-                // Start relocation/absence verification on the first lost sample,
-                // rather than spending two extra polling intervals waiting for it.
-                bool search=missingSamples>=1&&now>=nextSearch;
+                // Keep the original debounce: tolerate transient glyph losses before searching.
+                bool search=missingSamples>=2&&now>=nextSearch;
                 if(search)nextSearch=now+(hidden?2:.75);
-                nextSample=now+(hidden?.20:.10);
+                nextSample=now+.25;
                 busy=true;
                 int epoch=generation;
                 ThreadPool.QueueUserWorkItem(delegate{ReadWindow(target,search,epoch);});
@@ -125,7 +124,7 @@ internal sealed class NativeHudVisibility : IDisposable {
         if(Matches.HasValue&&Matches<4){
             if(missingSamples<3)missingSamples++;
             searching|=value.SearchComplete;
-            hidden=Matches<=1&&armed&&searching&&missingSamples>=2;
+            hidden=Matches<=1&&armed&&searching&&missingSamples>=3;
         }else{
             missingSamples=0;
             searching=hidden=false;
@@ -372,7 +371,9 @@ internal sealed class NativeHudVisibility : IDisposable {
                 detector.ApplyReading(new Reading{Matches=0});
                 if(detector.hidden)throw new Exception("One missing sample cannot hide the UI");
                 detector.ApplyReading(new Reading{Matches=0,SearchComplete=true});
-                if(!detector.hidden)throw new Exception("A second missing sample with relocation ruled out starts the fade without extra polling delays");
+                if(detector.hidden)throw new Exception("Two transient missing samples must not hide the UI");
+                detector.ApplyReading(new Reading{Matches=0,SearchComplete=true});
+                if(!detector.hidden)throw new Exception("Three missing samples with relocation ruled out start the original stable hide behavior");
             }
         }finally{File.Delete(file);Directory.Delete(folder);}
     }

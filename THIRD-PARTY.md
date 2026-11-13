@@ -23,6 +23,10 @@ from that reference. Aion 2 artwork, names and trademarks belong to NCSOFT and
 their respective owners. The Helper's desktop layout, navigation glyphs and
 notification-area icon were produced for this project.
 
+The default news cover is also Aion 2 artwork supplied by the maintainer.
+Its source and unchanged composition are documented in `assets/news/README.md`;
+it is embedded for offline use when an announcement has no usable illustration.
+
 Pet catalogue, portraits, offline maps, acquisition records and the MIT protocol
 reference are documented separately in [PET-ASSETS.md](https://github.com/Carchutin19/Aion-2-Helper/blob/main/PET-ASSETS.md). The
 original game artwork remains the property of NCSOFT and its respective owners;

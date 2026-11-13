@@ -9,3 +9,7 @@ Icons are NCSOFT game content. The build caches validated official CDN PNG asset
 The collector and renderer distinguish recipient actor, source actor, per-actor instance, effect ID, skill ID and wire expiry. Level bytes are not stack counts. Multiple matching instances display one icon with a count bounded by the native stack limit.
 
 Controlled display exclusion: effect 200 (Dodge / Evasión urgente), observed on the own recipient during dash on 2026-11-11, is omitted from the effect widget because it is not shown as a native HUD debuff. This does not suppress movement, availability or cooldown signals. See sources.json.
+
+Additional controlled display corrections from the 2026-11-12 recording are recorded in `display-overrides.json` and applied to `catalogue.json`. Effect 231 is an internal OnLanding test marker; 470/471 are the generic boss markers absent from the native row. The unnamed green 10018 marker is omitted only for the own recipient; its gameplay function is not invented. The blue-wing 9619 status is beneficial, while 9646 remains harmful.
+
+Verified sustained statuses 174100411, 181600111 and 181900111 suppress their repeating renewal countdown and expiry warning. Their actual received deadlines, removals and refreshes still control whether the icon exists. Other short buffs keep their countdowns. Reapply these metadata overrides when regenerating the catalogue; no runtime network requests or name-based classification are used.

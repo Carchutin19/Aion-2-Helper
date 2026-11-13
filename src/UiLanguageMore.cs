@@ -19,6 +19,12 @@ Image unavailable · open the original article|Bild nicht verfügbar · Original
 News & Updates|Neuigkeiten|Actualités|الأخبار والتحديثات
 Official announcements, patches and events|Offizielle Ankündigungen, Patches und Events|Annonces officielles, correctifs et événements|الإعلانات الرسمية والتحديثات والفعاليات
 News|Neuigkeiten|Actualités|الأخبار
+What's new in Helper|Neues im Helper|Nouveautés du Helper|الجديد في المساعد
+Open release on GitHub|Release auf GitHub öffnen|Voir la version sur GitHub|فتح الإصدار على GitHub
+Translate in browser|Auf Deutsch übersetzen ↗|Traduire en français ↗|الترجمة إلى العربية ↗
+Source: Aion 2 Helper on GitHub · Latest published release · Original English notes|Quelle: Aion 2 Helper auf GitHub · Neueste veröffentlichte Version · Englische Originalnotizen|Source : Aion 2 Helper sur GitHub · Dernière version publiée · Notes originales en anglais|المصدر: Aion 2 Helper على GitHub · أحدث إصدار منشور · الملاحظات الأصلية بالإنجليزية
+Korean originals · Open an article to translate it in your browser|Koreanische Originale · Öffne einen Artikel, um ihn im Browser zu übersetzen|Articles coréens originaux · Ouvrez un article pour le traduire dans votre navigateur|المقالات الكورية الأصلية · افتح مقالًا لترجمته في المتصفح
+Opens Google Translate in your browser using the Helper language. The article inside Helper stays in its original language.|Öffnet Google Translate im Browser mit der Sprache des Helpers. Der Artikel im Helper bleibt in seiner Originalsprache.|Ouvre Google Traduction dans votre navigateur avec la langue du Helper. L’article dans le Helper reste dans sa langue d’origine.|يفتح ترجمة Google في متصفحك بلغة المساعد. يبقى المقال داخل المساعد بلغته الأصلية.
 Patch Notes|Patchnotes|Notes de mise à jour|ملاحظات التحديث
 Events|Events|Événements|الفعاليات
 Global|Global|Global|العالمي

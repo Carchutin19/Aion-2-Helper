@@ -12,6 +12,8 @@ internal static class EffectCatalogue {
         public string icon {get;set;}public string kind {get;set;}public string en {get;set;}public string es {get;set;}public string de {get;set;}public string fr {get;set;}
         public int stacks=1;
         public bool hidden {get;set;}
+        public bool hiddenSelf {get;set;}
+        public bool sustained {get;set;}
         internal string Name(string language){
             string name=language=="es"?es:language=="de"?de:language=="fr"?fr:en;
             return string.IsNullOrEmpty(name)?en:name;
@@ -26,6 +28,8 @@ internal static class EffectCatalogue {
     }
     internal static Entry Find(uint id){Entry entry;return entries.TryGetValue(id.ToString(System.Globalization.CultureInfo.InvariantCulture),out entry)?entry:null;}
     internal static bool Visible(uint id){var e=Find(id);return e!=null&&!e.hidden&&(e.kind=="B"||e.kind=="D");}
+    internal static bool Visible(uint id,bool own){var e=Find(id);return Visible(id)&&(!own||!e.hiddenSelf);}
+    internal static bool Sustained(uint id){var e=Find(id);return e!=null&&e.sustained;}
     internal static bool Harmful(uint id){var e=Find(id);return e!=null&&e.kind=="D";}
     internal static string Name(uint id,uint skill,string language){var e=Find(id);string name=e==null?null:e.Name(language);return !string.IsNullOrEmpty(name)?name:skill!=0?SkillCatalogue.Shared.Name(skill,language):"#"+id;}
 }

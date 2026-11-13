@@ -1,4 +1,43 @@
-﻿# v1.30.0 Alpha — Game News & Buffs / Debuffs
+# v1.31.0 Alpha — News & Character Recovery
+
+## News
+
+- Added **What's new in Helper**, showing the latest normal published Helper release and its notes inside News, with cached content and unread revisions, independently of Global/Korea selection.
+- Added **Translate in browser** for game articles whose language differs from the Helper language. Korean originals remain separate announcements. The button opens Google Translate for the exact official page; no API key is required. Translation is external and depends on the provider and original website.
+- Fixed Global cards using dark decorative strips as thumbnails. A bounded set of alternatives is checked; an embedded Aion 2 cover appears when no useful image is available or loading fails.
+- Removed duplicated source text in article details. New controls and unread card labels follow all five interface languages. Helper release notes retain their published English text.
+
+## Character switching and Ground Energy
+
+- Fixed a recorded character-switch case where a complete new Hotbar arrived before the new profile in a separate packet and was discarded. Fresh assignments wait for character confirmation; old layouts and cooldowns cannot carry over.
+- Reads explicit current and maximum Ground Energy from supported own-character profiles, without waiting for another dash, including partially depleted and zero values.
+- Character/server checks and invalid-field guards remain enforced. These targeted corrections do not claim to resolve every instance of overlay data loss after dungeon exits.
+
+## Buffs and debuffs
+
+- Corrected the confirmed blue-wing Lower Abyss / Reshanta status to a beneficial buff. Healing Reduction remains a debuff.
+- Filtered verified internal landing/boss markers, including the generic boss icon showing roughly 596 hours, and one confirmed personal-only internal status.
+- Removed restarting short renewal counters and expiry warnings from **Light of Protection**, **Sprint Mantra** and **Undefeated Mantra**. Actual server refresh, expiry and removal still apply. Other short buffs retain countdowns.
+- Filtering is limited to identified statuses. Other unknown effects and class-specific auras still need validation.
+
+## Menu visibility
+
+- Restored the previous, more stable native-HUD detection timing: 250 ms sampling, relocation checks after two missing samples, hiding after three confirmed missing samples.
+- Existing fades, notification exemptions and moved-HUD protection are retained.
+
+## Updating and validation
+
+- Packaging checks the actual ZIP against a frozen legacy-compatible 19-file policy, independently of new updater code. Effect data and news artwork stay embedded; full notices are bundled in THIRD-PARTY.md.
+- The real release ZIP is staged and installed in isolated older-updater fixtures before publication, with executable startup and settings-preservation checks.
+- Validation includes the recorded four-hour replay (280,828 incoming segments / 1,038,026 decoded frames), character/energy/effects regressions, News/menu checks and live Global/Korean feeds.
+- Broader live validation continues. **Intermittent data loss after some dungeon exits remains under investigation.**
+
+Close the Helper and use its updater, or extract the complete ZIP over your existing Helper folder. Keep personal JSON files. Open Helper before Aion. If an old updater window still shows the failed v1.30.0 download, close and reopen Helper before checking again.
+
+
+---
+
+# v1.30.0 Alpha — Game News & Buffs / Debuffs
 
 ## Game news
 

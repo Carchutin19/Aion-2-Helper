@@ -1,6 +1,6 @@
-﻿# 🧭 Aion 2 Helper — Roadmap
+# 🧭 Aion 2 Helper — Roadmap
 
-**Built with the community. Updated November 12, 2026.**
+**Built with the community. Updated November 13, 2026.**
 
 [Download the latest release](https://github.com/Carchutin19/Aion-2-Helper/releases/latest) · [Suggest a feature](https://github.com/Carchutin19/Aion-2-Helper/issues/new) · [Join Discord](https://discord.gg/yf7SDZMyd8)
 
@@ -17,7 +17,7 @@
 
 | Feature | What is included | First release |
 | :--- | :--- | :---: |
-| **Game news** | Official Global / Korea feeds, News / Patch Notes / Events, images, native article reader, cached content and unread revision indicator. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
+| **Game news** | Official Global / Korea feeds, News / Patch Notes / Events, images, native article reader, cache and unread revisions. v1.31.0 adds Helper release notes, browser translation and a built-in cover for missing thumbnails. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
 | **Own and target buffs / debuffs** | Supported effect IDs, names and icons; independent personal and target widgets, blue/red outlines, amber expiry warning, xN stacks, combined ordering and independent split growth directions. Target effects follow Our target visibility. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
 | **Native HUD shortcut exception** | Optional setting to keep Helper widgets visible when pressing the same hide-interface key configured in Aion. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
 | **Native-menu overlay fades** | Gameplay widgets fade with supported native HUD-hidden menus and NPC dialogues. Notifications remain available; unlocked widgets stay editable. Native quickbar matching can reacquire moved HUD layouts. | [v1.29.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.29.0) |
@@ -52,8 +52,13 @@ is described separately from cases that still need more testing.
 
 | Status | Report / correction | Update |
 | :--- | :--- | :---: |
+| ✅ Package and legacy clients checked | **Prevent repeated update-package rejection:** a frozen 19-path policy checks the real ZIP independently of new updater code. Older updater fixtures install it and preserve settings. New cover/effect data stays embedded. | [v1.31.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.31.0) |
+| 🟡 Recording reproduction corrected | **Hotbar empty after character changes:** stage a complete new bar across the entry/profile boundary, including separate packet timestamps and same-map changes. Four-hour recording replay and regressions pass; broader live validation continues. | [v1.31.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.31.0) |
+| 🟡 Recording and regression checks passed | **Ground Energy waiting for a dash:** restores explicit current/max from supported own profiles, including depleted/empty values. Character/server identity checks retained. | [v1.31.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.31.0) |
+| 🟡 Identified effects corrected; coverage continues | **Aura timers, internal icons and Abyss wings:** filters verified markers, corrects the confirmed wings to beneficial, and suppresses renewal counters for three identified auras without changing actual expiry/removal. | [v1.31.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.31.0) |
+| ✅ Source and UI checks passed | **Black/missing news thumbnails and repeated source:** skips decorative strips, uses a bundled generic cover and shows article attribution once. | [v1.31.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.31.0) |
 | ✅ Package compatibility checked | **Updater rejected the v1.30.0 ZIP:** new standalone resource paths were not supported by installed updaters. Repackaged the same application binary with embedded data and full notices in THIRD-PARTY.md. The actual ZIP was installed by v1.29.0 and v1.13.0 updater fixtures, preserving settings and passing startup checks. Reopen the Helper before retrying. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
-| 🟡 Regression and synthetic timing checks passed | **Native-menu detection delay:** verified absence checks start sooner and full-screen matching reuses brightness values. Fade duration and moved-HUD protection remain unchanged. Latest timing revision awaits in-game visual comparison. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
+| ✅ Earlier timing restored | **Menu visibility stability:** restored 250 ms sampling and three-missing-sample confirmation after faster timing proved less stable in use. Fade duration and moved-HUD protection retained. | [v1.31.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.31.0) |
 | ✅ Reproduced cases corrected | **Permanent passives, duplicated-looking effect icons and missing target immunity:** personal permanent definitions and the confirmed internal dash marker are filtered; supported NPC snapshots include Immunity. Unknown classifications remain under validation. | [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) |
 | 🟡 Regression checks passed | **Ground Energy or Hotbar could disappear after a dungeon exit:** the last confirmed Energy maximum and skill assignments can resume after a matching own profile on the new connection. A live retest of the new connection case is pending. | [v1.28.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.28.0) |
 | ✅ Confirmed in tested cases | **Switching characters could leave the Hotbar empty or retain old Energy data.** The Helper resets the previous character's bar and values, restores the incoming Hotbar preset, and refreshes Energy, Combat Power and XP from the incoming character. | [v1.26.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.26.0) |
@@ -120,6 +125,14 @@ Released community features and corrections are listed above.
 | ⬜ Planned | **Controller support** | A system for integrating controller input with the Helper. |
 
 ## Personal roadmap
+
+### ✅ Released in [v1.31.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.31.0) · November 13, 2026
+
+| Feature | What changed and what was checked |
+| :--- | :--- |
+| **What's new in Helper** | Latest normal published GitHub release and native notes reader, cache and unread revisions. |
+| **Browser translation and news covers** | Explicit translation action uses the Helper language and preserves separate Korean originals. Cards use a local cover if no useful image exists. Official feeds, thumbnail choices and five-language layouts checked. External translation depends on the provider/site. |
+
 
 ### ✅ Released in [v1.30.0](https://github.com/Carchutin19/Aion-2-Helper/releases/tag/v1.30.0) · November 12, 2026
 

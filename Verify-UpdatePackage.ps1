@@ -19,6 +19,25 @@ if (-not $env:AION_PACKAGE_VERIFY_CHILD) {
 }
 $archive=[IO.Path]::GetFullPath($ArchivePath)
 $client=[IO.Path]::GetFullPath($UpdaterExecutable)
+# Keep legacy compatibility independent of changes to the new updater.
+if (-not $ExpectRejected) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $policy=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'tools\update-package-compatibility.json') -Raw|ConvertFrom-Json
+    if ($policy.schema -ne 1 -or $policy.files.Count -ne 19) { throw 'Review the legacy updater compatibility policy before packaging.' }
+    $paths=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($path in $policy.files) { if(-not $paths.Add($path)){throw 'Duplicate compatibility policy path.'} }
+    $zip=[IO.Compression.ZipFile]::OpenRead($archive)
+    try {
+        $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($entry in $zip.Entries) {
+            $path=$entry.FullName.Replace('\','/')
+            if($path.EndsWith('/')){continue}
+            if(-not $paths.Contains($path) -or -not $seen.Add($path)){throw ('Legacy updater compatibility violation: '+$path)}
+        }
+        if($seen.Count -ne $paths.Count){throw 'Release ZIP is missing a required portable file.'}
+    } finally {$zip.Dispose()}
+    Write-Output 'PASS: actual ZIP matches the 19-file legacy updater compatibility policy.'
+}
 Add-Type -TypeDefinition @'
 using System;
 using System.Reflection;

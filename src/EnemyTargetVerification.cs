@@ -9,6 +9,12 @@ internal static class EnemyTargetVerification {
     static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
     static void Var(List<byte> b,uint v){do{byte n=(byte)(v&127);v>>=7;b.Add((byte)(n|(v!=0?128:0)));}while(v!=0);}
     internal static byte[] Player(uint actor,string name,uint hp,uint max,bool own){var b=new List<byte>{own?(byte)0x33:(byte)0x45,0x36};Var(b,actor);b.AddRange(new byte[]{0x15,0xb0,0xa0,1,7});var n=Encoding.UTF8.GetBytes(name);b.Add((byte)n.Length);b.AddRange(n);if(own)b.AddRange(new byte[]{0x15,5});int at=b.Count;b.AddRange(BitConverter.GetBytes(26u));b.Add(1);while(b.Count<at+(own?160:6))b.Add(0);b.AddRange(new byte[2]);foreach(float f in new[]{93000f,27000f,26000f,0f})b.AddRange(BitConverter.GetBytes(f));b.AddRange(new byte[2]);b.Add(1);Var(b,hp);Var(b,max);b.AddRange(BitConverter.GetBytes(4591u));b.AddRange(BitConverter.GetBytes(4591u));b.AddRange(new byte[44]);while(b.Count<128)b.Add(0);var result=b.ToArray();if(own)Array.Copy(BitConverter.GetBytes(45u),0,result,at+5,4);return result;}
+    internal static byte[] EnergyProfile(uint actor,string name,uint current,uint maximum){
+        var b=Player(actor,name,100,200,true);EnemyTargetSignal.Player parsed;
+        if(!EnemyTargetSignal.PlayerState(b,0,b.Length,true,out parsed))throw new Exception("Energy fixture profile");
+        int p=parsed.StateOffset+21;uint unused;DpsSignal.Var(b,ref p,b.Length,out unused);DpsSignal.Var(b,ref p,b.Length,out unused);
+        Buffer.BlockCopy(BitConverter.GetBytes(current),0,b,p+16,4);Buffer.BlockCopy(BitConverter.GetBytes(maximum),0,b,p+20,4);return b;
+    }
     static byte[] Focus(uint actor,uint target){var b=new List<byte>{0x35,0x38};Var(b,actor);b.Add(0);Var(b,target);return b.ToArray();}
     static byte[] Hp(uint actor,uint hp){var b=new List<byte>{0,0x8d};Var(b,actor);b.AddRange(new byte[]{2,1,0});b.AddRange(BitConverter.GetBytes((long)hp));return b.ToArray();}
     static void Feed(EnemyTargetSignal signal,byte[] b,double t,string flow="A"){signal.Consume(b,0,b.Length,t,flow);}
