@@ -17,13 +17,15 @@ internal static class TransportDiagnosticsVerification {
   string folder=Path.Combine(root,"transport-diagnostic-fixture");SupportDiagnostics.Start(folder);
   try{
    double clock=100;var s=new DashSignal(root);s.DiagnosticClock=delegate{return clock;};byte[] initial=Frames(100),later=Frames(200);s.Consume(Segment(100,initial),1000);uint next=(uint)(100+initial.Length);s.Consume(Segment(next+7,later),1001);
+   s.Consume(Segment(next+7,later),1001.5);var flow=Flow(s);
+   Check(s.Samples==3&&Convert.ToInt32(flow["pendingSegments"])==1&&Convert.ToInt32(flow["pendingBytes"])==later.Length&&Convert.ToInt64(flow["duplicateSegments"])==1&&Convert.ToInt64(flow["outOfOrderSegments"])==2,"Retransmission queued behind a gap is counted once without duplicating pending data or gameplay");
    Check(s.Samples==3,"Missing bytes must not synthesize or prematurely release readings");clock=135;
-   var flow=Flow(s);Check(Convert.ToInt32(flow["pendingSegments"])==1&&Convert.ToDouble(flow["gapAgeSeconds"])==35&&Convert.ToInt32(flow["gapBytes"])==7,"Diagnostic age/distance expose even a below-limit gap");
+   flow=Flow(s);Check(Convert.ToInt32(flow["pendingSegments"])==1&&Convert.ToDouble(flow["gapAgeSeconds"])==35&&Convert.ToInt32(flow["gapBytes"])==7,"Diagnostic age/distance expose even a below-limit gap");
    Check(Convert.ToInt32(flow["id"])==SupportDiagnostics.FlowId(Segment(0,new byte[0]).Key),"Opaque transport IDs correlate without writing socket endpoints");
    Check(s.Samples==3&&s.Errors==0,"Reading diagnostics cannot change retransmission policy");
    var missing=new byte[7];s.Consume(Segment(next,missing),1002);flow=Flow(s);
    Check(s.Samples==6&&s.Current.Value==200&&s.Errors==0&&Convert.ToInt32(flow["pendingSegments"])==0&&flow["gapAgeSeconds"]==null&&Convert.ToDouble(flow["maxGapAgeSeconds"])==35,"Late missing bytes drain exactly once and retain measured gap history");
-   s.Consume(Segment(next,missing),1003);Check(s.Samples==6&&Convert.ToInt64(Flow(s)["duplicateSegments"])==1,"Duplicate metadata cannot duplicate gameplay");
+   s.Consume(Segment(next,missing),1003);Check(s.Samples==6&&Convert.ToInt64(Flow(s)["duplicateSegments"])==2,"Duplicate metadata cannot duplicate gameplay");
    clock=140;uint end=next+7+(uint)later.Length;
    for(int n=0;n<65;n++)s.Consume(Segment(unchecked(end+9+(uint)(n*later.Length)),later),1004+n);
    var state=Json(s.SupportState());flow=Flow(s);Check(Convert.ToInt64(state["gapRecoveries"])==1&&Convert.ToInt64(flow["skippedBytes"])==9&&Convert.ToInt32(flow["pendingSegments"])==0,"Existing count-limit recovery is independently counted");
